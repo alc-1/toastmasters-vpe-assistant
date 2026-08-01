@@ -115,11 +115,26 @@
       color: #555;
       margin-top: 40px;
     }
+    #downloadCsvBtn {
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      background: #772432;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+    #downloadCsvBtn:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
   <h1>Comparison Report</h1>
   <div class="meta" id="reportMeta"></div>
+  <button id="downloadCsvBtn">Download CSV</button>
   <div id="reportRoot"></div>
 
   <script src="../lib/report.js"></script>

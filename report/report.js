@@ -6,6 +6,9 @@
 // Kept separate from lib/report.js so the pure matching/diff logic stays
 // chrome.*-free and independently testable (see lib/report.js's top comment).
 
+const downloadCsvBtn = document.getElementById("downloadCsvBtn");
+downloadCsvBtn.disabled = true;
+
 init();
 
 async function init() {
@@ -17,6 +20,7 @@ async function init() {
   ]);
 
   if (!cached.basecampData || !cached.easyspeakData) {
+    downloadCsvBtn.style.display = "none";
     document.getElementById("reportRoot").innerHTML =
       '<p class="empty-state">Both Basecamp and EasySpeak data are needed to build this report. ' +
       "Go back to the extension popup and run both extractions first.</p>";
@@ -32,7 +36,22 @@ async function init() {
     easyspeakScrapedAt: cached.easyspeakScrapedAt,
   });
 
+  downloadCsvBtn.disabled = false;
+  downloadCsvBtn.addEventListener("click", () => downloadCsv(report));
+
   render(report);
+}
+
+function downloadCsv(report) {
+  const csv = toCsv(reportToRows(report));
+  // Leading BOM so Excel detects UTF-8 (member/path names carry accents).
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `toastmasters-report-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function render(report) {
