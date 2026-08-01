@@ -87,8 +87,8 @@ background service worker → source-specific scraper**.
   8-frame animation (`icons/icon-loading-{0..7}-{16,32,48,128}.png`, 150ms/frame); the interval only
   runs while the combined state is `loading` and is stopped the moment it isn't.
 - **`lib/basecamp-api.js`** — all Basecamp scraping logic, loaded into the service worker via
-  `importScripts` (classic script, not an ES module). No tab needed at all: `fetch(..., {
-  credentials: "include" })` runs directly from the privileged service worker context, and because
+  `importScripts` (classic script, not an ES module). Data fetching itself needs no tab: `fetch(...,
+  { credentials: "include" })` runs directly from the privileged service worker context, and because
   `manifest.json`'s `host_permissions` covers the Basecamp hosts, the browser's existing session
   cookie is sent automatically.
   1. `GET /api/members/roles` → clubs, filtered to those where the current user has `is_bcm: true`.
@@ -98,6 +98,22 @@ background service worker → source-specific scraper**.
      `lib/easyspeak-api.js` does (see below) — belt-and-suspenders here since Basecamp doesn't steal
      focus, but the popup can still close mid-scrape for other reasons (user clicks away, etc.), and
      losing a completed scrape's result silently is worse than one redundant write.
+  4. **Not-logged-in fallback**: `fetchJson()` is the sole place a request is made, and the sole
+     place a 401/403 is detected. On a 401/403 it calls `waitForBasecampLogin()`, which opens (or
+     finds-and-focuses an existing) `apps.basecamp.toastmasters.org` tab via
+     `ensureBasecampDashboardTab()` (mirroring `ensureEasySpeakTab()` below) and navigates it to
+     `/dashboard/bcm-dashboard/approvals` — a page that itself redirects an unauthenticated visitor to
+     Basecamp's own auth flow, then redirects back to that same approvals URL once login succeeds.
+     `waitForLoginRedirect()` registers its `chrome.tabs.onUpdated`/`onRemoved` listeners **before**
+     calling `chrome.tabs.update()`, for the identical race-avoidance reason documented below for
+     `navigateAndWaitForRealPage()`, and simply ignores every "complete" event until the tab's URL is
+     exactly the approvals URL again (no Cloudflare-challenge or restricted-text checks are needed
+     here, unlike EasySpeak, since Basecamp's own redirect is the only signal that matters) — capped
+     at a flat 5-minute timeout. Once resolved, `fetchJson()` retries the original request exactly
+     once; a second 401/403 (e.g. wrong account) throws instead of looping. The tab is only closed if
+     `waitForBasecampLogin()` created it itself and the wait succeeded — a pre-existing tab is left
+     as-is, and a self-created tab is left open on failure/timeout so the user can see what went
+     wrong, the same rule `scrapeAllEasySpeakClubs()` applies to its own tab.
 - **EasySpeak is architecturally different, and deliberately so** — don't "simplify" it to match
   Basecamp's fetch-only shape. `tmclub.eu` is behind Cloudflare, which blocks plain `fetch()`/`XHR`
   outright regardless of which extension context issues it (background worker, content script, or
