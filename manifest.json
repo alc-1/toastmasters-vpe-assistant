@@ -5,12 +5,15 @@
   "description": "Consolidates member progress tracking between Basecamp Toastmasters and EasySpeak for the VPE (MVP: Basecamp only).",
 
   "permissions": [
-    "storage"
+    "storage",
+    "tabs",
+    "scripting"
   ],
 
   "host_permissions": [
     "https://basecamp.toastmasters.org/*",
-    "https://apps.basecamp.toastmasters.org/*"
+    "https://apps.basecamp.toastmasters.org/*",
+    "https://tmclub.eu/*"
   ],
 
   "background": {

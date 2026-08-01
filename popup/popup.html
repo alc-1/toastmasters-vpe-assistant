@@ -14,6 +14,16 @@
       font-size: 15px;
       margin: 0 0 10px;
     }
+    h2 {
+      font-size: 13px;
+      margin: 16px 0 6px;
+      border-top: 1px solid #eee;
+      padding-top: 12px;
+    }
+    section:first-of-type h2 {
+      border-top: none;
+      padding-top: 0;
+    }
     button {
       width: 100%;
       padding: 8px;
@@ -28,21 +38,21 @@
       background: #aaa;
       cursor: not-allowed;
     }
-    #status {
+    .status {
       margin-top: 10px;
       font-size: 12px;
       color: #555;
       white-space: pre-wrap;
     }
-    #summary {
+    .summary {
       margin-top: 10px;
       font-size: 12px;
     }
-    #summary table {
+    .summary table {
       width: 100%;
       border-collapse: collapse;
     }
-    #summary td, #summary th {
+    .summary td, .summary th {
       text-align: left;
       padding: 2px 4px;
       border-bottom: 1px solid #eee;
@@ -60,14 +70,30 @@
   </style>
 </head>
 <body>
-  <h1>Toastmasters VPE Tracker — Basecamp MVP</h1>
-  <button id="scrapeBtn">Extract Basecamp data</button>
-  <div id="status">Click the button to extract your Basecamp data (you must be logged into Basecamp Toastmasters in this browser).</div>
-  <div id="summary"></div>
-  <details>
-    <summary>Raw data (JSON)</summary>
-    <pre id="rawData"></pre>
-  </details>
+  <h1>Toastmasters VPE Tracker — MVP</h1>
+
+  <section>
+    <h2>Basecamp</h2>
+    <button id="scrapeBasecampBtn">Extract Basecamp data</button>
+    <div id="statusBasecamp" class="status">Click the button to extract your Basecamp data (you must be logged into Basecamp Toastmasters in this browser).</div>
+    <div id="summaryBasecamp" class="summary"></div>
+    <details>
+      <summary>Raw data (JSON)</summary>
+      <pre id="rawDataBasecamp"></pre>
+    </details>
+  </section>
+
+  <section>
+    <h2>EasySpeak</h2>
+    <button id="scrapeEasySpeakBtn">Extract EasySpeak data</button>
+    <div id="statusEasySpeak" class="status">Click the button to extract your EasySpeak data (you must be logged into EasySpeak in this browser). This closes the popup and switches to an EasySpeak tab — reopen the popup once that tab is done (or has closed itself) to see the results.</div>
+    <div id="summaryEasySpeak" class="summary"></div>
+    <details>
+      <summary>Raw data (JSON)</summary>
+      <pre id="rawDataEasySpeak"></pre>
+    </details>
+  </section>
+
   <script src="popup.js"></script>
 </body>
 </html>
