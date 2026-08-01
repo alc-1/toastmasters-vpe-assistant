@@ -28,6 +28,10 @@ There are no build/lint/test commands. To try changes:
    service worker's console (`chrome://extensions` → this extension → "service worker" inspect
    link) for errors. Code injected into the EasySpeak tab via `chrome.scripting` logs to that
    *tab's* own DevTools console, not the service worker's.
+6. Watch the toolbar icon while a scrape runs: it should animate (spinning), then land on a green
+   check or red cross, then revert to the classic icon the next time you open the popup (see
+   `lib/icon-state.js` in Architecture). Each source's button should be disabled only while *that*
+   source is loading.
 
 Background worker errors surface via the response returned to the popup (`{ ok: false, error }`),
 not the console — check `popup.js`'s status line first when debugging a failed scrape.
@@ -50,13 +54,38 @@ background service worker → source-specific scraper**.
   storage keys, and a render function. On receiving a response, it also writes to
   `chrome.storage.local` (`basecampData`/`basecampScrapedAt`, `easyspeakData`/`easyspeakScrapedAt`)
   and restores from there on next popup open — **but this popup-side write cannot be the only copy**
-  (see the `lib/*-api.js` bullets below). Does not touch `chrome.tabs` itself — all tab handling for
-  EasySpeak lives in `lib/easyspeak-api.js`.
-- **`background.js`** — service worker. `importScripts()`s `lib/basecamp-api.js` and
-  `lib/easyspeak-api.js`, and has one `onMessage` listener with a branch per message type, each
-  calling the matching `scrapeAll*()` function and returning `{ ok: true, data }` /
-  `{ ok: false, error }`. Also the intended home for future work (`chrome.alarms` scheduling,
+  (see the `lib/*-api.js` bullets below). Loading is communicated purely via the triggering button
+  itself (`setButtonLoading`: disabled + relabeled to "Basecamp data loading..." / "EasySpeak data
+  loading..."), **not** the status line or the summary/raw-data panels — `onScrapeClick` never
+  touches `els.status`/`els.summary`/`els.rawData` while a request is in flight, so "Last extraction:
+  ..." and the previous result stay visible the whole time; only a completed extraction or an error
+  updates the status line. `init()` sends `{type: "POPUP_OPENED"}` before anything else, both to let
+  background acknowledge any finished success/error status (see `lib/icon-state.js` below) and to
+  learn whether either source is currently `"loading"`, so it can apply the same disabled/relabeled
+  button state even though this popup instance didn't trigger the in-progress scrape itself (e.g.
+  reopening the popup while EasySpeak is still running in its own tab). Does not touch `chrome.tabs`,
+  `chrome.action`, or `chrome.storage.session` itself — all tab handling for EasySpeak lives in
+  `lib/easyspeak-api.js`, all icon/status handling lives in `lib/icon-state.js`, both background-only.
+- **`background.js`** — service worker. `importScripts()`s `lib/basecamp-api.js`, `lib/easyspeak-api.js`,
+  and `lib/icon-state.js`. One `onMessage` listener: `SCRAPE_BASECAMP`/`SCRAPE_EASYSPEAK` both go
+  through a shared `runScrape(source, scrapeFn, sendResponse)` helper that brackets the call with
+  `setSourceStatus(source, "loading"/"success"/"error")` (see below) before `sendResponse({ok:
+  true, data} / {ok: false, error})`; `POPUP_OPENED` calls `acknowledgeIconStatuses()` and replies
+  with the resulting statuses. Also the intended home for future work (`chrome.alarms` scheduling,
   centralizing storage across both sources, delta computation).
+- **`lib/icon-state.js`** — toolbar icon state machine, `importScripts`'d into `background.js` only
+  (never loaded by `popup.html` — see its top-of-file comment: it owns a running `setInterval` for
+  the spin animation, and a second copy loaded into the popup would start its own independent
+  interval fighting the background's over `chrome.action.setIcon()` whenever the popup happened to
+  be open while something was loading). Tracks `{basecamp, easyspeak}` status
+  (`"idle"|"loading"|"success"|"error"`) in `chrome.storage.session` — session-scoped, not `.local`,
+  specifically so a status can never survive a browser restart and permanently disable a button.
+  `combineStatus()` reduces both sources to the single icon shown, priority **loading > error >
+  success > idle**. `setSourceStatus()` is called by `runScrape()` around each scrape.
+  `acknowledgeIconStatuses()` is called on `POPUP_OPENED`: reverts any `success`/`error` source back
+  to `idle` (opening the popup = "seen it") but leaves `loading` alone. The loading icon is a real
+  8-frame animation (`icons/icon-loading-{0..7}-{16,32,48,128}.png`, 150ms/frame); the interval only
+  runs while the combined state is `loading` and is stopped the moment it isn't.
 - **`lib/basecamp-api.js`** — all Basecamp scraping logic, loaded into the service worker via
   `importScripts` (classic script, not an ES module). No tab needed at all: `fetch(..., {
   credentials: "include" })` runs directly from the privileged service worker context, and because
@@ -152,3 +181,7 @@ protection distinguishing fetch from navigation) or needs EasySpeak's tab-naviga
   consistent with that.
 - No transpilation/bundling — code must run as-is in a Manifest V3 service worker / content script
   / popup context (plain `<script src>`, no ES module imports across files, no npm dependencies).
+- `icons/*.png` were generated once via a scratchpad-only Node script (hand-written SVGs rasterized
+  with `sharp`) — that tool isn't part of the repo and never will be; if the icon designs need to
+  change, regenerate the PNGs the same throwaway way rather than adding an image-processing
+  dependency to the project itself.

@@ -6,6 +6,7 @@ const basecampEls = {
   summary: document.getElementById("summaryBasecamp"),
   rawData: document.getElementById("rawDataBasecamp"),
 };
+basecampEls.idleLabel = basecampEls.btn.textContent;
 
 const easyspeakEls = {
   btn: document.getElementById("scrapeEasySpeakBtn"),
@@ -13,11 +14,20 @@ const easyspeakEls = {
   summary: document.getElementById("summaryEasySpeak"),
   rawData: document.getElementById("rawDataEasySpeak"),
 };
+easyspeakEls.idleLabel = easyspeakEls.btn.textContent;
 
 init();
 
 async function init() {
-  // If we already have cached extractions, show them when the popup opens.
+  // Tells background this counts as "having seen" any finished (success/
+  // error) result, reverting the toolbar icon to idle — a still-loading
+  // source is left alone. Also gives us the current per-source status so
+  // we know whether to disable a button below.
+  const statuses = (await chrome.runtime.sendMessage({ type: "POPUP_OPENED" })) || {};
+
+  // If we already have cached extractions, show them when the popup opens
+  // — including while a scrape might currently be running, so there's
+  // always something to look at rather than a blank panel.
   const cached = await chrome.storage.local.get([
     "basecampData",
     "basecampScrapedAt",
@@ -35,12 +45,16 @@ async function init() {
     renderEasySpeakResult(easyspeakEls, cached.easyspeakData);
   }
 
+  setButtonLoading(basecampEls, statuses.basecamp === "loading", "Basecamp data loading...");
+  setButtonLoading(easyspeakEls, statuses.easyspeak === "loading", "EasySpeak data loading...");
+
   basecampEls.btn.addEventListener("click", () =>
     onScrapeClick({
       els: basecampEls,
       messageType: "SCRAPE_BASECAMP",
       dataKey: "basecampData",
       scrapedAtKey: "basecampScrapedAt",
+      loadingLabel: "Basecamp data loading...",
       render: renderBasecampResult,
     })
   );
@@ -51,16 +65,24 @@ async function init() {
       messageType: "SCRAPE_EASYSPEAK",
       dataKey: "easyspeakData",
       scrapedAtKey: "easyspeakScrapedAt",
+      loadingLabel: "EasySpeak data loading...",
       render: renderEasySpeakResult,
     })
   );
 }
 
-async function onScrapeClick({ els, messageType, dataKey, scrapedAtKey, render }) {
-  els.btn.disabled = true;
-  setStatus(els, "Extracting...");
-  els.summary.innerHTML = "";
-  els.rawData.textContent = "";
+// Loading is communicated via the button itself (disabled + relabeled),
+// not the status line — that keeps showing the last extraction time.
+function setButtonLoading(els, isLoading, loadingLabel) {
+  els.btn.disabled = isLoading;
+  els.btn.textContent = isLoading ? loadingLabel : els.idleLabel;
+}
+
+async function onScrapeClick({ els, messageType, dataKey, scrapedAtKey, loadingLabel, render }) {
+  setButtonLoading(els, true, loadingLabel);
+  // Deliberately not touching els.status/els.summary/els.rawData here —
+  // keep showing the last extraction time and data until fresh data
+  // actually arrives (or an error replaces the status line below).
 
   try {
     const response = await chrome.runtime.sendMessage({ type: messageType });
@@ -86,7 +108,7 @@ async function onScrapeClick({ els, messageType, dataKey, scrapedAtKey, render }
   } catch (err) {
     setStatus(els, `Unexpected error: ${err.message}`);
   } finally {
-    els.btn.disabled = false;
+    setButtonLoading(els, false, loadingLabel);
   }
 }
 

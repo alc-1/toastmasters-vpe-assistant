@@ -29,9 +29,22 @@ Extracting EasySpeak data briefly takes over a `tmclub.eu` tab (reusing one
 if you already have one open, otherwise opening and focusing a new one) —
 see "How it works" below for why. Bringing that tab into focus **closes the
 popup immediately** (Chrome always closes the extension popup as soon as it
-loses focus), so you won't see the "Extracting..." status or the result
-right away — just reopen the popup once the EasySpeak tab has finished (or
-closed itself) to see the results.
+loses focus), so you won't see the button relabel or the result right away
+— just reopen the popup once the EasySpeak tab has finished (or closed
+itself) to see the results.
+
+While either source is loading, its button is disabled and relabeled
+("Basecamp data loading..." / "EasySpeak data loading...") — the other
+source's button stays enabled and labeled normally, since the two can run
+independently — and the toolbar icon spins. The status line and any
+previously extracted data stay exactly as they were the whole time (e.g.
+"Last extraction: ..." keeps showing), even while a new extraction is in
+progress or if it fails — nothing gets cleared or overwritten by the
+loading state itself; only a completed extraction or an error updates the
+status line. Once a source finishes, the toolbar icon shows a green check
+(success) or red cross (error) until you next open the popup, which
+acknowledges it and reverts the icon to normal (a still-loading source is
+left alone even if you open the popup).
 
 Data is stored in `chrome.storage.local` under `basecampData` /
 `basecampScrapedAt` and `easyspeakData` / `easyspeakScrapedAt` (each an
@@ -45,12 +58,14 @@ given the point above.
 
 ```
 toastmasters-vpe-tracker/
-├── manifest.json                  # Manifest V3, permissions + host_permissions
+├── manifest.json                  # Manifest V3, permissions + host_permissions + icons
 ├── background.js                  # Service worker: handles scrape requests from the popup
+├── icons/                         # Toolbar icon PNGs: idle, loading (8 animation frames), success, error
 ├── lib/
 │   ├── basecamp-api.js            # Basecamp scraping logic (JSON API), imported into background.js
 │   ├── easyspeak-api.js           # EasySpeak orchestration: tab navigation + chrome.scripting
-│   └── easyspeak-parser.js        # Pure DOM parsing, injected into the EasySpeak tab
+│   ├── easyspeak-parser.js        # Pure DOM parsing, injected into the EasySpeak tab
+│   └── icon-state.js              # Toolbar icon state machine (background-only)
 └── popup/
     ├── popup.html                 # MVP UI
     └── popup.js                   # Triggers scraping, displays the result
@@ -118,13 +133,33 @@ EasySpeak: also cookie-based, but via a real tab navigation rather than a
 privileged fetch (see above) — the browser handles the session cookie the
 normal way a real page load would.
 
+### Toolbar icon status
+
+`background.js` + `lib/icon-state.js` track each source's status
+(`idle`/`loading`/`success`/`error`) in `chrome.storage.session` (cleared on
+browser restart, so a stuck status can't survive one) and keep the toolbar
+icon in sync — combined across both sources with priority **loading >
+error > success > idle**, since there's only one icon for two independent
+scrapers. The loading icon is a genuine animation: 8 rotated frames cycled
+via `chrome.action.setIcon()` on a `setInterval`, entirely inside the
+background service worker (never the popup — see `lib/icon-state.js`'s
+top-of-file comment for why running it there too would cause two
+independent intervals to fight over the icon). Opening the popup sends a
+`POPUP_OPENED` message that reverts any finished (`success`/`error`) source
+back to `idle`, leaving a still-`loading` source untouched.
+
 ## Known MVP limitations
 
 - No handling of the case where a member follows multiple paths in parallel
   beyond what each source already returns (member×path rows)
 - No automatic / scheduled refresh (manual trigger via the buttons only)
-- No icons defined in the manifest (Chrome will show a default icon —
-  cosmetic, to add later)
+- If the service worker is killed mid-scrape in a way that aborts the
+  scrape itself, its status can stay stuck on `loading` (button
+  permanently disabled) until the browser restarts — the scrape's own
+  response would be lost the same way regardless of the icon feature
+- The popup doesn't persist an error message across a close/reopen (e.g.
+  EasySpeak failing while the popup is closed) — only the toolbar icon
+  (red cross until next opened) surfaces that a failure happened
 - EasySpeak "needed"/"done" counts only account for mandatory speeches and
   "Complete N elective speech(es)" groups — roles and named series
   (Successful/Better Speaker/Leadership Series, optional roles) aren't
