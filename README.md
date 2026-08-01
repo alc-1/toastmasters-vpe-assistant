@@ -118,6 +118,17 @@ popup's `{type: "SCRAPE_EASYSPEAK"}` message triggers a flow in
 5. Close the tab automatically if the scraper opened it itself and
    everything succeeded; leave it open (and leave a pre-existing tab
    exactly where it ended up) otherwise, so you can see what happened.
+
+If the EasySpeak session isn't authenticated (or expires mid-scrape), the
+scraper detects it and waits up to 5 minutes for you to log in by hand in
+that tab, then automatically re-requests the page it originally needed — no
+need to restart the extraction once you've logged in. `tmclub.eu` signals
+this two different ways depending on the page: `profile.php` redirects
+straight to the login page, while `memberchart.php` instead serves a
+"restricted to full members" message inline on the same page — for that
+case, the scraper navigates the tab to the login page itself, since there's
+no redirect to wait for.
+
 6. Save the result straight to `chrome.storage.local` before returning —
    since step 1 steals tab/window focus, the popup that started the scrape
    is always closed by the time this finishes, so it can't be relied on to
@@ -171,6 +182,9 @@ back to `idle`, leaving a still-`loading` source untouched.
 - If Cloudflare ever requires an interactive puzzle and it isn't solved
   within 30 seconds, the EasySpeak scrape fails with a message asking you
   to switch to the tab and solve it, rather than hanging indefinitely
+- If EasySpeak ends up on its login page (via redirect or a detected
+  "restricted to full members" message) and you don't log in within 5
+  minutes, the scrape fails with a message asking you to log in and retry
 - If multiple `tmclub.eu` tabs are open, the EasySpeak scraper reuses
   whichever one `chrome.tabs.query` returns first
 - No matching of members between Basecamp and EasySpeak yet: delta

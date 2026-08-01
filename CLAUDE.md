@@ -119,8 +119,28 @@ background service worker → source-specific scraper**.
     earlier version called `chrome.tabs.update()` first and then eagerly checked the tab's state —
     but `tabs.update()`'s promise only confirms the navigation was *requested*, not that it started,
     so that eager check was racing against the still-loaded *previous* page and silently resolving
-    against it, causing every club after the first to parse a copy of the previous club's page. Once
-    the real page is confirmed loaded, `loadAndParse` injects `lib/easyspeak-parser.js` via
+    against it, causing every club after the first to parse a copy of the previous club's page.
+    `navigateAndWaitForRealPage` also handles an unauthenticated session, which EasySpeak signals two
+    different ways depending on the page — both of which the plain exact-`tab.url` check above would
+    otherwise just wait out until timeout (misreporting either as a stuck Cloudflare challenge):
+    `profile.php` redirects the request to `login.php` instead of serving it, but `memberchart.php`
+    instead serves a "restricted to full members" message inline, at the same url, without
+    redirecting anywhere (discovered when a session expired mid-testing: the profile page still
+    listed the officer clubs from a stale response, giving no visible sign anything was wrong, until
+    the very next per-club `memberchart.php` request came back restricted). Both cases converge on
+    the same wait: once `tab.url` is seen starting with `login.php` (the first case) — or, for the
+    second case, once the loaded page's body text is seen containing "restricted to full members", at
+    which point the function proactively navigates the tab to `login.php` itself rather than waiting
+    for a redirect that isn't coming — the function stops comparing against the original target (it'll
+    never match) and re-arms its timeout to a much longer 5 minutes, since a human has to type
+    credentials, waiting for the tab to navigate away from `login.php`. EasySpeak's own post-login
+    redirect lands close to but not exactly on the originally-requested URL (e.g. missing our
+    `#tab_ti` fragment, carrying a new `&sid=` param instead), so the function re-issues
+    `chrome.tabs.update(tabId, {url})` itself once login is detected, now that the session is
+    authenticated, and reverts the timeout back to the normal 30s. This lives in
+    `navigateAndWaitForRealPage` itself (not `scrapeAllEasySpeakClubs`), so it transparently covers a
+    session that expires mid-scrape too, not just one that's already expired before the first
+    `loadAndParse` call. Once the real page is confirmed loaded, `loadAndParse` injects `lib/easyspeak-parser.js` via
     `chrome.scripting.executeScript({ files: [...] })` and invokes the named parser function by
     name (`window[fnName]()`) in a second `executeScript` call, returning its result.
     `scrapeAllEasySpeakClubs()` ties it together: `profile.php?mode=editprofile#tab_ti` → officer
