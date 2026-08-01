@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Toastmasters VPE Tracker",
   "version": "0.1.0",
-  "description": "Consolide le suivi de progression des membres entre Basecamp Toastmasters et EasySpeak pour le VPE (MVP : Basecamp uniquement).",
+  "description": "Consolidates member progress tracking between Basecamp Toastmasters and EasySpeak for the VPE (MVP: Basecamp only).",
 
   "permissions": [
     "storage"

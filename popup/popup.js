@@ -10,10 +10,10 @@ const rawDataEl = document.getElementById("rawData");
 init();
 
 async function init() {
-  // Si on a déjà une extraction en cache, on l'affiche au chargement du popup.
+  // If we already have a cached extraction, show it when the popup opens.
   const cached = await chrome.storage.local.get(["basecampData", "basecampScrapedAt"]);
   if (cached.basecampData) {
-    setStatus(`Dernière extraction : ${new Date(cached.basecampScrapedAt).toLocaleString("fr-CH")}`);
+    setStatus(`Last extraction: ${new Date(cached.basecampScrapedAt).toLocaleString("en-US")}`);
     renderResult(cached.basecampData);
   }
 
@@ -22,7 +22,7 @@ async function init() {
 
 async function onScrapeClick() {
   scrapeBtn.disabled = true;
-  setStatus("Extraction en cours...");
+  setStatus("Extracting...");
   summaryEl.innerHTML = "";
   rawDataEl.textContent = "";
 
@@ -31,7 +31,7 @@ async function onScrapeClick() {
 
     if (!tab?.url || !tab.url.includes(BASECAMP_HOST)) {
       setStatus(
-        `Ouvre un onglet sur ${BASECAMP_HOST} (connecté à Basecamp Toastmasters), puis réessaie.`
+        `Open a tab on ${BASECAMP_HOST} (logged into Basecamp Toastmasters), then try again.`
       );
       return;
     }
@@ -40,13 +40,13 @@ async function onScrapeClick() {
 
     if (!response) {
       setStatus(
-        "Pas de réponse du content script. Recharge l'onglet Basecamp Toastmasters et réessaie."
+        "No response from the content script. Reload the Basecamp Toastmasters tab and try again."
       );
       return;
     }
 
     if (!response.ok) {
-      setStatus(`Erreur pendant l'extraction : ${response.error}`);
+      setStatus(`Error during extraction: ${response.error}`);
       return;
     }
 
@@ -56,10 +56,10 @@ async function onScrapeClick() {
       basecampScrapedAt: scrapedAt,
     });
 
-    setStatus(`Extraction terminée : ${new Date(scrapedAt).toLocaleString("fr-CH")}`);
+    setStatus(`Extraction complete: ${new Date(scrapedAt).toLocaleString("en-US")}`);
     renderResult(response.data);
   } catch (err) {
-    setStatus(`Erreur inattendue : ${err.message}`);
+    setStatus(`Unexpected error: ${err.message}`);
   } finally {
     scrapeBtn.disabled = false;
   }
@@ -75,8 +75,8 @@ function sendMessageToTab(tabId, message) {
   return new Promise((resolve) => {
     chrome.tabs.sendMessage(tabId, message, (response) => {
       if (chrome.runtime.lastError) {
-        // Le content script n'est probablement pas injecté sur cet onglet
-        // (page pas encore chargée au moment de l'installation, etc.)
+        // The content script is probably not injected on this tab
+        // (page not yet loaded at install time, etc.)
         resolve(null);
         return;
       }
@@ -96,11 +96,11 @@ function renderResult(data) {
     0
   );
 
-  let html = `<table><tr><th>Club</th><th>Entrées (membre x path)</th></tr>`;
+  let html = `<table><tr><th>Club</th><th>Entries (member x path)</th></tr>`;
   for (const club of Object.values(data)) {
     html += `<tr><td>${escapeHtml(club.name)}</td><td>${club.members.length}</td></tr>`;
   }
-  html += `</table><p>${clubCount} club(s), ${totalMembers} entrée(s) au total.</p>`;
+  html += `</table><p>${clubCount} club(s), ${totalMembers} entries total.</p>`;
   summaryEl.innerHTML = html;
 
   rawDataEl.textContent = JSON.stringify(data, null, 2);
