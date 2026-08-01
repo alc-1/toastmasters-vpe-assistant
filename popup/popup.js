@@ -1,7 +1,5 @@
 // popup/popup.js
 
-const BASECAMP_HOST = "apps.basecamp.toastmasters.org";
-
 const scrapeBtn = document.getElementById("scrapeBtn");
 const statusEl = document.getElementById("status");
 const summaryEl = document.getElementById("summary");
@@ -27,21 +25,10 @@ async function onScrapeClick() {
   rawDataEl.textContent = "";
 
   try {
-    const tab = await getActiveTab();
-
-    if (!tab?.url || !tab.url.includes(BASECAMP_HOST)) {
-      setStatus(
-        `Open a tab on ${BASECAMP_HOST} (logged into Basecamp Toastmasters), then try again.`
-      );
-      return;
-    }
-
-    const response = await sendMessageToTab(tab.id, { type: "SCRAPE_BASECAMP" });
+    const response = await chrome.runtime.sendMessage({ type: "SCRAPE_BASECAMP" });
 
     if (!response) {
-      setStatus(
-        "No response from the content script. Reload the Basecamp Toastmasters tab and try again."
-      );
+      setStatus("No response from the extension background worker. Try again.");
       return;
     }
 
@@ -63,26 +50,6 @@ async function onScrapeClick() {
   } finally {
     scrapeBtn.disabled = false;
   }
-}
-
-function getActiveTab() {
-  return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => resolve(tabs[0]));
-  });
-}
-
-function sendMessageToTab(tabId, message) {
-  return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, message, (response) => {
-      if (chrome.runtime.lastError) {
-        // The content script is probably not injected on this tab
-        // (page not yet loaded at install time, etc.)
-        resolve(null);
-        return;
-      }
-      resolve(response);
-    });
-  });
 }
 
 function setStatus(text) {

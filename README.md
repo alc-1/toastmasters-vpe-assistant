@@ -16,8 +16,9 @@ EasySpeak yet, no delta report yet — these are the next steps.
 
 ## Usage
 
-1. Log in normally at `https://apps.basecamp.toastmasters.org/`
-2. Stay on that tab, click the extension icon
+1. Log in normally at `https://apps.basecamp.toastmasters.org/` (in any tab,
+   at any point before extracting)
+2. Click the extension icon, from any tab
 3. Click "Extract Basecamp data"
 4. The popup shows a summary (clubs + entry count) and the raw JSON data,
    collapsible under "Raw data"
@@ -31,10 +32,10 @@ browser.
 
 ```
 toastmasters-vpe-tracker/
-├── manifest.json                  # Manifest V3, host_permissions + content script
-├── background.js                  # Service worker (empty for now, ready for what's next)
-├── content-scripts/
-│   └── basecamp.js                # All the Basecamp scraping logic
+├── manifest.json                  # Manifest V3, host_permissions
+├── background.js                  # Service worker: handles scrape requests from the popup
+├── lib/
+│   └── basecamp-api.js            # All the Basecamp scraping logic, imported into background.js
 └── popup/
     ├── popup.html                 # MVP UI
     └── popup.js                   # Triggers scraping, displays the result
@@ -42,18 +43,19 @@ toastmasters-vpe-tracker/
 
 ## How it works
 
-- The content script is automatically injected on every
-  `apps.basecamp.toastmasters.org` page.
-- It listens for `{type: "SCRAPE_BASECAMP"}` messages sent by the popup.
-- On trigger:
+- The popup sends a `{type: "SCRAPE_BASECAMP"}` runtime message to the
+  background service worker.
+- The service worker (`background.js` + `lib/basecamp-api.js`) handles it:
   1. `GET /api/members/roles` → list of clubs, filtered on `is_bcm: true`
      roles.
   2. For each club, full pagination of
      `GET /api/bcm/progress/?club={uuid}&page=N` following the `next`
      field until `null`.
-- Authentication is purely cookie-based: since the fetch runs from the page's
-  own context (same origin), the session cookie is sent automatically with
-  `credentials: "include"`. No manual cookie extraction is needed.
+- Authentication is purely cookie-based: because `manifest.json` declares
+  `host_permissions` for the Basecamp hosts, `fetch()` calls made from the
+  background service worker are privileged — they carry the user's existing
+  session cookie automatically via `credentials: "include"`, without needing
+  any Basecamp tab open. No manual cookie extraction is needed.
 
 ## Known MVP limitations
 

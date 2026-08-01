@@ -17,18 +17,6 @@
     "service_worker": "background.js"
   },
 
-  "content_scripts": [
-    {
-      "matches": [
-        "https://apps.basecamp.toastmasters.org/*"
-      ],
-      "js": [
-        "content-scripts/basecamp.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ],
-
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "Toastmasters VPE Tracker"
