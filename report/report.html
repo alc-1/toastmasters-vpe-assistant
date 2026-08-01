@@ -26,10 +26,6 @@
       border-top: 1px solid #ddd;
       padding-top: 16px;
     }
-    section:first-of-type h2 {
-      border-top: none;
-      padding-top: 0;
-    }
     .club-summary {
       font-size: 12px;
       color: #555;
@@ -134,22 +130,53 @@
       color: #777;
       margin: 0 0 10px;
     }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 12px;
+    }
+    .tab-btn {
+      padding: 8px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: #666;
+    }
+    .tab-btn:hover {
+      color: #222;
+    }
+    .tab-btn.active {
+      color: #772432;
+      font-weight: 600;
+      border-bottom-color: #772432;
+    }
     table.summary {
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
       font-size: 12px;
       margin-bottom: 30px;
     }
+    table.summary col.col-member { width: 15%; }
+    table.summary col.col-path { width: 35%; }
+    table.summary col.col-level { width: 12%; }
+    table.summary col.col-basecamp { width: 12%; }
+    table.summary col.col-unreported { width: 12%; }
+    table.summary col.col-real { width: 14%; }
     table.summary th, table.summary td {
       text-align: left;
       padding: 5px 8px;
       border-bottom: 1px solid #eee;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     table.summary th {
       cursor: pointer;
       user-select: none;
       background: #fafafa;
-      white-space: nowrap;
     }
     table.summary th:hover {
       background: #f0f0f0;
@@ -164,6 +191,7 @@
     }
     table.summary td.numeric {
       text-align: right;
+      white-space: nowrap;
     }
   </style>
 </head>
@@ -172,15 +200,18 @@
   <div class="meta" id="reportMeta"></div>
   <button id="downloadCsvBtn">Download CSV</button>
 
+  <div id="clubTabs" class="tabs"></div>
+
   <h2 style="border-top: none; padding-top: 0;">Next Level Summary</h2>
   <p class="summary-help">
     One row per member per path. Click a column header to sort (click again to reverse).
-    "Basecamp" = speeches still needed per Basecamp's own record; "Unreported in Basecamp" = speeches
+    "Basecamp" = speeches still needed per Basecamp's own record; "Unreported" = speeches
     EasySpeak already shows as delivered for that level but Basecamp hasn't recorded yet; "Real" = the
     actual remaining gap once that backlog is accounted for.
   </p>
   <div id="summaryTableRoot"></div>
 
+  <h2>Member List</h2>
   <div id="reportRoot"></div>
 
   <script src="../lib/report.js"></script>

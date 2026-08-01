@@ -21,6 +21,8 @@ async function init() {
 
   if (!cached.basecampData || !cached.easyspeakData) {
     downloadCsvBtn.style.display = "none";
+    document.getElementById("clubTabs").innerHTML = "";
+    document.getElementById("summaryTableRoot").innerHTML = "";
     document.getElementById("reportRoot").innerHTML =
       '<p class="empty-state">Both Basecamp and EasySpeak data are needed to build this report. ' +
       "Go back to the extension popup and run both extractions first.</p>";
@@ -39,26 +41,80 @@ async function init() {
   downloadCsvBtn.disabled = false;
   downloadCsvBtn.addEventListener("click", () => downloadCsv(report));
 
-  renderSummaryTable(buildLevelSummary(report));
-  render(report);
+  // Zipped by index: buildLevelSummary(report) produces one group per
+  // report.clubPairs entry, in the same order, so a tab can drive both the
+  // summary table and the member-list detail for the same club together.
+  const summaryGroups = buildLevelSummary(report);
+  const clubSections = report.clubPairs.map((clubPair, index) => ({
+    clubKey: summaryGroups[index].clubKey,
+    clubName: summaryGroups[index].clubName,
+    summaryRows: summaryGroups[index].rows,
+    clubPair,
+  }));
+
+  renderClubTabs(clubSections);
 }
 
 // ---------------------------------------------------------------------------
-// Sortable "next level" summary table
+// Club tabs: each tab drives both the "Next Level Summary" table and the
+// "Member List" detail view for the same club together.
 // ---------------------------------------------------------------------------
 
 const SUMMARY_COLUMNS = [
-  { key: "clubName", label: "Club", type: "string" },
-  { key: "memberName", label: "Member", type: "string" },
-  { key: "pathName", label: "Path", type: "string" },
-  { key: "currentLevelSortValue", label: "Current Level", type: "number" },
-  { key: "theoreticalMissing", label: "Speeches to Next Level (Basecamp)", type: "number" },
-  { key: "unreportedInBasecamp", label: "Unreported in Basecamp", type: "number" },
-  { key: "realMissing", label: "Speeches to Next Level (Real)", type: "number" },
+  { key: "memberName", label: "Member", type: "string", colClass: "col-member" },
+  { key: "pathName", label: "Path", type: "string", colClass: "col-path" },
+  { key: "currentLevelSortValue", label: "Current Level", type: "number", colClass: "col-level" },
+  { key: "theoreticalMissing", label: "To Next Lvl (Basecamp)", type: "number", colClass: "col-basecamp" },
+  { key: "unreportedInBasecamp", label: "Unreported (Basecamp)", type: "number", colClass: "col-unreported" },
+  { key: "realMissing", label: "To Next Lvl (Real)", type: "number", colClass: "col-real" },
 ];
 
+let clubSections = [];
+let activeClubKey = null;
 let summaryRows = [];
 let summarySort = { key: "realMissing", direction: "asc" };
+
+function renderClubTabs(sections) {
+  clubSections = sections;
+  const tabsRoot = document.getElementById("clubTabs");
+
+  if (sections.length === 0) {
+    tabsRoot.innerHTML = "";
+    document.getElementById("summaryTableRoot").innerHTML = "";
+    document.getElementById("reportRoot").innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
+    return;
+  }
+
+  activeClubKey = sections[0].clubKey;
+  tabsRoot.innerHTML = sections
+    .map((s) => `<button class="tab-btn" data-club-key="${s.clubKey}">${escapeHtml(s.clubName ?? "(unnamed club)")}</button>`)
+    .join("");
+
+  tabsRoot.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activeClubKey = btn.dataset.clubKey;
+      updateActiveTab();
+      renderActiveClub();
+    });
+  });
+
+  updateActiveTab();
+  renderActiveClub();
+}
+
+function updateActiveTab() {
+  document.querySelectorAll("#clubTabs .tab-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.clubKey === activeClubKey);
+  });
+}
+
+// Sort state (summarySort) is shared across tabs on purpose — switching
+// clubs shouldn't reset how the VPE has the list sorted.
+function renderActiveClub() {
+  const section = clubSections.find((s) => s.clubKey === activeClubKey);
+  renderSummaryTable(section ? section.summaryRows : []);
+  document.getElementById("reportRoot").innerHTML = section ? renderClubDetail(section.clubPair) : "";
+}
 
 function renderSummaryTable(rows) {
   summaryRows = rows;
@@ -69,8 +125,9 @@ function renderSummaryTable(rows) {
     return;
   }
 
+  const colgroupHtml = SUMMARY_COLUMNS.map((col) => `<col class="${col.colClass}">`).join("");
   const theadHtml = SUMMARY_COLUMNS.map((col) => `<th data-key="${col.key}">${escapeHtml(col.label)}</th>`).join("");
-  root.innerHTML = `<table class="summary"><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>`;
+  root.innerHTML = `<table class="summary"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>`;
 
   root.querySelectorAll("th").forEach((th) => {
     th.addEventListener("click", () => {
@@ -121,7 +178,6 @@ function renderSummaryRow(row) {
   const muted = row.currentLevelLabel === "Completed" || row.currentLevelLabel === "Not in Basecamp";
   return `
     <tr class="${muted ? "muted-row" : ""}">
-      <td>${escapeHtml(row.clubName ?? "")}</td>
       <td>${escapeHtml(row.memberName)}</td>
       <td>${escapeHtml(row.pathName)} <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span></td>
       <td>${escapeHtml(row.currentLevelLabel)}</td>
@@ -144,25 +200,16 @@ function downloadCsv(report) {
   URL.revokeObjectURL(url);
 }
 
-function render(report) {
-  const root = document.getElementById("reportRoot");
-  if (report.clubPairs.length === 0) {
-    root.innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
-    return;
-  }
-  root.innerHTML = report.clubPairs.map(renderClubSection).join("");
-}
-
-function renderClubSection(clubPair) {
+function renderClubDetail(clubPair) {
   const { basecampClubName, easyspeakClubName, matchScore, members } = clubPair;
 
-  let heading;
+  let matchNote;
   if (basecampClubName && easyspeakClubName) {
-    heading = `${escapeHtml(basecampClubName)} / ${escapeHtml(easyspeakClubName)} — match ${Math.round(matchScore * 100)}%`;
+    matchNote = `${escapeHtml(basecampClubName)} / ${escapeHtml(easyspeakClubName)} — match ${Math.round(matchScore * 100)}%`;
   } else if (basecampClubName) {
-    heading = `${escapeHtml(basecampClubName)} (no EasySpeak counterpart found)`;
+    matchNote = `${escapeHtml(basecampClubName)} (no EasySpeak counterpart found)`;
   } else {
-    heading = `${escapeHtml(easyspeakClubName)} (no Basecamp counterpart found)`;
+    matchNote = `${escapeHtml(easyspeakClubName)} (no Basecamp counterpart found)`;
   }
 
   const both = members.filter((m) => m.presence === "both").length;
@@ -170,15 +217,16 @@ function renderClubSection(clubPair) {
   const bcOnly = members.filter((m) => m.presence === "basecamp-only").length;
   const esOnly = members.filter((m) => m.presence === "easyspeak-only").length;
 
+  // members[] comes out in match-assignment order (matched pairs first,
+  // then leftovers) — sort alphabetically for a predictable, scannable list.
+  const sortedMembers = [...members].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
   return `
-    <section>
-      <h2>${heading}</h2>
-      <div class="club-summary">
-        ${members.length} member(s) — ${both} in both (${fuzzy} fuzzy match${fuzzy === 1 ? "" : "es"}),
-        ${bcOnly} Basecamp-only, ${esOnly} EasySpeak-only
-      </div>
-      ${members.map(renderMember).join("")}
-    </section>
+    <div class="club-summary">
+      ${matchNote} · ${members.length} member(s) — ${both} in both (${fuzzy} fuzzy match${fuzzy === 1 ? "" : "es"}),
+      ${bcOnly} Basecamp-only, ${esOnly} EasySpeak-only
+    </div>
+    ${sortedMembers.map(renderMember).join("")}
   `;
 }
 
