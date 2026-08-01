@@ -123,7 +123,8 @@ background service worker → source-specific scraper**.
     the real page is confirmed loaded, `loadAndParse` injects `lib/easyspeak-parser.js` via
     `chrome.scripting.executeScript({ files: [...] })` and invokes the named parser function by
     name (`window[fnName]()`) in a second `executeScript` call, returning its result.
-    `scrapeAllEasySpeakClubs()` ties it together: `profile.php?mode=editprofile` → clubs, then
+    `scrapeAllEasySpeakClubs()` ties it together: `profile.php?mode=editprofile#tab_ti` → officer
+    clubs, then
     `memberchart.php?chart=10&c={clubId}` per club → members; closes the tab afterward only if it
     was created by this call (a pre-existing tab is left as-is, and a self-created tab is left open
     on failure so the user can see/solve whatever went wrong); then writes the result to
@@ -139,10 +140,12 @@ background service worker → source-specific scraper**.
     (this is what makes them injectable via `chrome.scripting` *and* independently testable with
     `jsdom`). Each takes a `Document` defaulting to the global `document`, since in the real tab
     they're called with no arguments and operate on that tab's live page:
-    - `parseProfileLinks(doc)` — extracts clubs from `profile.php`'s "Links:" block. Scoped to
-      `a[href^="view_meeting.php?c="][href*="&show=next"]` specifically — the page also has
-      unrelated nav links (e.g. `viewagenda_mobile.php?c=...&show=next`) reusing the same
-      `show=next` query param for a different purpose.
+    - `parseProfileLinks(doc)` — extracts clubs from the "Connected to these Toastmaster clubs"
+      table under the `#tab_ti` tab (`profile.php?mode=editprofile#tab_ti`), keeping only rows
+      where the user is a club officer — identified by an `icon_club_exec.gif` icon in that row's
+      officer-icon cell — and dropping guest-only rows. That table isn't unique by class name
+      (`#tab_ti` also has an unrelated "Information on Speeches" `table.forumline` further down),
+      so it's disambiguated by content the same way `parseMemberchart` disambiguates its own table.
     - `parseMemberchart(doc)` — extracts the member×path roster from `memberchart.php`. Don't
       assume `table.forumline` is unique by class name alone — the page has multiple (e.g. an
       announcement banner); the roster table is disambiguated by its `Name`/`Path` column headers.

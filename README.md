@@ -97,12 +97,14 @@ popup's `{type: "SCRAPE_EASYSPEAK"}` message triggers a flow in
 1. Reuse a `tmclub.eu` tab if one is already open (focusing it), otherwise
    open and focus a new one — visible, so that if Cloudflare ever escalates
    to an interactive puzzle, you can solve it.
-2. Navigate that tab to `/profile.php?mode=editprofile`, wait for it to
-   finish loading for real (past Cloudflare's "Just a moment..." challenge
+2. Navigate that tab to `/profile.php?mode=editprofile#tab_ti`, wait for it
+   to finish loading for real (past Cloudflare's "Just a moment..." challenge
    interstitial, if one appears), then inject `lib/easyspeak-parser.js`
    into the tab and run `parseProfileLinks()` against its live DOM to get
-   the user's clubs from the "Links:" block
-   (`view_meeting.php?c={clubId}&show=next` anchors).
+   the clubs where the user is a club officer, from the "Connected to these
+   Toastmaster clubs" table (`clubdata.php?c={clubId}` links, kept only for
+   rows with an `icon_club_exec.gif` officer icon — guest-only rows are
+   dropped).
 3. For each club, navigate the same tab to
    `/memberchart.php?chart=10&c={clubId}` (`chart=10` is a fixed view id;
    the page isn't paginated), wait for it to load, and run
