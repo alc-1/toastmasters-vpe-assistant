@@ -16,6 +16,11 @@ const easyspeakEls = {
 };
 easyspeakEls.idleLabel = easyspeakEls.btn.textContent;
 
+const reportEls = {
+  btn: document.getElementById("openReportBtn"),
+  status: document.getElementById("statusReport"),
+};
+
 init();
 
 async function init() {
@@ -45,6 +50,8 @@ async function init() {
     renderEasySpeakResult(easyspeakEls, cached.easyspeakData);
   }
 
+  updateReportButton(!!cached.basecampData, !!cached.easyspeakData);
+
   setButtonLoading(basecampEls, statuses.basecamp === "loading", "Basecamp data loading...");
   setButtonLoading(easyspeakEls, statuses.easyspeak === "loading", "EasySpeak data loading...");
 
@@ -69,6 +76,20 @@ async function init() {
       render: renderEasySpeakResult,
     })
   );
+
+  reportEls.btn.addEventListener("click", () =>
+    chrome.tabs.create({ url: chrome.runtime.getURL("report/report.html") })
+  );
+}
+
+// Enables the report button only once both sources have data cached —
+// called on popup open and again after each successful scrape, so it goes
+// live the moment the second source finishes without needing a reopen.
+function updateReportButton(hasBasecamp, hasEasyspeak) {
+  reportEls.btn.disabled = !(hasBasecamp && hasEasyspeak);
+  reportEls.status.textContent = reportEls.btn.disabled
+    ? "Extract both Basecamp and EasySpeak data first."
+    : "";
 }
 
 // Loading is communicated via the button itself (disabled + relabeled),
@@ -105,6 +126,9 @@ async function onScrapeClick({ els, messageType, dataKey, scrapedAtKey, loadingL
 
     setStatus(els, `Extraction complete: ${formatDate(scrapedAt)}`);
     render(els, response.data);
+
+    const both = await chrome.storage.local.get(["basecampData", "easyspeakData"]);
+    updateReportButton(!!both.basecampData, !!both.easyspeakData);
   } catch (err) {
     setStatus(els, `Unexpected error: ${err.message}`);
   } finally {
