@@ -39,7 +39,97 @@ async function init() {
   downloadCsvBtn.disabled = false;
   downloadCsvBtn.addEventListener("click", () => downloadCsv(report));
 
+  renderSummaryTable(buildLevelSummary(report));
   render(report);
+}
+
+// ---------------------------------------------------------------------------
+// Sortable "next level" summary table
+// ---------------------------------------------------------------------------
+
+const SUMMARY_COLUMNS = [
+  { key: "clubName", label: "Club", type: "string" },
+  { key: "memberName", label: "Member", type: "string" },
+  { key: "pathName", label: "Path", type: "string" },
+  { key: "currentLevelSortValue", label: "Current Level", type: "number" },
+  { key: "theoreticalMissing", label: "Speeches to Next Level (Basecamp)", type: "number" },
+  { key: "unreportedInBasecamp", label: "Unreported in Basecamp", type: "number" },
+  { key: "realMissing", label: "Speeches to Next Level (Real)", type: "number" },
+];
+
+let summaryRows = [];
+let summarySort = { key: "realMissing", direction: "asc" };
+
+function renderSummaryTable(rows) {
+  summaryRows = rows;
+  const root = document.getElementById("summaryTableRoot");
+
+  if (rows.length === 0) {
+    root.innerHTML = '<p class="empty-state">No Pathways paths found.</p>';
+    return;
+  }
+
+  const theadHtml = SUMMARY_COLUMNS.map((col) => `<th data-key="${col.key}">${escapeHtml(col.label)}</th>`).join("");
+  root.innerHTML = `<table class="summary"><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>`;
+
+  root.querySelectorAll("th").forEach((th) => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      summarySort =
+        summarySort.key === key
+          ? { key, direction: summarySort.direction === "asc" ? "desc" : "asc" }
+          : { key, direction: "asc" };
+      updateSummaryHeaders();
+      renderSummaryBody();
+    });
+  });
+
+  updateSummaryHeaders();
+  renderSummaryBody();
+}
+
+function updateSummaryHeaders() {
+  document.querySelectorAll("table.summary th").forEach((th) => {
+    const col = SUMMARY_COLUMNS.find((c) => c.key === th.dataset.key);
+    const isActive = th.dataset.key === summarySort.key;
+    const arrow = isActive ? (summarySort.direction === "asc" ? " ▲" : " ▼") : "";
+    th.innerHTML = `${escapeHtml(col.label)}${arrow ? `<span class="sort-indicator">${arrow}</span>` : ""}`;
+  });
+}
+
+function renderSummaryBody() {
+  const tbody = document.querySelector("table.summary tbody");
+  const sorted = [...summaryRows].sort((a, b) => compareSummaryRows(a, b, summarySort.key, summarySort.direction));
+  tbody.innerHTML = sorted.map(renderSummaryRow).join("");
+}
+
+// Nulls (e.g. "Not in Basecamp"/"Completed" rows with no speech counts to
+// compare) always sort last, regardless of ascending/descending — they're
+// "not applicable", not a real ranking value.
+function compareSummaryRows(a, b, key, direction) {
+  const av = a[key];
+  const bv = b[key];
+  if (av == null && bv == null) return 0;
+  if (av == null) return 1;
+  if (bv == null) return -1;
+
+  const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), undefined, { sensitivity: "base" });
+  return direction === "asc" ? cmp : -cmp;
+}
+
+function renderSummaryRow(row) {
+  const muted = row.currentLevelLabel === "Completed" || row.currentLevelLabel === "Not in Basecamp";
+  return `
+    <tr class="${muted ? "muted-row" : ""}">
+      <td>${escapeHtml(row.clubName ?? "")}</td>
+      <td>${escapeHtml(row.memberName)}</td>
+      <td>${escapeHtml(row.pathName)} <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span></td>
+      <td>${escapeHtml(row.currentLevelLabel)}</td>
+      <td class="numeric">${row.theoreticalMissing ?? "—"}</td>
+      <td class="numeric">${row.unreportedInBasecamp ?? "—"}</td>
+      <td class="numeric">${row.realMissing ?? "—"}</td>
+    </tr>
+  `;
 }
 
 function downloadCsv(report) {

@@ -129,12 +129,58 @@
       background: #aaa;
       cursor: not-allowed;
     }
+    .summary-help {
+      font-size: 11px;
+      color: #777;
+      margin: 0 0 10px;
+    }
+    table.summary {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-bottom: 30px;
+    }
+    table.summary th, table.summary td {
+      text-align: left;
+      padding: 5px 8px;
+      border-bottom: 1px solid #eee;
+    }
+    table.summary th {
+      cursor: pointer;
+      user-select: none;
+      background: #fafafa;
+      white-space: nowrap;
+    }
+    table.summary th:hover {
+      background: #f0f0f0;
+    }
+    table.summary th .sort-indicator {
+      color: #772432;
+      margin-left: 3px;
+    }
+    table.summary tr.muted-row {
+      color: #888;
+      font-style: italic;
+    }
+    table.summary td.numeric {
+      text-align: right;
+    }
   </style>
 </head>
 <body>
   <h1>Comparison Report</h1>
   <div class="meta" id="reportMeta"></div>
   <button id="downloadCsvBtn">Download CSV</button>
+
+  <h2 style="border-top: none; padding-top: 0;">Next Level Summary</h2>
+  <p class="summary-help">
+    One row per member per path. Click a column header to sort (click again to reverse).
+    "Basecamp" = speeches still needed per Basecamp's own record; "Unreported in Basecamp" = speeches
+    EasySpeak already shows as delivered for that level but Basecamp hasn't recorded yet; "Real" = the
+    actual remaining gap once that backlog is accounted for.
+  </p>
+  <div id="summaryTableRoot"></div>
+
   <div id="reportRoot"></div>
 
   <script src="../lib/report.js"></script>
