@@ -75,6 +75,20 @@ async function init() {
 // excludes those — see the allowFuzzyMemberMatches: false call above).
 // ---------------------------------------------------------------------------
 
+// An inline SVG rather than the "⚠" character: at small sizes (and
+// especially in bold), that glyph's triangle-and-exclamation strokes
+// depend entirely on the system's emoji font and can blur into an
+// unreadable blob. Plain vector shapes stay crisp at any size.
+// Keeping all three icon candidates side by side for now (at 24px) so they
+// can be visually compared before settling on one — see conversation.
+function warningIconHtml(title) {
+  return `
+    <span class="warning-icon" title="${escapeAttr(title)}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960" fill="#EA3323"><path d="m40-120 440-760 440 760H40Zm138-80h604L480-720 178-200Zm330.5-51.5Q520-263 520-280t-11.5-28.5Q497-320 480-320t-28.5 11.5Q440-297 440-280t11.5 28.5Q463-240 480-240t28.5-11.5ZM440-360h80v-200h-80v200Zm40-100Z"/></svg>
+    </span>
+  `;
+}
+
 function renderConflictWarning(report) {
   const root = document.getElementById("conflictWarning");
 
@@ -100,7 +114,7 @@ function renderConflictWarning(report) {
 
   root.innerHTML = `
     <div class="conflict-warning">
-      <span class="warning-icon">&#9888;</span>
+      ${warningIconHtml("Conflicts found")}
       ${parts.join(" and ")} without a match between Basecamp and EasySpeak.
       ${fixLinks.join(" · ")}
     </div>
@@ -143,7 +157,7 @@ function renderClubTabs(sections) {
     .map((s) => {
       const unmatched = !s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId;
       const warningIcon = unmatched
-        ? '<span class="tab-warning-icon" title="No match found between Basecamp and EasySpeak for this club">&#9888;</span>'
+        ? warningIconHtml("No match found between Basecamp and EasySpeak for this club")
         : "";
       return `<button class="tab-btn" data-club-key="${s.clubKey}">${warningIcon}${escapeHtml(s.clubName ?? "(unnamed club)")}</button>`;
     })
