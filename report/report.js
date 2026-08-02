@@ -21,6 +21,7 @@ async function init() {
 
   if (!cached.basecampData || !cached.easyspeakData) {
     downloadCsvBtn.style.display = "none";
+    document.getElementById("conflictWarning").innerHTML = "";
     document.getElementById("clubTabs").innerHTML = "";
     document.getElementById("summaryTableRoot").innerHTML = "";
     document.getElementById("reportRoot").innerHTML =
@@ -41,11 +42,17 @@ async function init() {
     cached.basecampData,
     cached.easyspeakData,
     { basecampScrapedAt: cached.basecampScrapedAt, easyspeakScrapedAt: cached.easyspeakScrapedAt },
-    resolution
+    // This page shows the VPE's authoritative record, so an unconfirmed
+    // fuzzy guess must never render here as if it were a fact — only an
+    // exact name match or an explicitly-confirmed memberLinks entry counts.
+    // The Members view is where fuzzy suggestions actually get resolved.
+    { ...resolution, allowFuzzyMemberMatches: false }
   );
 
   downloadCsvBtn.disabled = false;
   downloadCsvBtn.addEventListener("click", () => downloadCsv(report));
+
+  renderConflictWarning(report);
 
   // Zipped by index: buildLevelSummary(report) produces one group per
   // report.clubPairs entry, in the same order, so a tab can drive both the
@@ -59,6 +66,45 @@ async function init() {
   }));
 
   renderClubTabs(clubSections);
+}
+
+// ---------------------------------------------------------------------------
+// Conflict warning banner: flags clubs with no counterpart at all in the
+// other system, and members left unmatched within a matched club pair (an
+// unconfirmed fuzzy guess counts as unmatched here too, since this page
+// excludes those — see the allowFuzzyMemberMatches: false call above).
+// ---------------------------------------------------------------------------
+
+function renderConflictWarning(report) {
+  const root = document.getElementById("conflictWarning");
+
+  const unmatchedClubCount = report.clubPairs.filter((c) => !c.basecampClubId || !c.easyspeakClubId).length;
+  const unmatchedMemberCount = report.clubPairs.reduce(
+    (sum, c) => sum + c.members.filter((m) => m.presence !== "both").length,
+    0
+  );
+
+  if (unmatchedClubCount === 0 && unmatchedMemberCount === 0) {
+    root.innerHTML = "";
+    return;
+  }
+
+  const parts = [];
+  if (unmatchedClubCount > 0) parts.push(`${unmatchedClubCount} club${unmatchedClubCount === 1 ? "" : "s"}`);
+  if (unmatchedMemberCount > 0) parts.push(`${unmatchedMemberCount} member${unmatchedMemberCount === 1 ? "" : "s"}`);
+
+  const fixLinks = [
+    unmatchedClubCount > 0 ? '<a href="../settings/settings.html">Fix club matches in Settings</a>' : "",
+    unmatchedMemberCount > 0 ? '<a href="../members/members.html">Fix member matches in Member matching</a>' : "",
+  ].filter(Boolean);
+
+  root.innerHTML = `
+    <div class="conflict-warning">
+      <span class="warning-icon">&#9888;</span>
+      ${parts.join(" and ")} without a match between Basecamp and EasySpeak.
+      ${fixLinks.join(" · ")}
+    </div>
+  `;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,6 +131,7 @@ function renderClubTabs(sections) {
   const tabsRoot = document.getElementById("clubTabs");
 
   if (sections.length === 0) {
+    document.getElementById("conflictWarning").innerHTML = "";
     tabsRoot.innerHTML = "";
     document.getElementById("summaryTableRoot").innerHTML = "";
     document.getElementById("reportRoot").innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
@@ -93,7 +140,13 @@ function renderClubTabs(sections) {
 
   activeClubKey = sections[0].clubKey;
   tabsRoot.innerHTML = sections
-    .map((s) => `<button class="tab-btn" data-club-key="${s.clubKey}">${escapeHtml(s.clubName ?? "(unnamed club)")}</button>`)
+    .map((s) => {
+      const unmatched = !s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId;
+      const warningIcon = unmatched
+        ? '<span class="tab-warning-icon" title="No match found between Basecamp and EasySpeak for this club">&#9888;</span>'
+        : "";
+      return `<button class="tab-btn" data-club-key="${s.clubKey}">${warningIcon}${escapeHtml(s.clubName ?? "(unnamed club)")}</button>`;
+    })
     .join("");
 
   tabsRoot.querySelectorAll(".tab-btn").forEach((btn) => {

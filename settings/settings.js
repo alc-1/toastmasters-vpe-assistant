@@ -45,7 +45,7 @@ function renderClubLookupSection(clubLookup) {
 
   const table = clubLookup.length
     ? `<table class="lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
-    : '<p class="empty-state">No club pins yet — clubs are matched automatically by name similarity.</p>';
+    : '<p class="empty-state">No club pins yet — clubs are only matched automatically on an exact name match.</p>';
 
   return `${table}${renderClubAddForm(clubLookup)}`;
 }

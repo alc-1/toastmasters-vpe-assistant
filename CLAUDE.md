@@ -219,26 +219,42 @@ re-derived (and possibly un-derived) from names again.
   `<script>` tag in `report/report.html`/`members/members.html`, and via `module.exports` for
   Node/jsdom testing — same reasoning as `lib/easyspeak-parser.js`). `buildReport(basecampData,
   easyspeakData, meta, resolution)` groups each source's member×path rows into one entry per person
-  (`groupBasecampMembers`/`groupEasySpeakMembers`), matches clubs (`matchClubs`: Jaccard token
-  overlap on normalized names, `CLUB_MATCH_THRESHOLD = 0.5`), matches members within each matched
-  club pair (`matchMembers`: exact-normalized-name short-circuit, else a `0.3*Jaccard +
+  (`groupBasecampMembers`/`groupEasySpeakMembers`), matches clubs (`matchClubs`: auto-matches only
+  on an *exact* normalized-name match — `clubNameScore(...) === 1` — never a partial/fuzzy
+  similarity guess; there's no "suggested club" review UI anywhere to correct a wrong fuzzy guess,
+  unlike members, so a club short of exact must be pinned via `clubLookup` in Settings), matches
+  members within each matched club pair (`matchMembers`: exact-normalized-name short-circuit, else
+  — when fuzzy matching is allowed for this call, see below — a `0.3*Jaccard +
   0.7*Levenshtein-similarity` blend against `NAME_MATCH_THRESHOLD = 0.72`), and matches paths within
   each matched member (`matchPaths`: canonicalizes via a French/German `PATH_ALIASES` table). Club
   and member matching share one greedy 1:1 assignment helper, `greedyAssign(candidates,
   preAssigned)`.
   - The optional 4th param, `resolution` (`{clubLookup, memberLinks, rejectedPairs,
-    memberPathOverrides, pathAliasLookup}`, all default to empty/hardcoded), is how persisted
-    decisions from `lib/resolution-store.js` override pure name-similarity matching — omitting it
-    entirely reproduces plain automatic matching, unchanged, so any Node-side caller that doesn't
-    pass it keeps working. Precedence, applied *before* scoring/assignment runs: **confirmed link >
-    rejected pair (exclusion) > exact name match > fuzzy suggestion > unmatched**. Confirmed
-    links/club pins are injected as `preAssigned` entries into `greedyAssign` (claimed before any
-    scored candidate, so a fresh high-scoring candidate can never displace a persisted decision);
-    rejected pairs are filtered out of candidate generation entirely (so they can never resurface as
-    a suggestion); member-scoped path-bind overrides are spliced out of both sides' raw path lists
-    in `matchPaths` *before* the normal canonicalization loop runs, force-paired under a synthetic
-    key, and tagged `overridden: true` — this is what keeps an override from touching the global
-    path-name lookup other members rely on.
+    memberPathOverrides, pathAliasLookup, allowFuzzyMemberMatches}`, all default to
+    empty/hardcoded/`true`), is how persisted decisions from `lib/resolution-store.js` override pure
+    name-similarity matching — omitting it entirely reproduces plain automatic matching (exact +
+    fuzzy), unchanged, so any Node-side caller that doesn't pass it keeps working. Precedence,
+    applied *before* scoring/assignment runs: **confirmed link > rejected pair (exclusion) > exact
+    name match > fuzzy suggestion (if allowed) > unmatched**. Confirmed links/club pins are injected
+    as `preAssigned` entries into `greedyAssign` (claimed before any scored candidate, so a fresh
+    high-scoring candidate can never displace a persisted decision); rejected pairs are filtered out
+    of candidate generation entirely (so they can never resurface as a suggestion); member-scoped
+    path-bind overrides are spliced out of both sides' raw path lists in `matchPaths` *before* the
+    normal canonicalization loop runs, force-paired under a synthetic key, and tagged
+    `overridden: true` — this is what keeps an override from touching the global path-name lookup
+    other members rely on.
+  - `resolution.allowFuzzyMemberMatches` (default `true`) is **not** a persisted storage key — it's
+    a hardcoded per-caller behavior switch. `members/members.js` relies on the default (`true`):
+    fuzzy suggestions are exactly what that view exists to surface and let a human confirm/reject.
+    `report/report.js` explicitly passes `false`: the Comparison Report is meant to show only what's
+    certain, so an unconfirmed fuzzy guess must never render there as if it were a fact. Setting it
+    `false` simply drops fuzzy-confidence candidates from `matchMembers`'s candidate pool before
+    `greedyAssign` runs — the pair falls through to the *same* leftover-handling code that already
+    produces separate `basecamp-only`/`easyspeak-only` entries for anyone unassigned, so no separate
+    "strict" rendering path exists anywhere downstream (CSV export, Level Summary, Member List cards
+    in `report/report.js` all automatically reflect it for free). A `memberLinks`-confirmed pair
+    (even one originally confirmed from a fuzzy suggestion) is unaffected by this flag either way,
+    since confirmed links are seeded as `preAssigned` before candidate scoring ever runs.
   - `matchConfidence` on a member row is now `"confirmed"|"exact"|"fuzzy"|null` (added
     `"confirmed"` for a persisted `memberLinks` entry). Member rows also carry `basecampName`/
     `easyspeakName` (the two raw per-source names, even when matched — needed for the Members view's
@@ -282,7 +298,12 @@ re-derived (and possibly un-derived) from names again.
   — loading resolution here is required, not optional, otherwise this page's CSV export and "Next
   Level Summary" would silently diverge from what the Members view shows for the same data. Renders
   club tabs, a sortable per-member-path summary table, and per-member `<details>` cards with
-  level-by-level diff tables.
+  level-by-level diff tables. `renderConflictWarning(report)` (`#conflictWarning`) shows a banner
+  whenever any club has no counterpart at all in the other system, or any member is left
+  `presence !== "both"` within a matched club pair (an unconfirmed fuzzy guess counts as unmatched
+  here too, per `allowFuzzyMemberMatches: false` above) — with links to Settings (club fixes) and
+  Member matching (member fixes). `renderClubTabs()` additionally prefixes a `⚠` warning-sign icon
+  (`.tab-warning-icon`) onto any club tab whose pair has no counterpart on the other side.
 - **`members/members.html` + `members/members.js`** — the primary member-matching review workflow
   (reached from the popup's "Review Matches" button, and cross-linked with Settings/Report). Same
   storage-reads-only pattern as `report.js`. One spreadsheet-style table per club (club tabs reused
