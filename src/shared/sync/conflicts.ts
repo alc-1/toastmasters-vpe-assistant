@@ -436,7 +436,25 @@ function diffLevels(esPath: EasySpeakPersonPath | null, bcPath: BasecampPersonPa
   const levels: LevelDiff[] = [];
   for (let level = 1; level <= PATHWAYS_LEVEL_COUNT; level++) {
     const es = esByLevel.get(level) ?? null;
-    const bcLevel = bcPath?.progression?.[`Level ${level}`] ?? null;
+    let bcLevel = bcPath?.progression?.[`Level ${level}`] ?? null;
+    if (level === PATHWAYS_LEVEL_COUNT) {
+      // EasySpeak has no separate "Path Completion" bucket — its Level 5
+      // needed/done already counts the path-completion speeches alongside
+      // Level 5's own. Basecamp tracks them as two separate progression
+      // entries, so they're cumulated here purely for the comparison
+      // against EasySpeak's Level 5 (buildPathCompletion() below still
+      // reports the raw, un-cumulated Path Completion entry for its own
+      // Basecamp-only display). `approved` is carried over from the Level 5
+      // entry only — Path Completion has no approval flag of its own.
+      const completion = bcPath?.progression?.["Path Completion"] ?? null;
+      if (bcLevel || completion) {
+        bcLevel = {
+          completed: (bcLevel?.completed ?? 0) + (completion?.completed ?? 0),
+          total: (bcLevel?.total ?? 0) + (completion?.total ?? 0),
+          approved: bcLevel?.approved,
+        };
+      }
+    }
     levels.push(diffLevel(level, es, bcLevel));
   }
   return levels;

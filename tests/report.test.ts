@@ -11,6 +11,7 @@ import {
   normalizeName,
   canonicalizePathName,
   diffLevel,
+  matchPaths,
 } from "../src/shared/sync/conflicts";
 import { buildLevelSummary, buildReport, hasOrphanedPaths, hasPathOverride, reportToRows, toCsv } from "../src/shared/sync/delta";
 import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport, PathReport } from "../src/shared/types";
@@ -114,6 +115,42 @@ describe("diffLevel", () => {
   it("does not flag pendingValidation once Basecamp has approved it", () => {
     const diff = diffLevel(1, { level: 1, needed: 2, done: 2 }, { completed: 2, total: 2, approved: true });
     expect(diff.pendingValidation).toBe(false);
+  });
+});
+
+describe("matchPaths", () => {
+  it("cumulates Basecamp's Level 5 and Path Completion entries when comparing against EasySpeak's Level 5", () => {
+    const basecampPerson = {
+      userId: 1,
+      name: "Test Member",
+      paths: [
+        {
+          path_name: "Dynamic Leadership",
+          progression: {
+            "Level 5": { completed: 1, total: 2, approved: false },
+            "Path Completion": { completed: 1, total: 1 },
+          },
+        },
+      ],
+    };
+    const easyspeakPerson = {
+      memberId: "e1",
+      name: "Test Member",
+      paths: [{ path: "Dynamic Leadership", levels: [{ level: 5, needed: 3, done: 2 }] }],
+    };
+
+    const { paths } = matchPaths(basecampPerson, easyspeakPerson);
+    const level5 = paths[0].levels[4];
+
+    // Cumulated for the comparison: 1 (Level 5) + 1 (Path Completion) = 2/3.
+    expect(level5.basecamp).toEqual({ completed: 2, total: 3, approved: false });
+    expect(level5.easyspeak).toEqual({ needed: 3, done: 2 });
+    expect(level5.discrepancy).toBe(0);
+    expect(level5.basecampMissing).toBe(1);
+
+    // The raw, un-cumulated Path Completion entry is still reported
+    // separately for its own Basecamp-only display.
+    expect(paths[0].pathCompletion).toEqual({ completed: 1, total: 1, missing: 0 });
   });
 });
 

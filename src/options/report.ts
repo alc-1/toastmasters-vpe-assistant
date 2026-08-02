@@ -358,9 +358,17 @@ function renderPath(path: PathReport) {
 
 function renderLevelRow(level: PathReport["levels"][number]) {
   const rowClass = level.pendingValidation ? "pending" : level.discrepancy ? "discrepancy" : "";
+  // Basecamp's Level 5 total is cumulated with its separate "Path
+  // Completion" entry before comparison (see diffLevels() in
+  // shared/sync/conflicts.ts) since EasySpeak counts both as one Level 5
+  // bucket — flagged here so the inflated total doesn't look like a bug.
+  const levelLabel =
+    level.level === 5
+      ? `5<span class="level-note" title="Basecamp total includes Path Completion, to match how EasySpeak counts Level 5">*</span>`
+      : String(level.level);
   return `
     <tr class="${rowClass}">
-      <td>${level.level}</td>
+      <td>${levelLabel}</td>
       <td>${level.easyspeak ? `${level.easyspeak.done}/${level.easyspeak.needed}` : "—"}</td>
       <td>${level.basecamp ? `${level.basecamp.completed}/${level.basecamp.total}` : "—"}</td>
       <td>${level.basecamp ? (level.basecamp.approved ? "Yes" : "No") : "—"}</td>
@@ -376,7 +384,7 @@ function renderPathCompletionRow(pathCompletion: PathReport["pathCompletion"]) {
   if (!pathCompletion) return "";
   return `
     <tr class="completion-row">
-      <td>Path Completion</td>
+      <td>Path Completion<span class="level-note" title="Already included in the Level 5 total above">*</span></td>
       <td>—</td>
       <td>${pathCompletion.completed}/${pathCompletion.total}</td>
       <td>—</td>
