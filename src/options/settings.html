@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Toastmasters VPE Tracker — Settings</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 16px 20px 60px;
+      color: #222;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0 0 4px;
+    }
+    .nav-links {
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+    .nav-links a {
+      color: #772432;
+    }
+    h2 {
+      font-size: 15px;
+      margin: 28px 0 4px;
+      border-top: 1px solid #ddd;
+      padding-top: 16px;
+    }
+    h2:first-of-type {
+      border-top: none;
+      padding-top: 0;
+    }
+    .help-text {
+      font-size: 12px;
+      color: #777;
+      margin: 0 0 12px;
+    }
+    table.lookup {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-bottom: 14px;
+    }
+    table.lookup th, table.lookup td {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid #eee;
+      vertical-align: top;
+    }
+    table.lookup th {
+      background: #fafafa;
+    }
+    table.lookup input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 12px;
+      padding: 3px 6px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    .add-form {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .add-form select, .add-form input[type="text"] {
+      font-size: 12px;
+      padding: 4px 6px;
+    }
+    button {
+      font-size: 12px;
+      padding: 5px 10px;
+      cursor: pointer;
+      background: #772432;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button.secondary {
+      background: #eee;
+      color: #444;
+    }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+    .empty-state {
+      font-size: 12px;
+      color: #777;
+      font-style: italic;
+      margin: 6px 0 16px;
+    }
+    .save-status {
+      font-size: 12px;
+      color: #1e7a34;
+      display: none;
+    }
+    .save-status.visible {
+      display: inline;
+    }
+  </style>
+</head>
+<body>
+  <h1>Settings</h1>
+  <div class="nav-links">
+    <a href="members.html">Member matching</a> · <a href="report.html">Comparison report</a>
+  </div>
+
+  <h2>EasySpeak server</h2>
+  <p class="help-text">
+    EasySpeak runs as separate regional deployments. Choose which one to load data from.<br>
+    This only affects future loadings, so run "Extract EasySpeak data" again after switching.
+  </p>
+  <div id="easyspeakServerRoot"></div>
+
+  <h2>Club name lookup</h2>
+  <p class="help-text">Pins a Basecamp club to an EasySpeak club regardless of how similar their names are.</p>
+  <div id="clubLookupRoot"></div>
+
+  <h2>Path name lookup</h2>
+  <p class="help-text">
+    Maps alternate spellings (e.g. French/German Pathways titles) to a canonical path name.
+    Member-level path binds (set from the Member matching view) take priority over this table and are not shown here.
+  </p>
+  <div id="pathLookupRoot"></div>
+
+  <script type="module" src="./settings.ts"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Toastmasters VPE Tracker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Consolidates member progress tracking between Basecamp Toastmasters and EasySpeak for the VPE (MVP: Basecamp only).",
 
   "permissions": [
@@ -19,7 +19,8 @@
   ],
 
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background/index.ts",
+    "type": "module"
   },
 
   "icons": {
@@ -36,7 +37,7 @@
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     },
-    "default_popup": "popup/popup.html",
+    "default_popup": "popup/index.html",
     "default_title": "Toastmasters VPE Tracker"
   }
 }

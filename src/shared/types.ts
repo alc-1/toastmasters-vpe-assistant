@@ -1,0 +1,274 @@
+// src/shared/types.ts
+//
+// Domain type catalog for the extension. Ported from JSDoc shapes previously
+// scattered across lib/report.js, lib/basecamp-api.js, lib/easyspeak-api.js,
+// lib/easyspeak-parser.js, and lib/resolution-store.js. Raw upstream API
+// payloads (Basecamp's /api/members/roles, /api/bcm/progress/ pages) are
+// deliberately loose (`unknown`, narrowed once at the fetch boundary) — the
+// shapes below are the ones that matter as contracts between modules.
+
+// ---------------------------------------------------------------------------
+// Basecamp raw scrape shapes
+// ---------------------------------------------------------------------------
+
+export interface BasecampProgressionEntry {
+  completed: number;
+  total: number;
+  /** Only meaningful on "Level N" entries — absent/unused on "Path Completion". */
+  approved?: boolean;
+}
+
+/** Keyed "Level 1".."Level 5" and "Path Completion". */
+export type BasecampProgression = Record<string, BasecampProgressionEntry>;
+
+export interface BasecampUser {
+  id: number;
+  name: string;
+  // profile_image, member_photo_url, email are stripped by
+  // stripUnneededUserFields() before this ever reaches storage.
+  [key: string]: unknown;
+}
+
+/** One member x path row, as stored (post stripUnneededUserFields). */
+export interface BasecampMember {
+  user: BasecampUser;
+  path_name: string;
+  progression: BasecampProgression;
+  [key: string]: unknown;
+}
+
+export interface BasecampClubScrape {
+  name: string;
+  members: BasecampMember[];
+}
+
+export type BasecampScrape = Record<string /* club uuid */, BasecampClubScrape>;
+
+// ---------------------------------------------------------------------------
+// EasySpeak raw scrape + parser I/O shapes
+// ---------------------------------------------------------------------------
+
+export interface EasySpeakLevel {
+  level: number;
+  needed: number;
+  done: number;
+}
+
+export interface EasySpeakMemberRow {
+  memberId: string | null;
+  name: string;
+  path: string;
+  levels: EasySpeakLevel[];
+}
+
+export interface EasySpeakClubScrape {
+  name: string;
+  members: EasySpeakMemberRow[];
+}
+
+export type EasySpeakScrape = Record<string /* club id */, EasySpeakClubScrape>;
+
+export interface ProfileClub {
+  id: string;
+  name: string;
+}
+
+export interface ProfileParseResult {
+  clubs: ProfileClub[];
+}
+
+export interface MemberchartParseResult {
+  members: EasySpeakMemberRow[];
+}
+
+export interface LevelCellCounts {
+  needed: number;
+  done: number;
+}
+
+// ---------------------------------------------------------------------------
+// Report / delta domain (see shared/sync/conflicts.ts + shared/sync/delta.ts)
+// ---------------------------------------------------------------------------
+
+export type Presence = "both" | "basecamp-only" | "easyspeak-only";
+export type MatchConfidence = "confirmed" | "exact" | "fuzzy" | null;
+export type MatchSource = "fuzzy-confirmed" | "manual-search" | null;
+
+export interface PathCompletion {
+  completed: number;
+  total: number;
+  missing: number;
+}
+
+export interface LevelDiff {
+  level: number;
+  easyspeak: { needed: number; done: number } | null;
+  basecamp: { completed: number; total: number; approved: boolean } | null;
+  easyspeakMissing: number | null;
+  basecampMissing: number | null;
+  discrepancy: number | null;
+  pendingValidation: boolean;
+}
+
+export interface PathReport {
+  canonicalKey: string;
+  displayName: string;
+  basecampPathName: string | null;
+  easyspeakPathLabel: string | null;
+  presence: Presence;
+  nonPathway: boolean;
+  overridden: boolean;
+  levels: LevelDiff[];
+  pathCompletion: PathCompletion | null;
+}
+
+export interface MemberReport {
+  basecampUserId: number | null;
+  easyspeakMemberId: string | null;
+  name: string;
+  basecampName: string | null;
+  easyspeakName: string | null;
+  presence: Presence;
+  matchConfidence: MatchConfidence;
+  matchScore: number | null;
+  matchSource: MatchSource;
+  easyspeakNoActivePath: boolean;
+  paths: PathReport[];
+  hasOrphanedPaths: boolean;
+}
+
+export interface ClubPairReport {
+  basecampClubId: string | null;
+  basecampClubName: string | null;
+  easyspeakClubId: string | null;
+  easyspeakClubName: string | null;
+  matchScore: number | null;
+  clubMatchForced: boolean;
+  members: MemberReport[];
+}
+
+export interface ReportMeta {
+  basecampScrapedAt: number | null;
+  easyspeakScrapedAt: number | null;
+}
+
+export interface ReportResult {
+  meta: ReportMeta;
+  clubPairs: ClubPairReport[];
+}
+
+export interface LevelSummaryCore {
+  currentLevel: number | null;
+  currentLevelSortValue: number | null;
+  currentLevelLabel: string;
+  nextLevelLabel: string;
+  theoreticalMissing: number | null;
+  unreportedInBasecamp: number | null;
+  realMissing: number | null;
+}
+
+export interface LevelSummaryRow extends LevelSummaryCore {
+  memberName: string;
+  memberPresence: Presence;
+  matchConfidence: MatchConfidence;
+  pathName: string;
+  pathPresence: Presence;
+}
+
+export interface LevelSummaryGroup {
+  clubKey: string;
+  clubName: string | null;
+  rows: LevelSummaryRow[];
+}
+
+// ---------------------------------------------------------------------------
+// Persisted resolution records (see shared/resolution-store.ts)
+// ---------------------------------------------------------------------------
+
+export interface MemberLink {
+  basecampUserId: number;
+  easyspeakMemberId: string;
+  source: MatchSource;
+  confirmedAt: number;
+}
+
+export interface RejectedPair {
+  basecampUserId: number;
+  easyspeakMemberId: string;
+  rejectedAt: number;
+}
+
+export interface ClubLookupEntry {
+  basecampClubId: string;
+  easyspeakClubId: string;
+  /** Denormalized, for the Settings page's display only. */
+  basecampClubName: string;
+  easyspeakClubName: string;
+}
+
+/** Canonical path name -> alternate spellings. */
+export type PathLookup = Record<string, string[]>;
+
+export interface MemberPathOverride {
+  basecampUserId: number;
+  easyspeakMemberId: string;
+  basecampPathName: string;
+  easyspeakPathLabel: string;
+  boundAt: number;
+}
+
+export interface MemberPathExclusion {
+  basecampUserId: number;
+  easyspeakMemberId: string;
+  basecampPathName: string;
+  easyspeakPathLabel: string;
+  excludedAt: number;
+}
+
+/** Exactly buildReport()'s 4th param shape — omitting it entirely reproduces
+ * plain automatic matching, unchanged. */
+export interface ResolutionData {
+  memberLinks?: MemberLink[];
+  rejectedPairs?: RejectedPair[];
+  clubLookup?: ClubLookupEntry[];
+  memberPathOverrides?: MemberPathOverride[];
+  memberPathExclusions?: MemberPathExclusion[];
+  pathAliasLookup?: Map<string, string>;
+  /** Default true (Members view). report.ts passes false so an unconfirmed
+   * fuzzy guess never renders there as if it were a fact. */
+  allowFuzzyMemberMatches?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Settings / icon state
+// ---------------------------------------------------------------------------
+
+export type EasySpeakServerId = "tmclub.eu" | "toastmasterclub.org" | "easy-speak.org";
+
+export interface EasySpeakServer {
+  id: EasySpeakServerId;
+  label: string;
+}
+
+export type SourceKey = "basecamp" | "easyspeak";
+export type SourceStatus = "idle" | "loading" | "success" | "error";
+export type IconStatuses = Record<SourceKey, SourceStatus>;
+
+// ---------------------------------------------------------------------------
+// Messaging (popup/options -> background service worker)
+// ---------------------------------------------------------------------------
+
+export type ScrapeEnvelope<T> = { ok: true; data: T } | { ok: false; error: string };
+
+export type Request = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSPEAK" } | { type: "POPUP_OPENED" };
+
+// NB: POPUP_OPENED deliberately returns a bare IconStatuses, not the
+// {ok,data} envelope the two scrape messages use — an existing
+// inconsistency, preserved here rather than silently "fixed".
+export type ResponseFor<M extends Request> = M extends { type: "SCRAPE_BASECAMP" }
+  ? ScrapeEnvelope<BasecampScrape>
+  : M extends { type: "SCRAPE_EASYSPEAK" }
+    ? ScrapeEnvelope<EasySpeakScrape>
+    : M extends { type: "POPUP_OPENED" }
+      ? IconStatuses
+      : never;
