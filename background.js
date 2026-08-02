@@ -4,10 +4,11 @@
 // Basecamp and EasySpeak APIs (see lib/basecamp-api.js and
 // lib/easyspeak-api.js). Basecamp needs no open tab at all: host_permissions
 // authorizes fetch() from this privileged context to carry the user's
-// session cookie. EasySpeak (tmclub.eu) sits behind Cloudflare, which
-// blocks programmatic fetch()/XHR outright, so lib/easyspeak-api.js
-// instead navigates a real tab and extracts data from its live DOM via
-// chrome.scripting (see lib/easyspeak-parser.js).
+// session cookie. EasySpeak (whichever regional server is configured — see
+// lib/settings-store.js) sits behind Cloudflare, which blocks programmatic
+// fetch()/XHR outright, so lib/easyspeak-api.js instead navigates a real
+// tab and extracts data from its live DOM via chrome.scripting (see
+// lib/easyspeak-parser.js).
 //
 // Also owns the toolbar icon's loading/success/error state (see
 // lib/icon-state.js) — kept here rather than in the popup because a scrape
@@ -19,7 +20,7 @@
 // centralizing EasySpeak + Basecamp storage, computing the delta once both
 // sources are wired up.
 
-importScripts("lib/basecamp-api.js", "lib/easyspeak-api.js", "lib/icon-state.js");
+importScripts("lib/basecamp-api.js", "lib/settings-store.js", "lib/easyspeak-api.js", "lib/icon-state.js");
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log("[Toastmasters VPE Tracker] Extension installed.");

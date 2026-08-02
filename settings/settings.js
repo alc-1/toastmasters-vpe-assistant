@@ -16,8 +16,54 @@ async function init() {
   basecampData = cached.basecampData ?? null;
   easyspeakData = cached.easyspeakData ?? null;
 
+  await refreshEasySpeakServer();
   await refreshClubLookup();
   await refreshPathLookup();
+}
+
+// ---------------------------------------------------------------------------
+// EasySpeak server
+// ---------------------------------------------------------------------------
+
+async function refreshEasySpeakServer() {
+  const current = await getEasySpeakServer();
+  document.getElementById("easyspeakServerRoot").innerHTML = renderEasySpeakServerSection(current);
+  attachEasySpeakServerHandlers();
+}
+
+function renderEasySpeakServerSection(current) {
+  const options = EASYSPEAK_SERVERS.map(
+    (s) => `<option value="${escapeAttr(s.id)}"${s.id === current ? " selected" : ""}>${escapeHtml(s.label)}</option>`
+  ).join("");
+
+  return `
+    <div class="add-form">
+      <select id="easyspeakServerSelect">${options}</select>
+      <button data-action="save-easyspeak-server">Save</button>
+      <span class="save-status" id="easyspeakServerStatus">Saved.</span>
+    </div>
+  `;
+}
+
+function attachEasySpeakServerHandlers() {
+  const root = document.getElementById("easyspeakServerRoot");
+  const saveBtn = root.querySelector('[data-action="save-easyspeak-server"]');
+  if (saveBtn) saveBtn.addEventListener("click", onSaveEasySpeakServer);
+
+  // Hide the "Saved." confirmation again as soon as the selection changes,
+  // so it can't misleadingly linger next to an unsaved new choice.
+  const select = document.getElementById("easyspeakServerSelect");
+  if (select) {
+    select.addEventListener("change", () => {
+      document.getElementById("easyspeakServerStatus").classList.remove("visible");
+    });
+  }
+}
+
+async function onSaveEasySpeakServer() {
+  const select = document.getElementById("easyspeakServerSelect");
+  await setEasySpeakServer(select.value);
+  document.getElementById("easyspeakServerStatus").classList.add("visible");
 }
 
 // ---------------------------------------------------------------------------

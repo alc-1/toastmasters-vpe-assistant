@@ -13,7 +13,9 @@
   "host_permissions": [
     "https://basecamp.toastmasters.org/*",
     "https://apps.basecamp.toastmasters.org/*",
-    "https://tmclub.eu/*"
+    "https://tmclub.eu/*",
+    "https://toastmasterclub.org/*",
+    "https://easy-speak.org/*"
   ],
 
   "background": {

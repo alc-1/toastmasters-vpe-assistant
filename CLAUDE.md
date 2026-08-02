@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Chrome extension (Manifest V3) for a Toastmasters VPE (Vice President Education) to consolidate
 member Pathways progress tracking, from two sources: **Basecamp Toastmasters** (a clean internal
-JSON API) and **EasySpeak** (`tmclub.eu`, no API — HTML pages that must be parsed). Both scrapers
-store their extraction locally; there's no build step, no package manager, and no test suite — this
-is plain, unbundled JS loaded directly by Chrome.
+JSON API) and **EasySpeak** (no API — HTML pages that must be parsed; runs as three separate
+regional deployments — `tmclub.eu` (default), `toastmasterclub.org`, `easy-speak.org` — picked in
+Settings, see `lib/settings-store.js` below). Both scrapers store their extraction locally; there's
+no build step, no package manager, and no test suite — this is plain, unbundled JS loaded directly
+by Chrome.
 
 ## Running / testing changes
 
@@ -16,11 +18,13 @@ There are no build/lint/test commands. To try changes:
 
 1. Open `chrome://extensions`, enable "Developer mode".
 2. "Load unpacked" → select this repo's root folder (or "Reload" the extension after edits).
-3. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or `https://tmclub.eu/` (any
-   tab, any time beforehand).
+3. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or your configured EasySpeak
+   server (`https://tmclub.eu/` by default — see Settings to change it; any tab, any time
+   beforehand).
 4. Click the extension icon, then "Extract Basecamp data" and/or "Extract EasySpeak data" — no
-   Basecamp tab needs to stay open. EasySpeak scraping will briefly take over a `tmclub.eu` tab
-   (reusing one if open, otherwise opening and focusing a new one — see Architecture for why), which
+   Basecamp tab needs to stay open. EasySpeak scraping will briefly take over a tab on the
+   configured EasySpeak server (reusing one if open, otherwise opening and focusing a new one — see
+   Architecture for why), which
    **closes the popup immediately** (Chrome tears down `action` popups as soon as they lose focus,
    and stealing tab/window focus is exactly what `ensureEasySpeakTab()` does). Reopen the popup once
    that tab is done to see the result — see the storage note below for why this works.
@@ -66,8 +70,9 @@ background service worker → source-specific scraper**.
   reopening the popup while EasySpeak is still running in its own tab). Does not touch `chrome.tabs`,
   `chrome.action`, or `chrome.storage.session` itself — all tab handling for EasySpeak lives in
   `lib/easyspeak-api.js`, all icon/status handling lives in `lib/icon-state.js`, both background-only.
-- **`background.js`** — service worker. `importScripts()`s `lib/basecamp-api.js`, `lib/easyspeak-api.js`,
-  and `lib/icon-state.js`. One `onMessage` listener: `SCRAPE_BASECAMP`/`SCRAPE_EASYSPEAK` both go
+- **`background.js`** — service worker. `importScripts()`s `lib/basecamp-api.js`,
+  `lib/settings-store.js`, `lib/easyspeak-api.js`, and `lib/icon-state.js`. One `onMessage`
+  listener: `SCRAPE_BASECAMP`/`SCRAPE_EASYSPEAK` both go
   through a shared `runScrape(source, scrapeFn, sendResponse)` helper that brackets the call with
   `setSourceStatus(source, "loading"/"success"/"error")` (see below) before `sendResponse({ok:
   true, data} / {ok: false, error})`; `POPUP_OPENED` calls `acknowledgeIconStatuses()` and replies
@@ -115,19 +120,27 @@ background service worker → source-specific scraper**.
      as-is, and a self-created tab is left open on failure/timeout so the user can see what went
      wrong, the same rule `scrapeAllEasySpeakClubs()` applies to its own tab.
 - **EasySpeak is architecturally different, and deliberately so** — don't "simplify" it to match
-  Basecamp's fetch-only shape. `tmclub.eu` is behind Cloudflare, which blocks plain `fetch()`/`XHR`
-  outright regardless of which extension context issues it (background worker, content script, or
-  an offscreen document all get challenged identically) — Cloudflare's bot detection tells a real
-  page navigation apart from a programmatic fetch via the `Sec-Fetch-Mode`/`Sec-Fetch-Dest` request
-  headers (`navigate`/`document` vs. `cors`/`empty`), and only an actual tab navigation produces the
-  former. A background-fetch-plus-`chrome.offscreen`-DOM-parsing design was tried first and
-  confirmed broken in real testing (Cloudflare's "Just a moment..." managed-challenge page came back
-  instead of the real content) before landing on the current tab-navigation design — if you're
-  tempted to move EasySpeak back to a tab-less fetch for symmetry with Basecamp, it will not work.
-  - **`lib/easyspeak-api.js`** — orchestration, `importScripts`'d into `background.js`:
-    `ensureEasySpeakTab()` finds an existing `tmclub.eu` tab to reuse (focusing it) or creates and
-    focuses a new one (visible, not hidden, so the user can solve an interactive Cloudflare puzzle
-    if the usually-automatic "managed" challenge ever escalates to one). `loadAndParse(tabId, url,
+  Basecamp's fetch-only shape. All three EasySpeak deployments (see `lib/settings-store.js` below)
+  sit behind Cloudflare, which blocks plain `fetch()`/`XHR` outright regardless of which extension
+  context issues it (background worker, content script, or an offscreen document all get challenged
+  identically) — Cloudflare's bot detection tells a real page navigation apart from a programmatic
+  fetch via the `Sec-Fetch-Mode`/`Sec-Fetch-Dest` request headers (`navigate`/`document` vs.
+  `cors`/`empty`), and only an actual tab navigation produces the former. A
+  background-fetch-plus-`chrome.offscreen`-DOM-parsing design was tried first and confirmed broken
+  in real testing (Cloudflare's "Just a moment..." managed-challenge page came back instead of the
+  real content) before landing on the current tab-navigation design — if you're tempted to move
+  EasySpeak back to a tab-less fetch for symmetry with Basecamp, it will not work.
+  - **`lib/easyspeak-api.js`** — orchestration, `importScripts`'d into `background.js`. Every
+    domain-specific URL is derived at call time rather than hardcoded: `scrapeAllEasySpeakClubs()`
+    reads the configured server via `getEasySpeakServer()` (`lib/settings-store.js`) into a `root`
+    (`https://${server}`) used to build both `profile.php`/`memberchart.php` URLs and passed to
+    `ensureEasySpeakTab(server)`; `navigateAndWaitForRealPage(tabId, url)` derives its own
+    `loginPath` from `` `${new URL(url).origin}/login.php` `` rather than a fixed constant, so it
+    works against whichever server `url` itself points at without needing a separate parameter.
+    `ensureEasySpeakTab(server)` finds an existing tab on that server to reuse (focusing it) or
+    creates and focuses a new one (visible, not hidden, so the user can solve an interactive
+    Cloudflare puzzle if the usually-automatic "managed" challenge ever escalates to one).
+    `loadAndParse(tabId, url,
     parseFnName)` calls `navigateAndWaitForRealPage(tabId, url)`, which registers its
     `chrome.tabs.onUpdated`/`onRemoved` listeners **before** calling `chrome.tabs.update(tabId,
     {url})`, and only resolves on an actual `"complete"` event whose `tab.url` matches the target
@@ -400,13 +413,33 @@ re-derived (and possibly un-derived) from names again.
   the rest of this codebase's rebuild-and-reassign-`innerHTML` rendering style. A member with more
   than one simultaneous orphaned path pair renders one picker row per `basecamp-only` path (`<select>`
   over that member's `easyspeak-only` candidates) rather than assuming exactly one pair.
-- **`settings/settings.html` + `settings/settings.js`** — club-name and path-name lookup editors
-  (small, low-cardinality, edited rarely — no live-recompute loop like `members.js`; each section
-  just re-reads its own storage after a write). Club section's "add mapping" form is populated from
-  `basecampData`/`easyspeakData`'s current club lists (excluding already-pinned ones). Path section
-  edits `pathLookup` directly; adding a new canonical name lowercases it before saving, since
-  `canonicalizePathName()` always lowercases the raw path before consulting the lookup, so a
-  mixed-case key would simply never match.
+- **`settings/settings.html` + `settings/settings.js`** — EasySpeak server picker, club-name lookup,
+  and path-name lookup editors (small, low-cardinality, edited rarely — no live-recompute loop like
+  `members.js`; each section just re-reads its own storage after a write). The EasySpeak server
+  section (first on the page — a foundational "which data source" choice, unlike the other two
+  sections which reconcile whatever data comes back) renders a `<select>` from
+  `EASYSPEAK_SERVERS` (`lib/settings-store.js`) preselected via `getEasySpeakServer()`, with an
+  explicit "Save" button (matching this page's existing button-triggered-write convention rather
+  than auto-saving on `change`) that calls `setEasySpeakServer()`; a "Saved." confirmation
+  (`.save-status.visible`) is hidden again the moment the selection changes, so it can't linger
+  next to an unsaved new choice. Changing it does **not** clear any already-extracted
+  `easyspeakData`/`easyspeakScrapedAt` — it only affects the URL the *next* "Extract EasySpeak
+  data" run targets, same as any ordinary stale-data situation; the help text calls this out. Club
+  section's "add mapping" form is populated from `basecampData`/`easyspeakData`'s current club
+  lists (excluding already-pinned ones). Path section edits `pathLookup` directly; adding a new
+  canonical name lowercases it before saving, since `canonicalizePathName()` always lowercases the
+  raw path before consulting the lookup, so a mixed-case key would simply never match.
+- **`lib/settings-store.js`** — storage I/O for general extension settings, currently just the
+  EasySpeak server choice (`easyspeakServer` key). Deliberately **not** folded into
+  `lib/resolution-store.js`, which is scoped specifically to member/club/path matching decisions —
+  this is a different, unrelated concern. `EASYSPEAK_SERVERS` (id + display label for each of the
+  three deployments) and `DEFAULT_EASYSPEAK_SERVER` (`"tmclub.eu"`) are the single source of truth
+  for both the Settings dropdown and `getEasySpeakServer()`'s fallback (used whenever the stored
+  value is absent or isn't one of the three known ids — defensive against a future removed/renamed
+  entry). **Loaded in two places, unlike every other `lib/*-store.js` file**: via `<script>` in
+  `settings.html` (for the dropdown) *and* `importScripts`'d into `background.js` (new — the first
+  settings/resolution store the service worker needs), because the actual URL construction that
+  needs the chosen server happens in `lib/easyspeak-api.js`, which only runs there.
 - **`lib/dom-utils.js`** — `escapeHtml()` (extracted from being duplicated in `popup.js`/`report.js`;
   now shared by all four HTML pages) and `escapeAttr()`. **Use `escapeAttr`, not `escapeHtml`, for
   any untrusted text (scraped member/path names) written into an HTML attribute value** (e.g. an
