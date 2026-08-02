@@ -10,14 +10,14 @@
 import { scrapeAllClubs } from "./api/basecamp";
 import { scrapeAllEasySpeakClubs } from "./api/easyspeak";
 import { acknowledgeIconStatuses, setSourceStatus } from "./icon-state";
-import type { BasecampScrape, EasySpeakScrape, Request, ScrapeEnvelope, SourceKey } from "../shared/types";
+import type { BasecampScrape, EasySpeakScrape, Request, ScrapeEnvelope, ScrapeFn, SourceKey } from "../shared/types";
 
 /**
  * Runs a scrape function, tracking its loading/success/error status (and
  * therefore the toolbar icon) throughout, regardless of whether the popup
  * that sent the triggering message is still around to receive sendResponse.
  */
-async function runScrape<T>(source: SourceKey, scrapeFn: () => Promise<T>, sendResponse: (response: ScrapeEnvelope<T>) => void): Promise<void> {
+async function runScrape<T>(source: SourceKey, scrapeFn: ScrapeFn<T>, sendResponse: (response: ScrapeEnvelope<T>) => void): Promise<void> {
   await setSourceStatus(source, "loading");
   try {
     const data = await scrapeFn();

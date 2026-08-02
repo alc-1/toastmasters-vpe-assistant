@@ -260,6 +260,14 @@ export type IconStatuses = Record<SourceKey, SourceStatus>;
 
 export type ScrapeEnvelope<T> = { ok: true; data: T } | { ok: false; error: string };
 
+// The shape api/basecamp.ts's scrapeAllClubs() and api/easyspeak.ts's
+// scrapeAllEasySpeakClubs() both already have — background/messaging.ts's
+// runScrape() only ever needs this much of either module to bracket a
+// scrape with icon-state updates, which is what lets each module swap in
+// shared/mock/mockData.ts fixtures internally (see getMockMode()) without
+// messaging.ts or any UI page needing to know.
+export type ScrapeFn<T> = () => Promise<T>;
+
 export type Request = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSPEAK" } | { type: "POPUP_OPENED" };
 
 // NB: POPUP_OPENED deliberately returns a bare IconStatuses, not the

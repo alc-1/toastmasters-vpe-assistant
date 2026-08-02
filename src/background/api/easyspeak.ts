@@ -26,10 +26,15 @@
 // of whether the popup is still around when scraping finishes;
 // popup/index.ts's init() already reads from storage on open and will pick
 // it up next time it's opened.
+//
+// Mock mode (shared/settings-store.ts's getMockMode()) is checked first,
+// before ensureEasySpeakTab() — see the top of scrapeAllEasySpeakClubs().
+// No tab is ever created/focused while mock mode is on.
 
 import { local } from "../../shared/storage";
 import { pageUrl } from "../../shared/pages";
-import { getEasySpeakServer } from "../../shared/settings-store";
+import { getEasySpeakServer, getMockMode } from "../../shared/settings-store";
+import { MOCK_EASYSPEAK_DATA } from "../../shared/mock/mockData";
 import type { EasySpeakScrape, MemberchartParseResult, ProfileParseResult } from "../../shared/types";
 
 // The critical integration point: importing with the `?iife` query resolves
@@ -56,6 +61,13 @@ const LOGIN_TIMEOUT_MESSAGE = "EasySpeak requires you to log in. Switch to the E
  * navigates through and parses each such club's Pathways member chart.
  */
 export async function scrapeAllEasySpeakClubs(): Promise<EasySpeakScrape> {
+  if (await getMockMode()) {
+    // Mirrors the real path's storage write below, so popup/index.ts and
+    // every options page behave identically regardless of data origin.
+    await local.set({ easyspeakData: MOCK_EASYSPEAK_DATA, easyspeakScrapedAt: Date.now() });
+    return MOCK_EASYSPEAK_DATA;
+  }
+
   const server = await getEasySpeakServer();
   const root = `https://${server}`;
   const tabId = await ensureEasySpeakTab();

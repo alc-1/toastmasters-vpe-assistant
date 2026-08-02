@@ -1,14 +1,16 @@
 // src/shared/settings-store.ts
 //
-// Storage I/O for general extension settings — currently just which
-// EasySpeak server (regional deployment) to scrape. Unlike
+// Storage I/O for general extension settings — which EasySpeak server
+// (regional deployment) to scrape, and whether mock/demo mode is on. Unlike
 // shared/resolution-store.ts (scoped specifically to member/club/path
-// matching decisions), this is a different, unrelated concern, so it gets
-// its own file rather than a 7th key bolted onto that one.
+// matching decisions), these are different, unrelated concerns from
+// matching, so they get their own file rather than being bolted onto that
+// one.
 //
-// Used from both the settings options page (for the dropdown UI) AND
-// background/api/easyspeak.ts, since the URL construction that needs the
-// chosen server happens in the service worker.
+// Used from both the settings options page (for the dropdown/checkbox UI)
+// AND background/api/basecamp.ts + background/api/easyspeak.ts, since the
+// actual decisions that need these settings (which server URL to hit,
+// whether to skip the real scrape entirely) happen in the service worker.
 
 import { local } from "./storage";
 import type { EasySpeakServer, EasySpeakServerId } from "./types";
@@ -36,4 +38,19 @@ export async function setEasySpeakServer(serverId: EasySpeakServerId): Promise<v
     throw new Error(`Unknown EasySpeak server: ${serverId}`);
   }
   await local.set({ easyspeakServer: serverId });
+}
+
+/**
+ * When true, api/basecamp.ts and api/easyspeak.ts return built-in demo
+ * fixtures (shared/mock/mockData.ts) instead of contacting the real
+ * network/tab-navigation flows — a Chrome Web Store review workaround (a
+ * reviewer can't log into either system) and an onboarding demo, gated
+ * behind a plain runtime setting rather than a rebuild.
+ */
+export async function getMockMode(): Promise<boolean> {
+  return (await local.value("mockMode")) ?? false;
+}
+
+export async function setMockMode(enabled: boolean): Promise<void> {
+  await local.set({ mockMode: enabled });
 }

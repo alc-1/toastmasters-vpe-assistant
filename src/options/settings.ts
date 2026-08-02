@@ -9,7 +9,7 @@
 import { escapeAttr, escapeHtml } from "../shared/dom-utils";
 import { local } from "../shared/storage";
 import { getClubLookup, getPathLookup, pinClub, removeClubPin, setPathAliases, deletePathCanonical } from "../shared/resolution-store";
-import { EASYSPEAK_SERVERS, getEasySpeakServer, setEasySpeakServer } from "../shared/settings-store";
+import { EASYSPEAK_SERVERS, getEasySpeakServer, getMockMode, setEasySpeakServer, setMockMode } from "../shared/settings-store";
 import type { BasecampScrape, ClubLookupEntry, EasySpeakScrape, EasySpeakServerId, PathLookup } from "../shared/types";
 
 let basecampData: BasecampScrape | null = null;
@@ -22,9 +22,51 @@ async function init() {
   basecampData = cached.basecampData ?? null;
   easyspeakData = cached.easyspeakData ?? null;
 
+  await refreshMockMode();
   await refreshEasySpeakServer();
   await refreshClubLookup();
   await refreshPathLookup();
+}
+
+// ---------------------------------------------------------------------------
+// Demo / mock mode
+// ---------------------------------------------------------------------------
+
+async function refreshMockMode() {
+  const current = await getMockMode();
+  document.getElementById("mockModeRoot")!.innerHTML = renderMockModeSection(current);
+  attachMockModeHandlers();
+}
+
+function renderMockModeSection(current: boolean): string {
+  return `
+    <div class="add-form">
+      <label><input type="checkbox" id="mockModeCheckbox"${current ? " checked" : ""}> Enable demo/mock mode</label>
+      <button data-action="save-mock-mode">Save</button>
+      <span class="save-status" id="mockModeStatus">Saved.</span>
+    </div>
+  `;
+}
+
+function attachMockModeHandlers() {
+  const root = document.getElementById("mockModeRoot")!;
+  const saveBtn = root.querySelector<HTMLButtonElement>('[data-action="save-mock-mode"]');
+  if (saveBtn) saveBtn.addEventListener("click", onSaveMockMode);
+
+  // Hide the "Saved." confirmation again as soon as the checkbox changes,
+  // so it can't misleadingly linger next to an unsaved new choice.
+  const checkbox = document.getElementById("mockModeCheckbox");
+  if (checkbox) {
+    checkbox.addEventListener("change", () => {
+      document.getElementById("mockModeStatus")!.classList.remove("visible");
+    });
+  }
+}
+
+async function onSaveMockMode() {
+  const checkbox = document.getElementById("mockModeCheckbox") as HTMLInputElement;
+  await setMockMode(checkbox.checked);
+  document.getElementById("mockModeStatus")!.classList.add("visible");
 }
 
 // ---------------------------------------------------------------------------

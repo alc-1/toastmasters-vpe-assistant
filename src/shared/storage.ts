@@ -40,6 +40,7 @@ export interface LocalSchema {
   memberPathOverrides: MemberPathOverride[];
   memberPathExclusions: MemberPathExclusion[];
   easyspeakServer: EasySpeakServerId;
+  mockMode: boolean;
 }
 
 export interface SessionSchema {

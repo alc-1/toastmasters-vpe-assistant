@@ -12,9 +12,14 @@
 // succeeded and that the scrape is continuing in the background. That page
 // itself auto-closes the tab a few seconds later (cancellable) — see
 // status/countdown.ts, shared with EasySpeak's equivalent confirmation page.
+//
+// Mock mode (shared/settings-store.ts's getMockMode()) is checked first,
+// before any of the above — see the top of scrapeAllClubs().
 
 import { local } from "../../shared/storage";
 import { pageUrl } from "../../shared/pages";
+import { getMockMode } from "../../shared/settings-store";
+import { MOCK_BASECAMP_DATA } from "../../shared/mock/mockData";
 import type { BasecampMember, BasecampScrape } from "../../shared/types";
 
 const API_ROOT = "https://basecamp.toastmasters.org/api";
@@ -45,6 +50,13 @@ interface BasecampProgressPage {
  * for each club.
  */
 export async function scrapeAllClubs(): Promise<BasecampScrape> {
+  if (await getMockMode()) {
+    // Mirrors the real path's storage write below, so popup/index.ts and
+    // every options page behave identically regardless of data origin.
+    await local.set({ basecampData: MOCK_BASECAMP_DATA, basecampScrapedAt: Date.now() });
+    return MOCK_BASECAMP_DATA;
+  }
+
   const roles = (await fetchJson(`${API_ROOT}/members/roles`)) as unknown;
 
   if (!Array.isArray(roles)) {
