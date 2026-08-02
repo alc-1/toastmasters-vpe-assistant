@@ -1,0 +1,96 @@
+{
+  "201": {
+    "name": "Riverside Toastmasters",
+    "members": [
+      {
+        "memberId": "301",
+        "name": "Grace Thompson",
+        "path": "Dynamic Leadership",
+        "levels": [
+          { "level": 1, "needed": 2, "done": 2 },
+          { "level": 2, "needed": 2, "done": 2 },
+          { "level": 3, "needed": 1, "done": 1 },
+          { "level": 4, "needed": 2, "done": 0 },
+          { "level": 5, "needed": 1, "done": 0 }
+        ]
+      },
+      {
+        "memberId": "302",
+        "name": "Marcus Delacroix",
+        "path": "Coaching efficace",
+        "levels": [
+          { "level": 1, "needed": 1, "done": 1 },
+          { "level": 2, "needed": 2, "done": 0 },
+          { "level": 3, "needed": 1, "done": 0 },
+          { "level": 4, "needed": 2, "done": 0 },
+          { "level": 5, "needed": 1, "done": 0 }
+        ]
+      },
+      {
+        "memberId": "303",
+        "name": "Owen Brights",
+        "path": "Team Collaboration",
+        "levels": [
+          { "level": 1, "needed": 1, "done": 1 },
+          { "level": 2, "needed": 2, "done": 0 },
+          { "level": 3, "needed": 1, "done": 0 },
+          { "level": 4, "needed": 2, "done": 0 },
+          { "level": 5, "needed": 1, "done": 0 }
+        ]
+      },
+      {
+        "memberId": "304",
+        "name": "Someone Completely Different",
+        "path": "Presentation Mastery",
+        "levels": [
+          { "level": 1, "needed": 1, "done": 0 },
+          { "level": 2, "needed": 2, "done": 0 },
+          { "level": 3, "needed": 1, "done": 0 },
+          { "level": 4, "needed": 2, "done": 0 },
+          { "level": 5, "needed": 1, "done": 0 }
+        ]
+      },
+      {
+        "memberId": "305",
+        "name": "Helena Voss",
+        "path": "Team Collaboration",
+        "levels": [
+          { "level": 1, "needed": 1, "done": 1 },
+          { "level": 2, "needed": 2, "done": 0 },
+          { "level": 3, "needed": 1, "done": 0 },
+          { "level": 4, "needed": 2, "done": 0 },
+          { "level": 5, "needed": 1, "done": 0 }
+        ]
+      },
+      {
+        "memberId": "306",
+        "name": "Nadia Okafor",
+        "path": "Visionary Communication",
+        "levels": [
+          { "level": 1, "needed": 1, "done": 0 },
+          { "level": 2, "needed": 2, "done": 0 },
+          { "level": 3, "needed": 1, "done": 0 },
+          { "level": 4, "needed": 2, "done": 0 },
+          { "level": 5, "needed": 1, "done": 0 }
+        ]
+      }
+    ]
+  },
+  "202": {
+    "name": "Easyspeak Only Club",
+    "members": [
+      {
+        "memberId": "401",
+        "name": "Tomasz Nowak",
+        "path": "Engaging Humor",
+        "levels": [
+          { "level": 1, "needed": 1, "done": 0 },
+          { "level": 2, "needed": 2, "done": 0 },
+          { "level": 3, "needed": 1, "done": 0 },
+          { "level": 4, "needed": 2, "done": 0 },
+          { "level": 5, "needed": 1, "done": 0 }
+        ]
+      }
+    ]
+  }
+}

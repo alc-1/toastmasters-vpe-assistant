@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head><title>Member Chart</title></head>
+<body>
+<table class="forumline">
+  <tr><th>Announcement</th></tr>
+  <tr><td>Welcome to the memberchart page! Club meetings are every Tuesday.</td></tr>
+</table>
+
+<table class="forumline">
+  <tr>
+    <th>Name</th>
+    <th>Action</th>
+    <th>Last spoke</th>
+    <th>1</th>
+    <th>2</th>
+    <th>3</th>
+    <th>4</th>
+    <th>5</th>
+    <th>Path</th>
+  </tr>
+
+  <!-- Row A: href-linked id, mandatory icons done + not-done, role icons excluded,
+       elective bucket at exact cap, non-counted named-series bucket -->
+  <tr>
+    <td><a href="memberview.php?u=501">Alice Martin</a></td>
+    <td>Edit</td>
+    <td>2026-07-01</td>
+    <td><img src="images/icon_tick.gif" /><img src="images/icon_tick_dkgreen.gif" /></td>
+    <td><img src="images/icon_box.gif" /><img src="images/icon_clock.gif" /></td>
+    <td><img src="images/icon_tick.gif" /><img src="images/icon_b_box.gif" /><img src="images/icon_tick_orange.gif" /></td>
+    <td><span style="border:1px dashed #999;" title="Complete 2 elective speeches"><img src="images/icon_tick.gif" /><img src="images/icon_tick.gif" /><img src="images/icon_box.gif" /></span></td>
+    <td><span style="border:1px dashed #999;" title="Successful Club Series"><img src="images/icon_tick.gif" /></span></td>
+    <td>Dynamic Leadership</td>
+  </tr>
+
+  <!-- Row B: onclick-linked id (javascript:void(0) href) -->
+  <tr>
+    <td><a href="javascript:void(0)" onclick="popup('memberview.php?u=502')">Bob Dupont</a></td>
+    <td>Edit</td>
+    <td>2026-06-20</td>
+    <td><img src="images/icon_tick.gif" /></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>Leadership Development</td>
+  </tr>
+
+  <!-- Row C: accented name -->
+  <tr>
+    <td><a href="memberview.php?u=503">&Eacute;lodie M&uuml;ller</a></td>
+    <td>Edit</td>
+    <td>2026-05-11</td>
+    <td><img src="images/icon_box.gif" /></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>Engaging Humor</td>
+  </tr>
+
+  <!-- Row D: name with trailing role/honorific codes -->
+  <tr>
+    <td><a href="memberview.php?u=504">Nigel Thew CC EC2</a></td>
+    <td>Edit</td>
+    <td>2026-04-02</td>
+    <td><img src="images/icon_question_bubble.gif" /></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>Persuasive Influence</td>
+  </tr>
+
+  <!-- Row E: first path row for a multi-path member -->
+  <tr>
+    <td><a href="memberview.php?u=505">Carla Ivanova</a></td>
+    <td>Edit</td>
+    <td>2026-07-15</td>
+    <td><img src="images/icon_tick_dkgreen.gif" /></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>Visionary Communication</td>
+  </tr>
+
+  <!-- Row F: second path row for the same member, using the "''" placeholder name -->
+  <tr>
+    <td><a href="memberview.php?u=505">''</a></td>
+    <td>Edit</td>
+    <td>2026-07-15</td>
+    <td><img src="images/icon_box.gif" /></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>Team Collaboration</td>
+  </tr>
+
+  <!-- Row G: elective bucket with more ticks than required (capped at N) -->
+  <tr>
+    <td><a href="memberview.php?u=506">Diego Fernandez</a></td>
+    <td>Edit</td>
+    <td>2026-03-09</td>
+    <td><span style="border:1px dashed #999;" title="Complete 2 elective speeches"><img src="images/icon_tick.gif" /><img src="images/icon_tick.gif" /><img src="images/icon_tick_dkgreen.gif" /></span></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>Innovative Planning</td>
+  </tr>
+
+  <!-- Row H: member with no progress at all yet -->
+  <tr>
+    <td><a href="memberview.php?u=507">Fatima Haddad</a></td>
+    <td>Edit</td>
+    <td>-</td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>Strategic Relationships</td>
+  </tr>
+</table>
+</body>
+</html>

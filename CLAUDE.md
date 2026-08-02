@@ -8,20 +8,28 @@ A Chrome extension (Manifest V3) for a Toastmasters VPE (Vice President Educatio
 member Pathways progress tracking, from two sources: **Basecamp Toastmasters** (a clean internal
 JSON API) and **EasySpeak** (no API — HTML pages that must be parsed; runs as three separate
 regional deployments — `tmclub.eu` (default), `toastmasterclub.org`, `easy-speak.org` — picked in
-Settings, see `lib/settings-store.js` below). Both scrapers store their extraction locally; there's
-no build step, no package manager, and no test suite — this is plain, unbundled JS loaded directly
-by Chrome.
+Settings, see `lib/settings-store.js` below). Both scrapers store their extraction locally. The
+extension itself is still plain, unbundled JS loaded directly by Chrome — no transpilation/bundling
+of the runtime code — but there is now a thin `npm`-based scaffold around it: a copy-based build
+producing `dist/` (see `scripts/build.js`) and a Vitest suite covering the pure parsing/matching
+logic (see "Running / testing changes" below).
 
 ## Running / testing changes
 
-There are no build/lint/test commands. To try changes:
+`npm install` once, then `npm test` (Vitest, see below) for logic changes. To manually try changes
+in the browser:
 
-1. Open `chrome://extensions`, enable "Developer mode".
-2. "Load unpacked" → select this repo's root folder (or "Reload" the extension after edits).
-3. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or your configured EasySpeak
+1. `npm run build` — copies the runtime files (`manifest.json`, `background.js`, `icons/`, `lib/`,
+   `members/`, `popup/`, `report/`, `settings/`, `status/`) into `dist/` byte-for-byte (see
+   `scripts/build.js`; no transpilation/minification/bundling). Re-run after every edit, or use
+   `npm run build:watch` to do it automatically. `dist/` is gitignored, regenerable, and is now the
+   "Load unpacked" target — not the repo root.
+2. Open `chrome://extensions`, enable "Developer mode".
+3. "Load unpacked" → select this repo's `dist/` folder (or "Reload" the extension after rebuilding).
+4. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or your configured EasySpeak
    server (`https://tmclub.eu/` by default — see Settings to change it; any tab, any time
    beforehand).
-4. Click the extension icon, then "Extract Basecamp data" and/or "Extract EasySpeak data" — no
+5. Click the extension icon, then "Extract Basecamp data" and/or "Extract EasySpeak data" — no
    Basecamp tab needs to stay open (unless a login is required — see Architecture). EasySpeak
    scraping always opens and focuses a brand-new tab on the configured EasySpeak server (never
    reuses an already-open one — see Architecture for why), which
@@ -29,11 +37,11 @@ There are no build/lint/test commands. To try changes:
    and stealing tab/window focus is exactly what `ensureEasySpeakTab()` does). That tab redirects to
    a "data fetched" confirmation page and closes itself a few seconds later once scraping finishes;
    reopen the popup to see the result — see the storage note below for why this works.
-5. Inspect the popup summary table and the raw JSON under "Raw data", or check the background
+6. Inspect the popup summary table and the raw JSON under "Raw data", or check the background
    service worker's console (`chrome://extensions` → this extension → "service worker" inspect
    link) for errors. Code injected into the EasySpeak tab via `chrome.scripting` logs to that
    *tab's* own DevTools console, not the service worker's.
-6. Watch the toolbar icon while a scrape runs: it should animate (spinning), then land on a green
+7. Watch the toolbar icon while a scrape runs: it should animate (spinning), then land on a green
    check or red cross, then revert to the classic icon the next time you open the popup (see
    `lib/icon-state.js` in Architecture). Each source's button should be disabled only while *that*
    source is loading.
@@ -41,12 +49,26 @@ There are no build/lint/test commands. To try changes:
 Background worker errors surface via the response returned to the popup (`{ ok: false, error }`),
 not the console — check `popup.js`'s status line first when debugging a failed scrape.
 
-There's no automated test harness in the extension itself, but the HTML-parsing logic in
-`lib/easyspeak-parser.js` (`parseProfileLinks`, `parseMemberchart`, `parseLevelCell`) is pure and
-DOM-based (takes a `Document`, no `chrome.*` dependency), so it can be exercised standalone with
-`jsdom` outside the browser — useful for validating parsing changes against the fixtures in
-`example/` (see below) without reloading the extension. There's no checked-in script for this; spin
-one up in the scratchpad if needed.
+`npm test` (Vitest) runs the real automated suite in `tests/`, against fixtures in `test-data/`:
+- `tests/easyspeak-parser.test.js` exercises the pure, DOM-based HTML-parsing logic in
+  `lib/easyspeak-parser.js` (`parseProfileLinks`, `parseMemberchart`, `parseLevelCell`) via `jsdom`
+  against `test-data/easyspeak/profile.html`/`memberchart.html`.
+- `tests/report.test.js` exercises the matching/diff pipeline in `lib/report.js` (`buildReport`,
+  `matchClubs`, `matchMembers`, `nameScore`, `canonicalizePathName`, `matchPaths`,
+  `hasOrphanedPaths`, `diffLevel`, `toCsv`, etc.) against `test-data/report/*.sample.json`, plus
+  inline-literal cases for pure functions like `normalizeName`/`levenshtein`.
+- `tests/dom-utils.test.js` covers `lib/dom-utils.js`'s `escapeHtml`/`escapeAttr`/`warningIconHtml`.
+- `test-data/` is **fully synthetic and versioned** (fabricated names, `example.test`/`example.com`
+  emails) — deliberately *not* derived from `example/`, which stays a separate, gitignored,
+  real-data-only scratch folder for manual debugging that the automated suite never reads.
+- Both `lib/easyspeak-parser.js` and `lib/dom-utils.js` (alongside the pre-existing `lib/report.js`)
+  now end with a guarded `module.exports` block, so they load as browser globals unchanged
+  (`window.parseProfileLinks` etc. via `chrome.scripting`; plain `<script>` globals for
+  `escapeHtml`/`escapeAttr`/`warningIconHtml`) while also being `require`-able from Vitest/Node.
+- Out of scope, unchanged manual-only workflow: `lib/basecamp-api.js`, `lib/easyspeak-api.js`,
+  `lib/resolution-store.js`, `lib/settings-store.js`'s `getEasySpeakServer`/`setEasySpeakServer`,
+  `lib/icon-state.js`, and every popup/report/members/settings/status page — all genuinely
+  `chrome.*`-dependent (tabs, scripting, storage) with no pure logic worth isolating.
 
 ## Architecture
 

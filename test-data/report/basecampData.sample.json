@@ -1,0 +1,96 @@
+{
+  "bcclub-riverside": {
+    "name": "Riverside Toastmasters",
+    "members": [
+      {
+        "user": { "id": 9001, "name": "Grace Thompson", "email": "grace.thompson@example.test" },
+        "path_name": "Dynamic Leadership",
+        "progression": {
+          "Level 1": { "completed": 2, "total": 2, "approved": true },
+          "Level 2": { "completed": 2, "total": 2, "approved": true },
+          "Level 3": { "completed": 1, "total": 1, "approved": false },
+          "Level 4": { "completed": 0, "total": 2, "approved": false },
+          "Level 5": { "completed": 0, "total": 1, "approved": false },
+          "Path Completion": { "completed": 0, "total": 1 }
+        }
+      },
+      {
+        "user": { "id": 9002, "name": "Marcus Delacroix", "email": "marcus.delacroix@example.test" },
+        "path_name": "Effective Coaching",
+        "progression": {
+          "Level 1": { "completed": 1, "total": 1, "approved": true },
+          "Level 2": { "completed": 0, "total": 2, "approved": false },
+          "Level 3": { "completed": 0, "total": 1, "approved": false },
+          "Level 4": { "completed": 0, "total": 2, "approved": false },
+          "Level 5": { "completed": 0, "total": 1, "approved": false },
+          "Path Completion": { "completed": 0, "total": 1 }
+        }
+      },
+      {
+        "user": { "id": 9003, "name": "Owen Bright", "email": "owen.bright@example.test" },
+        "path_name": "Team Collaboration",
+        "progression": {
+          "Level 1": { "completed": 1, "total": 1, "approved": true },
+          "Level 2": { "completed": 0, "total": 2, "approved": false },
+          "Level 3": { "completed": 0, "total": 1, "approved": false },
+          "Level 4": { "completed": 0, "total": 2, "approved": false },
+          "Level 5": { "completed": 0, "total": 1, "approved": false },
+          "Path Completion": { "completed": 0, "total": 1 }
+        }
+      },
+      {
+        "user": { "id": 9004, "name": "Priya Chandrasekaran", "email": "priya.chandrasekaran@example.test" },
+        "path_name": "Innovative Planning",
+        "progression": {
+          "Level 1": { "completed": 1, "total": 1, "approved": true },
+          "Level 2": { "completed": 0, "total": 2, "approved": false },
+          "Level 3": { "completed": 0, "total": 1, "approved": false },
+          "Level 4": { "completed": 0, "total": 2, "approved": false },
+          "Level 5": { "completed": 0, "total": 1, "approved": false },
+          "Path Completion": { "completed": 0, "total": 1 }
+        }
+      },
+      {
+        "user": { "id": 9005, "name": "Helena Voss", "email": "helena.voss@example.test" },
+        "path_name": "Strategic Relationships",
+        "progression": {
+          "Level 1": { "completed": 1, "total": 1, "approved": true },
+          "Level 2": { "completed": 0, "total": 2, "approved": false },
+          "Level 3": { "completed": 0, "total": 1, "approved": false },
+          "Level 4": { "completed": 0, "total": 2, "approved": false },
+          "Level 5": { "completed": 0, "total": 1, "approved": false },
+          "Path Completion": { "completed": 0, "total": 1 }
+        }
+      },
+      {
+        "user": { "id": 9006, "name": "Samuel Osei", "email": "samuel.osei@example.test" },
+        "path_name": "Motivational Strategies",
+        "progression": {
+          "Level 1": { "completed": 1, "total": 1, "approved": true },
+          "Level 2": { "completed": 0, "total": 2, "approved": false },
+          "Level 3": { "completed": 0, "total": 1, "approved": false },
+          "Level 4": { "completed": 0, "total": 2, "approved": false },
+          "Level 5": { "completed": 0, "total": 1, "approved": false },
+          "Path Completion": { "completed": 0, "total": 1 }
+        }
+      }
+    ]
+  },
+  "bcclub-onlyclub": {
+    "name": "Basecamp Only Club",
+    "members": [
+      {
+        "user": { "id": 9101, "name": "Ingrid Solberg", "email": "ingrid.solberg@example.test" },
+        "path_name": "Visionary Communication",
+        "progression": {
+          "Level 1": { "completed": 1, "total": 1, "approved": true },
+          "Level 2": { "completed": 0, "total": 2, "approved": false },
+          "Level 3": { "completed": 0, "total": 1, "approved": false },
+          "Level 4": { "completed": 0, "total": 2, "approved": false },
+          "Level 5": { "completed": 0, "total": 1, "approved": false },
+          "Path Completion": { "completed": 0, "total": 1 }
+        }
+      }
+    ]
+  }
+}
