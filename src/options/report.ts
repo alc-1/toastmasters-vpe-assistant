@@ -10,6 +10,7 @@ import { escapeHtml, warningIconHtml } from "../shared/dom-utils";
 import { local } from "../shared/storage";
 import { loadResolutionData } from "../shared/resolution-store";
 import { buildLevelSummary, buildReport, reportToRows, toCsv } from "../shared/sync/delta";
+import { renderAppShell } from "../shared/app-shell";
 import type { ClubPairReport, LevelSummaryRow, MemberReport, PathReport, ReportResult } from "../shared/types";
 
 const downloadCsvBtn = document.getElementById("downloadCsvBtn") as HTMLButtonElement;
@@ -34,12 +35,15 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 });
 
 async function refresh() {
+  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "report" });
+
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 
   if (!cached.basecampData || !cached.easyspeakData) {
     currentReport = null;
     downloadCsvBtn.disabled = true;
     document.getElementById("conflictWarning")!.innerHTML = "";
+    document.getElementById("kpiRoot")!.innerHTML = "";
     document.getElementById("clubTabs")!.innerHTML = "";
     document.getElementById("summaryTableRoot")!.innerHTML = "";
     document.getElementById("reportRoot")!.innerHTML =
@@ -70,6 +74,7 @@ async function refresh() {
   downloadCsvBtn.disabled = false;
 
   renderConflictWarning(report);
+  renderKpiRow(report);
 
   // Zipped by index: buildLevelSummary(report) produces one group per
   // report.clubPairs entry, in the same order, so a tab can drive both the
@@ -119,6 +124,62 @@ function renderConflictWarning(report: ReportResult) {
       ${fixLinks.join(" · ")}
     </div>
   `;
+}
+
+// ---------------------------------------------------------------------------
+// KPI row: a global (all-clubs) at-a-glance summary, shown above the club
+// tabs so a VPE sees the overall picture before drilling into one club —
+// every figure here is a plain aggregation over the same ReportResult the
+// rest of the page already renders from, not a new calculation.
+// ---------------------------------------------------------------------------
+
+interface ReportKpis {
+  members: number;
+  paths: number;
+  needsReview: number;
+  missingMatches: number;
+}
+
+function computeKpis(report: ReportResult): ReportKpis {
+  let members = 0;
+  let paths = 0;
+  let needsReview = 0;
+  let missingMatches = 0;
+
+  for (const club of report.clubPairs) {
+    members += club.members.length;
+    for (const member of club.members) {
+      paths += member.paths.filter((p) => !p.nonPathway).length;
+      if (member.matchConfidence === "fuzzy") needsReview += 1;
+      if (member.presence !== "both") missingMatches += 1;
+    }
+  }
+
+  return { members, paths, needsReview, missingMatches };
+}
+
+function renderKpiRow(report: ReportResult) {
+  const root = document.getElementById("kpiRoot")!;
+  const kpis = computeKpis(report);
+
+  const cards: { label: string; value: number; modifier?: "warning" | "danger" }[] = [
+    { label: "Members", value: kpis.members },
+    { label: "Paths", value: kpis.paths },
+    { label: "Needs Review", value: kpis.needsReview, modifier: "warning" },
+    { label: "Missing Matches", value: kpis.missingMatches, modifier: "danger" },
+  ];
+
+  root.innerHTML = cards
+    .map((c) => {
+      const valueClass = c.modifier && c.value > 0 ? ` is-${c.modifier}` : "";
+      return `
+        <div class="kpi-card">
+          <div class="kpi-card__value${valueClass}">${c.value}</div>
+          <div class="kpi-card__label">${escapeHtml(c.label)}</div>
+        </div>
+      `;
+    })
+    .join("");
 }
 
 // ---------------------------------------------------------------------------

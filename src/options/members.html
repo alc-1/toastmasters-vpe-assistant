@@ -13,33 +13,6 @@
       font-size: var(--text-xl);
       margin: 0 0 4px;
     }
-    .chip {
-      padding: 5px 12px;
-      font-size: var(--text-sm);
-      cursor: pointer;
-      background: var(--gray-200);
-      border: 1px solid var(--gray-200);
-      border-radius: var(--radius-pill);
-      color: var(--gray-700);
-    }
-    .chip:hover {
-      background: #e6e6e6;
-    }
-    .chip.active {
-      background: var(--color-primary);
-      border-color: var(--color-primary);
-      color: white;
-    }
-    .chip.active .chip-count {
-      color: var(--color-primary);
-      background: white;
-    }
-    .filter-chips {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 14px;
-      flex-wrap: wrap;
-    }
     .club-summary {
       font-size: var(--text-sm);
       color: var(--gray-600);
@@ -49,7 +22,10 @@
       margin-bottom: 20px;
     }
     table.members tr.detail-row {
-      background: var(--gray-100);
+      background: var(--surface-alt);
+    }
+    table.members tr.detail-row td {
+      border-left: 3px solid var(--tm-silver);
     }
     table.members tr.detail-row.collapsed {
       display: none;
@@ -65,17 +41,18 @@
       padding: 4px 8px;
       margin-right: 4px;
       cursor: pointer;
-      background: var(--color-primary);
+      background: var(--tm-burgundy);
       color: white;
       border: none;
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-sm);
     }
     .actions button.secondary {
-      background: var(--gray-100);
+      background: var(--surface-alt);
       color: var(--gray-700);
+      border: 1px solid var(--border);
     }
     .actions button:disabled {
-      background: var(--color-disabled-bg);
+      background: var(--disabled-bg);
       cursor: not-allowed;
     }
     input.link-search {
@@ -83,7 +60,7 @@
       padding: 3px 6px;
       width: 100%;
       box-sizing: border-box;
-      border: 1px solid var(--gray-300);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
     }
     .path-pair-row {
@@ -100,15 +77,13 @@
   </style>
 </head>
 <body class="page--wide">
+  <div id="appShell"></div>
   <h1>Member Matching</h1>
   <div class="meta" id="pageMeta"></div>
-  <nav class="page-nav" aria-label="Related pages">
-    <a href="report.html">Comparison report</a> · <a href="settings.html">Settings (lookups)</a>
-  </nav>
 
   <div id="conflictWarning" aria-live="polite"></div>
   <div id="clubTabs" class="tabs"></div>
-  <div id="filterChips" class="filter-chips"></div>
+  <div id="filterChips" class="toolbar"></div>
   <p class="help-text">
     "To do" combines Suggested, Unmatched, and Path issues below. A Suggested match is a computer
     guess awaiting your Confirm/Reject — until confirmed, it won't show as matched on the

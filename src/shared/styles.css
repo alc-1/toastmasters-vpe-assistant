@@ -9,36 +9,53 @@
  * Each page keeps a small residual <style> block for layout that's
  * genuinely page-unique (popup's fixed width, report's <col> widths, status
  * pages' centered layout) — this file only carries tokens and classes that
- * were previously duplicated (with drift) across multiple pages.
+ * are shared across multiple pages.
+ *
+ * Toastmasters brand system: burgundy is the primary brand color, navy is
+ * the secondary/"info" accent, silver is reserved for subtle brand-tinted
+ * borders. Font stays the existing system sans-serif stack — Inter isn't
+ * bundled anywhere in this project and adding it would mean either a new
+ * npm dependency or a remote font request (blocked by MV3's default CSP
+ * anyway), both out of scope for a framework-free visual pass.
  */
 
 :root {
-  --color-primary: #772432;
-  --color-primary-hover: #651e2a;
-  --color-primary-active: #551926;
+  /* Toastmasters brand */
+  --tm-burgundy: #772432;
+  --tm-burgundy-hover: #651e2a;
+  --tm-burgundy-active: #551926;
+  --tm-navy: #004165;
+  --tm-silver: #a9b2b1;
 
-  /* Semantic pairs — collapses ~30 ad hoc values previously scattered
-     across all 6 pages down to one bg/text pair per meaning. */
-  --color-success-bg: #dff3e3;
-  --color-success-text: #1e7a34;
-  --color-info-bg: #dbe9ff;
-  --color-info-text: #1a4fa0;
-  --color-attention-bg: #ffe8d6;
-  --color-attention-text: #a65500;
-  --color-warning-bg: #fff2cc;
-  --color-warning-text: #6b5900;
-  --color-danger-bg: #ffe4e4;
-  --color-danger-text: #a01414;
-  --color-danger-solid: #b3261e;
-  --color-disabled-bg: #aaaaaa;
+  /* Semantic status colors — one solid + one pale-bg tint each. --warning's
+     solid value (#d97706, as specified) is too light for AA-safe small bold
+     text on its own tint, so --warning-text is a darkened variant used
+     specifically for badge/label text; --warning itself stays available for
+     larger accents/icons where that headroom doesn't matter. --success and
+     --danger are dark enough to double as their own text color. */
+  --success: #2e7d32;
+  --success-bg: #e6f4ea;
+  --warning: #d97706;
+  --warning-text: #92400e;
+  --warning-bg: #fef3e2;
+  --danger: #c62828;
+  --danger-bg: #fdecea;
+  --info: var(--tm-navy);
+  --info-bg: #e6eef2;
+  --disabled-bg: #aaaaaa;
 
-  /* Gray scale (6 steps, collapses 13 previously ad hoc values). */
+  /* Surfaces (cards, page background, dividers) */
+  --surface: #ffffff;
+  --surface-alt: #f7f8fa;
+  --border: #e2e8f0;
+
+  /* Text grays — not part of the brand palette above, still needed for
+     body copy / muted text and kept separate from --border on purpose
+     (a border color and a text color drifting apart independently is
+     fine; collapsing them would just be coincidental). */
   --gray-900: #222222; /* body text */
   --gray-700: #444444; /* secondary-btn text, inactive tabs */
   --gray-600: #666666; /* the one "muted but AA-readable" text color */
-  --gray-300: #cccccc; /* input borders */
-  --gray-200: #e0e0e0; /* dividers, row borders, chip bg/border */
-  --gray-100: #f5f5f5; /* table header bg, secondary-btn bg */
 
   --text-xs: 11px;
   --text-sm: 12px;
@@ -54,8 +71,8 @@
   --space-5: 24px;
   --space-6: 32px;
 
-  --radius-sm: 3px; /* inputs */
-  --radius-md: 4px; /* buttons, boxes, banners */
+  --radius-sm: 4px; /* inputs */
+  --radius-md: 8px; /* buttons, boxes, banners, cards — the brand target */
   --radius-pill: 999px; /* badges, chips, count badges */
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -70,6 +87,7 @@ body {
   margin: 0 auto;
   padding: 16px 20px 60px;
   color: var(--gray-900);
+  background: var(--surface-alt);
 }
 
 .page--wide {
@@ -105,13 +123,13 @@ body {
 }
 
 .page-nav a {
-  color: var(--color-primary);
+  color: var(--tm-burgundy);
 }
 
 .section-header {
   font-size: var(--text-lg);
   margin: var(--space-6) 0 var(--space-1);
-  border-top: 1px solid var(--gray-200);
+  border-top: 1px solid var(--border);
   padding-top: var(--space-4);
 }
 
@@ -127,6 +145,131 @@ body {
 }
 
 /* ---------------------------------------------------------------------- */
+/* App shell: branded header + primary nav, shared by report/members/     */
+/* settings (see shared/app-shell.ts, the one place that renders this     */
+/* markup — every page just calls it into a placeholder div).             */
+/* ---------------------------------------------------------------------- */
+
+.app-header {
+  background: var(--tm-burgundy);
+  color: #ffffff;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+  overflow: hidden;
+}
+
+.app-header__brand {
+  padding: var(--space-4) var(--space-4) var(--space-3);
+}
+
+.app-header__title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.app-header__subtitle {
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.78);
+  margin-top: 2px;
+}
+
+.app-nav {
+  display: flex;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.app-nav__link {
+  display: inline-block;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-base);
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+}
+
+.app-nav__link:hover {
+  color: #ffffff;
+}
+
+.app-nav__link.active {
+  color: #ffffff;
+  font-weight: 600;
+  border-bottom-color: #ffffff;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Cards                                                                   */
+/* ---------------------------------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.card-header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.card-header__title {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.card-body {
+  padding: var(--space-4);
+}
+
+.card-body > .help-text:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/* KPI row                                                                 */
+/* ---------------------------------------------------------------------- */
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+.kpi-card__value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+  line-height: 1.2;
+}
+
+.kpi-card__value.is-warning {
+  color: var(--warning-text);
+}
+
+.kpi-card__value.is-danger {
+  color: var(--danger);
+}
+
+.kpi-card__label {
+  font-size: var(--text-xs);
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* ---------------------------------------------------------------------- */
 /* Buttons                                                                 */
 /* ---------------------------------------------------------------------- */
 
@@ -135,30 +278,32 @@ body {
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 .btn-primary {
-  background: var(--color-primary);
+  background: var(--tm-burgundy);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
+  background: var(--tm-burgundy-hover);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: var(--color-primary-active);
+  background: var(--tm-burgundy-active);
 }
 
 .btn-secondary {
-  background: var(--gray-100);
+  background: var(--surface-alt);
   color: var(--gray-700);
+  border: 1px solid var(--border);
 }
 
 .btn:disabled {
-  background: var(--color-disabled-bg);
+  background: var(--disabled-bg);
   color: white;
+  border-color: transparent;
   cursor: not-allowed;
 }
 
@@ -176,12 +321,23 @@ body {
 .table td {
   text-align: left;
   padding: var(--space-2);
-  border-bottom: 1px solid var(--gray-200);
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
 .table th {
-  background: var(--gray-100);
+  background: var(--surface-alt);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.table tbody tr:nth-child(even) {
+  background: var(--surface-alt);
+}
+
+.table tbody tr:hover {
+  background: var(--info-bg);
 }
 
 .table tr.muted-row {
@@ -190,7 +346,10 @@ body {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Badges                                                                  */
+/* Badges — grouped into exactly the 4 statuses the Member Matching table  */
+/* distinguishes (Exact/green, Linked Manually/blue, Unmatched/red, Needs  */
+/* Review/orange); Report's own presence badges (basecamp-only/easyspeak-  */
+/* only) reuse the same 4 tokens rather than a separate 5th color.         */
 /* ---------------------------------------------------------------------- */
 
 .badge {
@@ -206,30 +365,26 @@ body {
 
 .badge-both,
 .badge-exact {
-  background: var(--color-success-bg);
-  color: var(--color-success-text);
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.badge-confirmed,
+.badge-easyspeak-only {
+  background: var(--info-bg);
+  color: var(--info);
 }
 
 .badge-basecamp-only,
-.badge-unmatched {
-  background: var(--color-attention-bg);
-  color: var(--color-attention-text);
-}
-
-.badge-easyspeak-only,
-.badge-confirmed {
-  background: var(--color-info-bg);
-  color: var(--color-info-text);
-}
-
 .badge-fuzzy {
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text);
+  background: var(--warning-bg);
+  color: var(--warning-text);
 }
 
+.badge-unmatched,
 .badge-path-issue {
-  background: var(--color-danger-bg);
-  color: var(--color-danger-text);
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 /* Kept under their existing names (not renamed to something generic like
@@ -243,7 +398,7 @@ body {
   font-size: 10px;
   font-weight: 700;
   color: white;
-  background: var(--color-danger-solid);
+  background: var(--danger);
   border-radius: var(--radius-pill);
   vertical-align: middle;
 }
@@ -256,19 +411,18 @@ body {
   font-size: 10px;
   font-weight: 700;
   color: var(--gray-700);
-  background: white;
+  background: var(--surface);
   border-radius: var(--radius-pill);
 }
 
 /* ---------------------------------------------------------------------- */
-/* Tabs + warning icon + conflict banner (previously duplicated verbatim   */
-/* between report.html and members.html)                                  */
+/* Tabs + warning icon + conflict banner                                  */
 /* ---------------------------------------------------------------------- */
 
 .tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--gray-200);
+  border-bottom: 1px solid var(--border);
   margin-bottom: 12px;
 }
 
@@ -287,9 +441,9 @@ body {
 }
 
 .tab-btn.active {
-  color: var(--color-primary);
+  color: var(--tm-burgundy);
   font-weight: 600;
-  border-bottom-color: var(--color-primary);
+  border-bottom-color: var(--tm-burgundy);
 }
 
 .warning-icon {
@@ -302,16 +456,16 @@ body {
 
 .warning-icon svg {
   display: block;
-  fill: var(--color-danger-solid);
+  fill: var(--danger);
 }
 
 .conflict-warning {
-  background: var(--color-warning-bg);
-  border: 1px solid #f0d878;
+  background: var(--warning-bg);
+  border: 1px solid #f0d0a0;
   border-radius: var(--radius-md);
   padding: 10px 14px;
   font-size: var(--text-base);
-  color: var(--color-warning-text);
+  color: var(--warning-text);
   margin-bottom: 16px;
 }
 
@@ -320,8 +474,101 @@ body {
 }
 
 .conflict-warning a {
-  color: var(--color-primary);
+  color: var(--tm-burgundy);
   font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Toolbar (filter chips row) — a flatter, GitHub-issue-filter-style       */
+/* treatment: plain text links with an active underline, not solid pills. */
+/* ---------------------------------------------------------------------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 5px 10px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--gray-700);
+}
+
+.chip:hover {
+  background: var(--surface-alt);
+}
+
+.chip.active {
+  background: var(--surface-alt);
+  border-color: var(--border);
+  color: var(--tm-burgundy);
+  font-weight: 600;
+}
+
+.chip.active .chip-count {
+  color: var(--tm-burgundy);
+  background: var(--surface);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Popup-only: compact status summary rows                                */
+/* ---------------------------------------------------------------------- */
+
+.status-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-3) 0;
+}
+
+.status-summary__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.status-summary__label {
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.status-summary__value {
+  color: var(--gray-600);
+}
+
+.status-summary__value.is-success {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.status-summary__value.is-pending {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Status pages: centered confirmation card                               */
+/* ---------------------------------------------------------------------- */
+
+.confirmation-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-4);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -332,6 +579,6 @@ a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--tm-burgundy);
   outline-offset: 2px;
 }

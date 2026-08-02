@@ -4,7 +4,9 @@ import { escapeHtml } from "../shared/dom-utils";
 import { local, type LocalSchema } from "../shared/storage";
 import { pageUrl } from "../shared/pages";
 import { sendMessage } from "../shared/send-message";
-import type { BasecampScrape, EasySpeakScrape, EasySpeakMemberRow } from "../shared/types";
+import { loadResolutionData } from "../shared/resolution-store";
+import { buildReport } from "../shared/sync/delta";
+import type { BasecampScrape, EasySpeakScrape } from "../shared/types";
 
 type ScrapeRequest = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSPEAK" };
 
@@ -65,6 +67,7 @@ async function init() {
   }
 
   updateReportButton(!!cached.basecampData, !!cached.easyspeakData);
+  await renderStatusSummary({ basecamp: statuses.basecamp === "loading", easyspeak: statuses.easyspeak === "loading" });
 
   // Reopening the popup while a scrape is still running elsewhere (e.g. an
   // EasySpeak tab that survived the popup's own teardown) would otherwise
@@ -169,6 +172,7 @@ async function onScrapeClick<T>({ els, message, dataKey, scrapedAtKey, loadingLa
 
     const both = await local.get(["basecampData", "easyspeakData"]);
     updateReportButton(!!both.basecampData, !!both.easyspeakData);
+    await renderStatusSummary();
   } catch (err) {
     setStatus(els, `Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
   } finally {
@@ -202,10 +206,9 @@ function renderEasySpeakResult(els: SourceEls, data: EasySpeakScrape) {
   const clubCount = Object.keys(data).length;
   const totalMembers = Object.values(data).reduce((sum, club) => sum + club.members.length, 0);
 
-  let html = `<table><tr><th>Club</th><th>Entries (member x path)</th><th>Needed</th><th>Done</th></tr>`;
+  let html = `<table><tr><th>Club</th><th>Entries (member x path)</th></tr>`;
   for (const club of Object.values(data)) {
-    const { needed, done } = sumLevels(club.members);
-    html += `<tr><td>${escapeHtml(club.name)}</td><td>${club.members.length}</td><td>${needed}</td><td>${done}</td></tr>`;
+    html += `<tr><td>${escapeHtml(club.name)}</td><td>${club.members.length}</td></tr>`;
   }
   html += `</table><p>${clubCount} club(s), ${totalMembers} entries total.</p>`;
   els.summary.innerHTML = html;
@@ -213,14 +216,71 @@ function renderEasySpeakResult(els: SourceEls, data: EasySpeakScrape) {
   els.rawData.textContent = JSON.stringify(data, null, 2);
 }
 
-function sumLevels(members: EasySpeakMemberRow[]) {
-  let needed = 0;
-  let done = 0;
-  for (const member of members) {
-    for (const level of member.levels) {
-      needed += level.needed;
-      done += level.done;
+// ---------------------------------------------------------------------------
+// Compact status summary + branded-header subtitle — a quick-glance
+// replacement for reading the two per-source status lines individually.
+// Self-contained (re-reads storage itself) so any call site can refresh it
+// without threading state through: called once on popup open, and again
+// after each successful scrape.
+// ---------------------------------------------------------------------------
+
+async function renderStatusSummary(loading: { basecamp?: boolean; easyspeak?: boolean } = {}): Promise<void> {
+  const cached = await local.get(["basecampData", "easyspeakData"]);
+  const root = document.getElementById("statusSummary")!;
+
+  const rows = [
+    renderStatusRow("Basecamp", sourceStatusValue(!!loading.basecamp, !!cached.basecampData)),
+    renderStatusRow("EasySpeak", sourceStatusValue(!!loading.easyspeak, !!cached.easyspeakData)),
+  ];
+
+  if (cached.basecampData && cached.easyspeakData) {
+    const { matched, total } = await computeMatchSummary(cached.basecampData, cached.easyspeakData);
+    rows.push(renderStatusRow("Matches", { text: `${matched}/${total}`, tone: total > 0 && matched === total ? "success" : "pending" }));
+  } else {
+    rows.push(renderStatusRow("Matches", { text: "—", tone: null }));
+  }
+
+  root.innerHTML = rows.join("");
+  updatePopupSubtitle(cached.basecampData, cached.easyspeakData);
+}
+
+function sourceStatusValue(isLoading: boolean, hasData: boolean): { text: string; tone: "success" | "pending" | null } {
+  if (isLoading) return { text: "Extracting…", tone: "pending" };
+  if (hasData) return { text: "✓ Synced", tone: "success" };
+  return { text: "Not yet extracted", tone: null };
+}
+
+function renderStatusRow(label: string, value: { text: string; tone: "success" | "pending" | null }): string {
+  const toneClass = value.tone ? ` is-${value.tone}` : "";
+  return `
+    <div class="status-summary__row">
+      <span class="status-summary__label">${escapeHtml(label)}</span>
+      <span class="status-summary__value${toneClass}">${escapeHtml(value.text)}</span>
+    </div>
+  `;
+}
+
+// "Matched" here means presence === "both" — any pairing the matching
+// algorithm found, confirmed or not (mirrors members.ts's default, not
+// report.ts's stricter allowFuzzyMemberMatches: false) — since this is a
+// quick-glance popup stat, not the VPE's authoritative record.
+async function computeMatchSummary(basecampData: BasecampScrape, easyspeakData: EasySpeakScrape): Promise<{ matched: number; total: number }> {
+  const resolution = await loadResolutionData();
+  const report = buildReport(basecampData, easyspeakData, {}, resolution);
+  let matched = 0;
+  let total = 0;
+  for (const club of report.clubPairs) {
+    for (const member of club.members) {
+      total += 1;
+      if (member.presence === "both") matched += 1;
     }
   }
-  return { needed, done };
+  return { matched, total };
+}
+
+function updatePopupSubtitle(basecampData: BasecampScrape | null | undefined, easyspeakData: EasySpeakScrape | null | undefined) {
+  const el = document.getElementById("popupSubtitle")!;
+  const data = basecampData ?? easyspeakData;
+  const count = data ? Object.keys(data).length : 0;
+  el.textContent = count > 0 ? `${count} club${count === 1 ? "" : "s"} tracked` : "";
 }

@@ -12,7 +12,7 @@
     h1 {
       font-size: var(--text-lg);
       margin: 0 0 12px;
-      color: var(--color-success-text);
+      color: var(--success);
     }
     p {
       font-size: var(--text-base);
@@ -30,15 +30,17 @@
   </style>
 </head>
 <body class="page--status">
-  <div class="icon"><img src="../icons/icon-success-48.png" width="48" height="48" alt=""></div>
-  <h1>Basecamp login confirmed</h1>
-  <p>
-    You're logged in to Basecamp Toastmasters. Data extraction is continuing
-    in the background — results will be available in the extension popup in
-    a few minutes.
-  </p>
-  <p class="note" id="countdownText" aria-live="polite">This tab will close automatically in <span id="countdown">5</span> seconds.</p>
-  <button id="cancelBtn" class="btn btn-secondary">Keep this tab open</button>
+  <div class="confirmation-card">
+    <div class="icon"><img src="../icons/icon-success-48.png" width="48" height="48" alt=""></div>
+    <h1>Basecamp login confirmed</h1>
+    <p>
+      You're logged in to Basecamp Toastmasters. Data extraction is continuing
+      in the background — results will be available in the extension popup in
+      a few minutes.
+    </p>
+    <p class="note" id="countdownText" aria-live="polite">This tab will close automatically in <span id="countdown">5</span> seconds.</p>
+    <button id="cancelBtn" class="btn btn-secondary">Keep this tab open</button>
+  </div>
 
   <script type="module" src="./countdown.ts"></script>
 </body>

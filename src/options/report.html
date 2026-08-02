@@ -14,10 +14,11 @@
       margin: 0 0 4px;
     }
     details.member {
-      border: 1px solid #e2e2e2;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      margin-bottom: 6px;
-      padding: 6px 10px;
+      margin-bottom: var(--space-2);
+      padding: var(--space-2) var(--space-3);
     }
     details.member summary {
       cursor: pointer;
@@ -55,10 +56,10 @@
       font-style: italic;
     }
     table.levels tr.pending {
-      background: var(--color-warning-bg);
+      background: var(--warning-bg);
     }
     table.levels tr.discrepancy {
-      background: var(--color-danger-bg);
+      background: var(--danger-bg);
     }
     table.levels tr.completion-row {
       font-style: italic;
@@ -91,7 +92,7 @@
       background: #f0f0f0;
     }
     table.summary th .sort-indicator {
-      color: var(--color-primary);
+      color: var(--tm-burgundy);
       margin-left: 3px;
     }
     table.summary td.numeric {
@@ -101,12 +102,11 @@
   </style>
 </head>
 <body class="page--wide">
+  <div id="appShell"></div>
   <h1>Comparison Report</h1>
   <div class="meta" id="reportMeta"></div>
-  <nav class="page-nav" aria-label="Related pages">
-    <a href="members.html">Member matching</a> · <a href="settings.html">Settings (lookups)</a>
-  </nav>
   <div id="conflictWarning" aria-live="polite"></div>
+  <div id="kpiRoot" class="kpi-grid"></div>
   <button id="downloadCsvBtn" class="btn btn-primary">Download CSV</button>
 
   <div id="clubTabs" class="tabs"></div>

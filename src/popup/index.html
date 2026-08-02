@@ -10,35 +10,30 @@
       width: 360px;
       margin: 0;
       padding: 12px;
+      background: var(--surface);
     }
-    h1 {
-      font-size: var(--text-md);
-      margin: 0 0 10px;
-    }
-    h2 {
+    .card-header__title {
       font-size: var(--text-base);
-      margin: 16px 0 6px;
-      border-top: 1px solid var(--gray-200);
-      padding-top: 12px;
-    }
-    section:first-of-type h2 {
-      border-top: none;
-      padding-top: 0;
     }
     .btn {
       width: 100%;
     }
-    .secondary-btn {
-      margin-top: 6px;
+    details {
+      margin-top: 8px;
+      font-size: var(--text-sm);
+    }
+    details summary {
+      cursor: pointer;
+      color: var(--gray-600);
     }
     .status {
-      margin-top: 10px;
+      margin-top: 8px;
       font-size: var(--text-sm);
       color: var(--gray-600);
       white-space: pre-wrap;
     }
     .summary {
-      margin-top: 10px;
+      margin-top: 8px;
       font-size: var(--text-sm);
     }
     .summary table {
@@ -48,56 +43,64 @@
     .summary td, .summary th {
       text-align: left;
       padding: 2px 4px;
-      border-bottom: 1px solid var(--gray-200);
-    }
-    details {
-      margin-top: 10px;
+      border-bottom: 1px solid var(--border);
     }
     pre {
       max-height: 220px;
       overflow: auto;
-      background: var(--gray-100);
+      background: var(--surface-alt);
       padding: 6px;
       font-size: 10px;
     }
+    .action-gap {
+      margin-top: 8px;
+    }
     .popup-footer-nav {
-      margin-top: 16px;
+      margin-top: 4px;
       margin-bottom: 0;
       text-align: center;
     }
   </style>
 </head>
 <body>
-  <h1>Toastmasters VPE Tracker — MVP</h1>
+  <header class="app-header">
+    <div class="app-header__brand">
+      <div class="app-header__title">Toastmasters VPE Tracker</div>
+      <div class="app-header__subtitle" id="popupSubtitle"></div>
+    </div>
+  </header>
 
-  <section>
-    <h2>Basecamp</h2>
-    <button id="scrapeBasecampBtn" class="btn btn-primary">Extract Basecamp data</button>
-    <div id="statusBasecamp" class="status" aria-live="polite">Click the button to extract your Basecamp data (you must be logged into Basecamp Toastmasters in this browser).</div>
-    <div id="summaryBasecamp" class="summary"></div>
-    <details>
-      <summary>Raw data (JSON)</summary>
-      <pre id="rawDataBasecamp"></pre>
-    </details>
-  </section>
+  <div id="statusSummary" class="status-summary"></div>
 
-  <section>
-    <h2>EasySpeak</h2>
-    <button id="scrapeEasySpeakBtn" class="btn btn-primary">Extract EasySpeak data</button>
-    <div id="statusEasySpeak" class="status" aria-live="polite">Click the button to extract your EasySpeak data (you must be logged into EasySpeak in this browser). This closes the popup and switches to an EasySpeak tab — reopen the popup once that tab is done (or has closed itself) to see the results.</div>
-    <div id="summaryEasySpeak" class="summary"></div>
-    <details>
-      <summary>Raw data (JSON)</summary>
-      <pre id="rawDataEasySpeak"></pre>
-    </details>
-  </section>
+  <div class="card">
+    <div class="card-header"><span class="card-header__title">Data Extraction</span></div>
+    <div class="card-body">
+      <button id="scrapeBasecampBtn" class="btn btn-primary">Extract Basecamp data</button>
+      <div id="statusBasecamp" class="status" aria-live="polite">Click the button to extract your Basecamp data (you must be logged into Basecamp Toastmasters in this browser).</div>
+      <details>
+        <summary>Basecamp details</summary>
+        <div id="summaryBasecamp" class="summary"></div>
+        <pre id="rawDataBasecamp"></pre>
+      </details>
 
-  <section>
-    <h2>Comparison Report</h2>
-    <button id="openReportBtn" class="btn btn-primary">Open comparison report</button>
-    <button id="reviewMatchesBtn" class="btn btn-primary secondary-btn">Review Matches</button>
-    <div id="statusReport" class="status" aria-live="polite">Extract both Basecamp and EasySpeak data first.</div>
-  </section>
+      <button id="scrapeEasySpeakBtn" class="btn btn-primary action-gap">Extract EasySpeak data</button>
+      <div id="statusEasySpeak" class="status" aria-live="polite">Click the button to extract your EasySpeak data (you must be logged into EasySpeak in this browser). This closes the popup and switches to an EasySpeak tab — reopen the popup once that tab is done (or has closed itself) to see the results.</div>
+      <details>
+        <summary>EasySpeak details</summary>
+        <div id="summaryEasySpeak" class="summary"></div>
+        <pre id="rawDataEasySpeak"></pre>
+      </details>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-header__title">Actions</span></div>
+    <div class="card-body">
+      <button id="openReportBtn" class="btn btn-primary">Open comparison report</button>
+      <button id="reviewMatchesBtn" class="btn btn-secondary action-gap">Review Matches</button>
+      <div id="statusReport" class="status" aria-live="polite">Extract both Basecamp and EasySpeak data first.</div>
+    </div>
+  </div>
 
   <nav class="page-nav popup-footer-nav" aria-label="More">
     <a href="#" id="openSettingsLink">Settings</a>

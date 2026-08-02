@@ -10,6 +10,7 @@ import { escapeAttr, escapeHtml } from "../shared/dom-utils";
 import { local } from "../shared/storage";
 import { getClubLookup, getPathLookup, pinClub, removeClubPin, setPathAliases, deletePathCanonical } from "../shared/resolution-store";
 import { EASYSPEAK_SERVERS, getEasySpeakServer, getMockMode, setEasySpeakServer, setMockMode } from "../shared/settings-store";
+import { renderAppShell } from "../shared/app-shell";
 import type { BasecampScrape, ClubLookupEntry, EasySpeakScrape, EasySpeakServerId, PathLookup } from "../shared/types";
 
 let basecampData: BasecampScrape | null = null;
@@ -27,6 +28,8 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 });
 
 async function init() {
+  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "settings" });
+
   const cached = await local.get(["basecampData", "easyspeakData"]);
   basecampData = cached.basecampData ?? null;
   easyspeakData = cached.easyspeakData ?? null;

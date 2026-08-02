@@ -18,7 +18,7 @@
       box-sizing: border-box;
       font-size: var(--text-sm);
       padding: 3px 6px;
-      border: 1px solid var(--gray-300);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
     }
     .add-form {
@@ -34,7 +34,7 @@
     }
     .save-status {
       font-size: var(--text-sm);
-      color: var(--color-success-text);
+      color: var(--success);
       display: none;
     }
     .save-status.visible {
@@ -43,36 +43,50 @@
   </style>
 </head>
 <body class="page--narrow">
+  <div id="appShell"></div>
   <h1>Settings</h1>
-  <nav class="page-nav" aria-label="Related pages">
-    <a href="members.html">Member matching</a> · <a href="report.html">Comparison report</a>
-  </nav>
 
-  <h2 class="section-header section-header--first">Demo / mock mode</h2>
-  <p class="help-text">
-    When enabled, "Extract Basecamp data" and "Extract EasySpeak data" return built-in demo data
-    instead of contacting Basecamp/EasySpeak — no login, no tab opened. Useful for a demo. Any real data already extracted is left untouched until the next
-    extraction while this is on overwrites it.
-  </p>
-  <div id="mockModeRoot"></div>
+  <div class="card">
+    <div class="card-header"><span class="card-header__title">Demo / mock mode</span></div>
+    <div class="card-body">
+      <p class="help-text">
+        When enabled, "Extract Basecamp data" and "Extract EasySpeak data" return built-in demo data
+        instead of contacting Basecamp/EasySpeak — no login, no tab opened. Useful for a demo. Any real data already extracted is left untouched until the next
+        extraction while this is on overwrites it.
+      </p>
+      <div id="mockModeRoot"></div>
+    </div>
+  </div>
 
-  <h2 class="section-header">EasySpeak server</h2>
-  <p class="help-text">
-    EasySpeak runs as separate regional deployments. Choose which one to load data from.<br>
-    This only affects future loadings, so run "Extract EasySpeak data" again after switching.
-  </p>
-  <div id="easyspeakServerRoot"></div>
+  <div class="card">
+    <div class="card-header"><span class="card-header__title">EasySpeak server</span></div>
+    <div class="card-body">
+      <p class="help-text">
+        EasySpeak runs as separate regional deployments. Choose which one to load data from.<br>
+        This only affects future loadings, so run "Extract EasySpeak data" again after switching.
+      </p>
+      <div id="easyspeakServerRoot"></div>
+    </div>
+  </div>
 
-  <h2 class="section-header">Club name lookup</h2>
-  <p class="help-text">Pins a Basecamp club to an EasySpeak club regardless of how similar their names are.</p>
-  <div id="clubLookupRoot"></div>
+  <div class="card">
+    <div class="card-header"><span class="card-header__title">Club name lookup</span></div>
+    <div class="card-body">
+      <p class="help-text">Pins a Basecamp club to an EasySpeak club regardless of how similar their names are.</p>
+      <div id="clubLookupRoot"></div>
+    </div>
+  </div>
 
-  <h2 class="section-header">Path name lookup</h2>
-  <p class="help-text">
-    Maps alternate spellings (e.g. French/German Pathways titles) to a canonical path name.
-    Member-level path binds (set from the Member matching view) take priority over this table and are not shown here.
-  </p>
-  <div id="pathLookupRoot"></div>
+  <div class="card">
+    <div class="card-header"><span class="card-header__title">Path name lookup</span></div>
+    <div class="card-body">
+      <p class="help-text">
+        Maps alternate spellings (e.g. French/German Pathways titles) to a canonical path name.
+        Member-level path binds (set from the Member matching view) take priority over this table and are not shown here.
+      </p>
+      <div id="pathLookupRoot"></div>
+    </div>
+  </div>
 
   <script type="module" src="./settings.ts"></script>
 </body>
