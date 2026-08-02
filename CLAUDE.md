@@ -327,30 +327,41 @@ re-derived (and possibly un-derived) from names again.
   `presence !== "both"` within a matched club pair (an unconfirmed fuzzy guess counts as unmatched
   here too, per `allowFuzzyMemberMatches: false` above) — with links to Settings (club fixes) and
   Member matching (member fixes). `renderClubTabs()` additionally prefixes a warning-sign icon
-  (`warningIconHtml()`, `.warning-icon`) onto any club tab whose pair has no counterpart on the
-  other side.
+  (`warningIconHtml()`, `lib/dom-utils.js` — shared with `members.js`, see below; each page defines
+  its own `.warning-icon`/`.conflict-warning` CSS) onto any club tab whose pair has no counterpart
+  on the other side.
 - **`members/members.html` + `members/members.js`** — the primary member-matching review workflow
   (reached from the popup's "Review Matches" button, and cross-linked with Settings/Report). Same
-  storage-reads-only pattern as `report.js`. One spreadsheet-style table per club (club tabs reused
-  from `report.js`'s pattern): EasySpeak name / Basecamp name / member-link status / path-bind
-  status / actions, plus filter chips (All / To do / Suggested / Unmatched / Path issues / Linked
-  automatically / Linked manually — "To do" is the default view and means Suggested ∪ Unmatched ∪
-  Path issues) and a fixed sort (action-needed rows first, alphabetical within each group, even
-  inside "All"). `classifyMember()` (members.js) assigns exactly one of `"linked-automatically"` or
-  `"linked-manually"` whenever none of suggested/unmatched/path-issues apply — `"linked-manually"`
-  covers both `matchConfidence === "confirmed"` (regardless of `matchSource`) *and* an otherwise-
-  `"exact"` member match that has a `memberPathOverride` bound (`hasPathOverride()`, lib/report.js,
-  next to `hasOrphanedPaths()`): the member identity matched automatically, but a human still had
-  to manually correct which path pairs with which, so it still counts as a manual correction for
-  filtering purposes. These two are mutually exclusive by construction, so the "Linked *" chip
-  counts always add back up to what used to be a single "Linked" bucket. The "Member link" column
-  shows a "Linked manually" badge (reusing the `.badge-confirmed` styling) for any
-  `matchConfidence === "confirmed"` row, with a tooltip distinguishing "confirmed from a suggested
-  match" vs. "linked via manual search" via `matchSource`; the "Path bind" column shows a "Bound"
-  badge (also `.badge-confirmed`, tooltip listing the bound path pair(s)) instead of a blank dash
-  once `hasPathOverride()` is true — otherwise a resolved override would leave that column looking
-  empty (`hasOrphanedPaths()` goes back to `false` once bound), silently losing the "this was
-  manually corrected" signal the row's classification now depends on.
+  storage-reads-only pattern as `report.js`. `renderClubMatchWarning()` (`#conflictWarning`, called
+  from `refresh()`) mirrors `report.js`'s conflict banner but with member-matching-specific advice:
+  whenever any club has no counterpart in the other system, it names the affected club(s) and points
+  at Settings, since a club with nothing to match against can't be member-matched properly — best
+  fixed before spending time reviewing that club's members. `renderClubTabs()` also prefixes the
+  same `warningIconHtml()` icon onto those clubs' tabs, same as `report.js`. One spreadsheet-style
+  table per club (club tabs reused from `report.js`'s pattern), **Basecamp name first** (Basecamp
+  is the source of truth) then
+  EasySpeak name / member-link status / path-bind status / actions, plus filter chips (All / To do
+  / Suggested / Unmatched / Path issues / Linked manually — "To do" is the default view and means
+  Suggested ∪ Unmatched ∪ Path issues) and a fixed sort (action-needed rows first, alphabetical by
+  **Basecamp name** — `sortName()`, falling back to the EasySpeak name only when a member has no
+  Basecamp counterpart — within each group, even inside "All"). `classifyMember()` (members.js)
+  tags are **not mutually exclusive**: a member can carry more than one at once (e.g. a
+  manually-confirmed link that still has an unresolved path issue shows under both "Path issues"
+  and "Linked manually", so each chip stays an accurate view of everything that needs — or already
+  got — a fix, rather than the two being an either/or classification). `"linked-manually"` is
+  pushed whenever `matchConfidence === "confirmed"` (regardless of `matchSource`) *or* the member
+  has a `memberPathOverride` bound (`hasPathOverride()`, lib/report.js, next to
+  `hasOrphanedPaths()`) — the member identity may have matched automatically, but a human still had
+  to manually correct which path pairs with which. There's deliberately no `"linked-automatically"`
+  tag/chip: a plain automatic match with nothing to flag simply carries no tags at all, and is
+  still visible via "All". The "Member link" column shows a "Linked manually" badge (reusing the
+  `.badge-confirmed` styling) for any `matchConfidence === "confirmed"` row, with a tooltip
+  distinguishing "confirmed from a suggested match" vs. "linked via manual search" via
+  `matchSource`; the "Path bind" column shows a "Bound" badge (also `.badge-confirmed`, tooltip
+  listing the bound path pair(s)) instead of a blank dash once `hasPathOverride()` is true —
+  otherwise a resolved override would leave that column looking empty (`hasOrphanedPaths()` goes
+  back to `false` once bound), silently losing the "this was manually corrected" signal the row's
+  classification now depends on.
 
   Every `presence === "both"` member (except a still-`"fuzzy"` suggestion, which uses
   Confirm/"Not this one" instead) gets an **"Unlink"** action in the Actions column —
@@ -401,7 +412,9 @@ re-derived (and possibly un-derived) from names again.
   any untrusted text (scraped member/path names) written into an HTML attribute value** (e.g. an
   `<option value="...">`, a `data-*` attribute) — `escapeHtml`'s `div.textContent` →
   `div.innerHTML` round-trip only entity-encodes what's needed for *text-node* content and does not
-  escape a literal `"`, so it can't safely go inside a double-quoted attribute.
+  escape a literal `"`, so it can't safely go inside a double-quoted attribute. Also
+  `warningIconHtml(title)` — the shared warning-triangle SVG used by both `report.js` and
+  `members.js` (each page still owns its own `.warning-icon`/`.conflict-warning` CSS).
 
 When extending this codebase with a new data source, don't assume Basecamp's tab-less fetch pattern
 is the default template — check first whether the target site can be reached with a plain

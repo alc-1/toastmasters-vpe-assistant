@@ -18,7 +18,6 @@ const FILTERS = [
   { key: "suggested", label: "Suggested" },
   { key: "unmatched", label: "Unmatched" },
   { key: "path-issues", label: "Path issues" },
-  { key: "linked-automatically", label: "Linked automatically" },
   { key: "linked-manually", label: "Linked manually" },
 ];
 
@@ -46,6 +45,7 @@ async function init() {
   ]);
 
   if (!cached.basecampData || !cached.easyspeakData) {
+    document.getElementById("conflictWarning").innerHTML = "";
     document.getElementById("clubTabs").innerHTML = "";
     document.getElementById("filterChips").innerHTML = "";
     document.getElementById("membersRoot").innerHTML =
@@ -80,8 +80,37 @@ async function refresh() {
     activeClubKey = clubSections[0]?.clubKey ?? null;
   }
 
+  renderClubMatchWarning();
   renderClubTabs();
   renderActiveClub();
+}
+
+// ---------------------------------------------------------------------------
+// Club-match warning: a club with no counterpart at all in the other system
+// can't be member-matched properly (there's nothing on the other side to
+// match against), so this points the user at Settings before they spend
+// time reviewing members in a club that isn't even paired up yet.
+// ---------------------------------------------------------------------------
+
+function renderClubMatchWarning() {
+  const root = document.getElementById("conflictWarning");
+  const unmatchedClubs = clubSections.filter((s) => !s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId);
+
+  if (unmatchedClubs.length === 0) {
+    root.innerHTML = "";
+    return;
+  }
+
+  root.innerHTML = `
+    <div class="conflict-warning">
+      ${warningIconHtml("Unmatched club")}
+      ${unmatchedClubs.length} club${unmatchedClubs.length === 1 ? "" : "s"} (${unmatchedClubs
+        .map((s) => escapeHtml(s.clubName))
+        .join(", ")}) ${unmatchedClubs.length === 1 ? "has" : "have"} no match between Basecamp and
+      EasySpeak. Member matching can't work properly for a club until its name is resolved —
+      it's best to <a href="../settings/settings.html">fix club matches in Settings</a> first.
+    </div>
+  `;
 }
 
 // ---------------------------------------------------------------------------
@@ -92,6 +121,7 @@ function renderClubTabs() {
   const tabsRoot = document.getElementById("clubTabs");
 
   if (clubSections.length === 0) {
+    document.getElementById("conflictWarning").innerHTML = "";
     tabsRoot.innerHTML = "";
     document.getElementById("membersRoot").innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
     return;
@@ -99,11 +129,15 @@ function renderClubTabs() {
 
   tabsRoot.innerHTML = clubSections
     .map((s) => {
+      const unmatchedClub = !s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId;
+      const warningIcon = unmatchedClub
+        ? warningIconHtml("No match found between Basecamp and EasySpeak for this club")
+        : "";
       // Only badge a club that actually needs attention — a fully-resolved
       // club showing a "0" badge would just be visual noise.
       const missingCount = s.clubPair.members.filter(needsAction).length;
       const countBadge = missingCount > 0 ? `<span class="tab-count">${missingCount}</span>` : "";
-      return `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}">${escapeHtml(s.clubName)}${countBadge}</button>`;
+      return `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}">${warningIcon}${escapeHtml(s.clubName)}${countBadge}</button>`;
     })
     .join("");
 
@@ -137,21 +171,18 @@ function renderFilterChips(members) {
 // Classification / sorting
 // ---------------------------------------------------------------------------
 
+// Not mutually exclusive — a member can carry more than one tag at once
+// (e.g. a manually-confirmed link that still has an unresolved path issue
+// shows under both "Path issues" and "Linked manually", so each chip gives
+// an accurate view of everything that still needs — or already got — a
+// fix). There's no tag at all for a plain automatic match with nothing to
+// flag; "All" is how you see those.
 function classifyMember(member) {
   const tags = [];
   if (member.matchConfidence === "fuzzy") tags.push("suggested");
   if (member.presence !== "both") tags.push("unmatched");
   if (member.hasOrphanedPaths) tags.push("path-issues");
-  // Mutually exclusive with each other (and only assigned when none of the
-  // above apply) so "linked-automatically" + "linked-manually" always adds
-  // back up to what used to be a single "linked" bucket. A path-bind
-  // override also counts as manual, even for an otherwise-exact member
-  // match — the member link itself may have been automatic, but a human
-  // still had to correct which path pairs with which.
-  if (tags.length === 0) {
-    const manual = member.matchConfidence === "confirmed" || hasPathOverride(member);
-    tags.push(manual ? "linked-manually" : "linked-automatically");
-  }
+  if (member.matchConfidence === "confirmed" || hasPathOverride(member)) tags.push("linked-manually");
   return tags;
 }
 
@@ -166,17 +197,20 @@ function matchesFilter(member, filterKey) {
   return classifyMember(member).includes(filterKey);
 }
 
-function displayName(member) {
+// Basecamp is the source of truth, so it's the primary sort key — falling
+// back to the EasySpeak name only for an easyspeak-only member with no
+// Basecamp counterpart to sort by.
+function sortName(member) {
   return member.basecampName ?? member.easyspeakName ?? member.name ?? "(unnamed)";
 }
 
 // Action-needed rows first (even within "All"); clean/linked members sink
-// to the bottom, alphabetical within each group.
+// to the bottom, alphabetical by Basecamp name within each group.
 function compareMembers(a, b) {
   const aRank = needsAction(a) ? 0 : 1;
   const bRank = needsAction(b) ? 0 : 1;
   if (aRank !== bRank) return aRank - bRank;
-  return displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base" });
+  return sortName(a).localeCompare(sortName(b), undefined, { sensitivity: "base" });
 }
 
 function memberKey(member) {
@@ -266,8 +300,8 @@ function renderClubMembers(clubPair) {
     <table class="members">
       <thead>
         <tr>
-          <th>EasySpeak name</th>
           <th>Basecamp name</th>
+          <th>EasySpeak name</th>
           <th>Member link</th>
           <th>Path bind</th>
           <th>Actions</th>
@@ -307,8 +341,8 @@ function renderMemberRows(member, pools) {
 
   const mainRow = `
     <tr class="${clean ? "muted-row" : ""}">
-      <td>${renderNameCell(member, "easyspeak", pools)}</td>
       <td>${renderNameCell(member, "basecamp", pools)}</td>
+      <td>${renderNameCell(member, "easyspeak", pools)}</td>
       <td>${renderLinkStatusCell(member)}</td>
       <td>${renderPathBindCell(member)}</td>
       <td class="actions">${renderActionsCell(member)}</td>
