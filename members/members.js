@@ -18,7 +18,8 @@ const FILTERS = [
   { key: "suggested", label: "Suggested" },
   { key: "unmatched", label: "Unmatched" },
   { key: "path-issues", label: "Path issues" },
-  { key: "linked", label: "Linked" },
+  { key: "linked-automatically", label: "Linked automatically" },
+  { key: "linked-manually", label: "Linked manually" },
 ];
 
 let basecampData = null;
@@ -62,7 +63,6 @@ async function init() {
     `Basecamp last extracted: ${formatDate(basecampScrapedAt)} — ` +
     `EasySpeak last extracted: ${formatDate(easyspeakScrapedAt)}`;
 
-  renderFilterChips();
   await refresh();
 }
 
@@ -98,10 +98,13 @@ function renderClubTabs() {
   }
 
   tabsRoot.innerHTML = clubSections
-    .map(
-      (s) =>
-        `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}">${escapeHtml(s.clubName)}</button>`
-    )
+    .map((s) => {
+      // Only badge a club that actually needs attention — a fully-resolved
+      // club showing a "0" badge would just be visual noise.
+      const missingCount = s.clubPair.members.filter(needsAction).length;
+      const countBadge = missingCount > 0 ? `<span class="tab-count">${missingCount}</span>` : "";
+      return `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}">${escapeHtml(s.clubName)}${countBadge}</button>`;
+    })
     .join("");
 
   tabsRoot.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -113,16 +116,18 @@ function renderClubTabs() {
   });
 }
 
-function renderFilterChips() {
+// Counts are scoped to the currently active club (same as the table itself)
+// — switching clubs re-renders these via renderActiveClub().
+function renderFilterChips(members) {
   const root = document.getElementById("filterChips");
-  root.innerHTML = FILTERS.map(
-    (f) => `<button class="chip${f.key === activeFilter ? " active" : ""}" data-filter="${f.key}">${escapeHtml(f.label)}</button>`
-  ).join("");
+  root.innerHTML = FILTERS.map((f) => {
+    const count = members.filter((m) => matchesFilter(m, f.key)).length;
+    return `<button class="chip${f.key === activeFilter ? " active" : ""}" data-filter="${f.key}">${escapeHtml(f.label)} <span class="chip-count">${count}</span></button>`;
+  }).join("");
 
   root.querySelectorAll(".chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       activeFilter = btn.dataset.filter;
-      renderFilterChips();
       renderActiveClub();
     });
   });
@@ -137,7 +142,16 @@ function classifyMember(member) {
   if (member.matchConfidence === "fuzzy") tags.push("suggested");
   if (member.presence !== "both") tags.push("unmatched");
   if (member.hasOrphanedPaths) tags.push("path-issues");
-  if (tags.length === 0) tags.push("linked");
+  // Mutually exclusive with each other (and only assigned when none of the
+  // above apply) so "linked-automatically" + "linked-manually" always adds
+  // back up to what used to be a single "linked" bucket. A path-bind
+  // override also counts as manual, even for an otherwise-exact member
+  // match — the member link itself may have been automatic, but a human
+  // still had to correct which path pairs with which.
+  if (tags.length === 0) {
+    const manual = member.matchConfidence === "confirmed" || hasPathOverride(member);
+    tags.push(manual ? "linked-manually" : "linked-automatically");
+  }
   return tags;
 }
 
@@ -216,9 +230,11 @@ function renderActiveClub() {
   const section = clubSections.find((s) => s.clubKey === activeClubKey);
   const root = document.getElementById("membersRoot");
   if (!section) {
+    document.getElementById("filterChips").innerHTML = "";
     root.innerHTML = "";
     return;
   }
+  renderFilterChips(section.clubPair.members);
   root.innerHTML = renderClubMembers(section.clubPair);
   attachRowHandlers();
 }
@@ -277,6 +293,14 @@ function buildClubMatchNote(clubPair) {
   return `${note} · ${members.length} member(s), ${todo} need review`;
 }
 
+// A member is worth expanding for path review whenever it's actually
+// linked and has at least one real (non-nonPathway) Pathways path to show
+// — covers orphaned paths needing a bind, manually-bound paths that can be
+// unbound, and automatically-matched paths that can be force-unbound.
+function hasReviewablePaths(member) {
+  return member.presence === "both" && member.paths.some((p) => !p.nonPathway);
+}
+
 function renderMemberRows(member, pools) {
   const key = memberKey(member);
   const clean = !needsAction(member);
@@ -291,7 +315,7 @@ function renderMemberRows(member, pools) {
     </tr>
   `;
 
-  if (!member.hasOrphanedPaths) return mainRow;
+  if (!hasReviewablePaths(member)) return mainRow;
 
   const expanded = expandedMemberKeys.has(key);
   const detailRow = `
@@ -317,7 +341,11 @@ function renderNameCell(member, side, pools) {
 
 function renderLinkStatusCell(member) {
   if (member.presence !== "both") return '<span class="badge badge-unmatched">Unmatched</span>';
-  if (member.matchConfidence === "confirmed") return '<span class="badge badge-confirmed">Confirmed</span>';
+  if (member.matchConfidence === "confirmed") {
+    const sourceLabel =
+      member.matchSource === "manual-search" ? "linked via manual search" : "confirmed from a suggested match";
+    return `<span class="badge badge-confirmed" title="${escapeAttr(sourceLabel)}">Linked manually</span>`;
+  }
   if (member.matchConfidence === "fuzzy") {
     const score = member.matchScore != null ? member.matchScore.toFixed(2) : "—";
     return `<span class="badge badge-fuzzy" title="match score: ${score}">Suggested</span>`;
@@ -326,6 +354,11 @@ function renderLinkStatusCell(member) {
 }
 
 function renderPathBindCell(member) {
+  if (hasPathOverride(member)) {
+    const bound = member.paths.filter((p) => p.overridden);
+    const title = bound.map((p) => `${p.basecampPathName} ↔ ${p.easyspeakPathLabel}`).join("; ");
+    return `<span class="badge badge-confirmed" title="${escapeAttr(title)}">Bound</span>`;
+  }
   if (!member.hasOrphanedPaths) return '<span class="muted-text">—</span>';
   return '<span class="badge badge-path-issue">Path issue</span>';
 }
@@ -339,45 +372,96 @@ function renderActionsCell(member) {
     buttons.push(`<button class="secondary" data-action="reject" data-member-key="${key}">Not this one</button>`);
   }
 
+  if (member.presence === "both" && member.matchConfidence !== "fuzzy") {
+    // "Unlink" always frees the pairing to be re-matched/re-linked, but
+    // what that means differs by how the link was made: a confirmed link
+    // is just a stored decision to delete, while an exact match is derived
+    // fresh every time and has nothing to delete — so unlinking it instead
+    // records a rejection, forcing it out of auto-matching so it stays
+    // unmatched (and thus re-resolvable) rather than snapping right back.
+    const title =
+      member.matchConfidence === "exact"
+        ? "Excludes this pairing so it won't auto-match again, and marks both members as unmatched so you can find the correct match manually."
+        : "Removes this confirmed link so the pairing can be re-matched or re-linked.";
+    buttons.push(`<button class="secondary" data-action="unlink" data-member-key="${key}" title="${escapeAttr(title)}">Unlink</button>`);
+  }
+
   if (member.presence !== "both") {
     buttons.push(`<button data-action="link" data-member-key="${key}" disabled>Link</button>`);
   }
 
-  if (member.hasOrphanedPaths) {
+  if (hasReviewablePaths(member)) {
     const expanded = expandedMemberKeys.has(key);
-    buttons.push(
-      `<button class="secondary" data-action="toggle-paths" data-member-key="${key}">${expanded ? "Hide path issue" : "Review path issue"}</button>`
-    );
+    const label = member.hasOrphanedPaths
+      ? expanded
+        ? "Hide path issue"
+        : "Review path issue"
+      : expanded
+        ? "Hide paths"
+        : "Review paths";
+    buttons.push(`<button class="secondary" data-action="toggle-paths" data-member-key="${key}">${label}</button>`);
   }
 
   return buttons.join("") || '<span class="muted-text">—</span>';
 }
 
 function renderPathBindDetail(member) {
-  const bcOrphans = member.paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway);
-  const esOrphans = member.paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway);
   const key = memberKey(member);
+  const realPaths = member.paths.filter((p) => !p.nonPathway);
+  const matchedPaths = realPaths.filter((p) => p.presence === "both");
+  const bcOrphans = realPaths.filter((p) => p.presence === "basecamp-only");
+  const esOrphans = realPaths.filter((p) => p.presence === "easyspeak-only");
 
-  if (bcOrphans.length === 0 || esOrphans.length === 0) {
-    return '<p class="muted-text">No compatible orphaned path found on the other side.</p>';
+  const sections = [];
+
+  if (matchedPaths.length > 0) {
+    sections.push(
+      matchedPaths
+        .map((p) => {
+          const statusLabel = p.overridden ? "Bound manually" : "Matched automatically";
+          const action = p.overridden
+            ? `<button class="secondary" data-action="unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName)}" data-es-path="${escapeAttr(p.easyspeakPathLabel)}">Unbind</button>`
+            : `<button class="secondary" data-action="force-unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName)}" data-es-path="${escapeAttr(p.easyspeakPathLabel)}" title="Splits this pair back into two unmatched paths so you can bind it differently or leave it as an orphan.">Force unbind</button>`;
+          return `
+            <div class="path-pair-row">
+              <span><strong>${escapeHtml(p.basecampPathName)}</strong> &harr; ${escapeHtml(p.easyspeakPathLabel)}</span>
+              <span class="muted-text">${statusLabel}</span>
+              ${action}
+            </div>
+          `;
+        })
+        .join("")
+    );
   }
 
-  return bcOrphans
-    .map((bcPath, bcIndex) => {
-      const options = esOrphans
-        .map((esPath, esIndex) => `<option value="${esIndex}">${escapeHtml(esPath.easyspeakPathLabel)}</option>`)
-        .join("");
-      return `
-        <div class="path-pair-row">
-          <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName)}</span>
-          <span>&harr;</span>
-          <select data-role="path-bind-select">${options}</select>
-          <button data-action="bind-path" data-member-key="${key}" data-bc-index="${bcIndex}">Bind for this member only</button>
-          <button class="secondary" data-action="leave-orphan" data-member-key="${key}">Leave as orphan</button>
-        </div>
-      `;
-    })
-    .join("");
+  if (bcOrphans.length > 0 && esOrphans.length > 0) {
+    sections.push(
+      bcOrphans
+        .map((bcPath, bcIndex) => {
+          const options = esOrphans
+            .map((esPath, esIndex) => `<option value="${esIndex}">${escapeHtml(esPath.easyspeakPathLabel)}</option>`)
+            .join("");
+          return `
+            <div class="path-pair-row">
+              <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName)}</span>
+              <span>&harr;</span>
+              <select data-role="path-bind-select">${options}</select>
+              <button data-action="bind-path" data-member-key="${key}" data-bc-index="${bcIndex}">Bind for this member only</button>
+              <button class="secondary" data-action="leave-orphan" data-member-key="${key}">Leave as orphan</button>
+            </div>
+          `;
+        })
+        .join("")
+    );
+  } else if (bcOrphans.length > 0 || esOrphans.length > 0) {
+    sections.push('<p class="muted-text">An orphaned path exists on one side only — no compatible candidate to bind it to yet.</p>');
+  }
+
+  if (sections.length === 0) {
+    return '<p class="muted-text">No Pathways paths to review.</p>';
+  }
+
+  return sections.join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -393,6 +477,9 @@ function attachRowHandlers() {
   root.querySelectorAll('[data-action="reject"]').forEach((btn) => {
     btn.addEventListener("click", () => onReject(btn.dataset.memberKey));
   });
+  root.querySelectorAll('[data-action="unlink"]').forEach((btn) => {
+    btn.addEventListener("click", () => onUnlink(btn.dataset.memberKey));
+  });
   root.querySelectorAll('[data-action="toggle-paths"]').forEach((btn) => {
     btn.addEventListener("click", () => onTogglePaths(btn.dataset.memberKey));
   });
@@ -401,6 +488,12 @@ function attachRowHandlers() {
   });
   root.querySelectorAll('[data-action="leave-orphan"]').forEach((btn) => {
     btn.addEventListener("click", () => onLeaveOrphan(btn.dataset.memberKey));
+  });
+  root.querySelectorAll('[data-action="unbind-path"]').forEach((btn) => {
+    btn.addEventListener("click", () => onUnbindPath(btn));
+  });
+  root.querySelectorAll('[data-action="force-unbind-path"]').forEach((btn) => {
+    btn.addEventListener("click", () => onForceUnbindPath(btn));
   });
   root.querySelectorAll('[data-role="link-input"]').forEach((input) => {
     input.addEventListener("input", () => onLinkInputChange(input));
@@ -421,6 +514,20 @@ async function onReject(key) {
   const member = findMemberByKey(key);
   if (!member) return;
   await rejectMemberPair(member.basecampUserId, member.easyspeakMemberId);
+  await refresh();
+}
+
+async function onUnlink(key) {
+  const member = findMemberByKey(key);
+  if (!member) return;
+  // An exact match is recomputed fresh every time (nothing stored to
+  // delete), so the only way to actually unlink it is to reject the pair —
+  // otherwise it would just reappear as "Exact" again on the next refresh.
+  if (member.matchConfidence === "exact") {
+    await rejectMemberPair(member.basecampUserId, member.easyspeakMemberId);
+  } else {
+    await unlinkMember(member.basecampUserId, member.easyspeakMemberId);
+  }
   await refresh();
 }
 
@@ -450,6 +557,20 @@ async function onBindPath(btn) {
 
   await setMemberPathOverride(member.basecampUserId, member.easyspeakMemberId, bcPath.basecampPathName, esPath.easyspeakPathLabel);
   expandedMemberKeys.delete(key);
+  await refresh();
+}
+
+async function onUnbindPath(btn) {
+  const member = findMemberByKey(btn.dataset.memberKey);
+  if (!member) return;
+  await removeMemberPathOverride(member.basecampUserId, member.easyspeakMemberId, btn.dataset.bcPath, btn.dataset.esPath);
+  await refresh();
+}
+
+async function onForceUnbindPath(btn) {
+  const member = findMemberByKey(btn.dataset.memberKey);
+  if (!member) return;
+  await excludePathMatch(member.basecampUserId, member.easyspeakMemberId, btn.dataset.bcPath, btn.dataset.esPath);
   await refresh();
 }
 

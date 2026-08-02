@@ -256,29 +256,42 @@ re-derived (and possibly un-derived) from names again.
     (even one originally confirmed from a fuzzy suggestion) is unaffected by this flag either way,
     since confirmed links are seeded as `preAssigned` before candidate scoring ever runs.
   - `matchConfidence` on a member row is now `"confirmed"|"exact"|"fuzzy"|null` (added
-    `"confirmed"` for a persisted `memberLinks` entry). Member rows also carry `basecampName`/
-    `easyspeakName` (the two raw per-source names, even when matched — needed for the Members view's
-    side-by-side columns; `name` stays as the pre-existing single display name for the CSV/report
-    view). `hasOrphanedPaths(member)` — both a `basecamp-only` and an `easyspeak-only` non-
-    `nonPathway` path present on the same (necessarily `presence: "both"`) member — is the exact
-    definition backing the Members view's "Path issues" filter; it lives here, next to the matching
-    logic it reads, not duplicated in UI code.
-- **`lib/resolution-store.js`** — the only place that reads/writes the 5 persisted resolution keys
+    `"confirmed"` for a persisted `memberLinks` entry). When `matchConfidence === "confirmed"`,
+    `matchSource` (`"fuzzy-confirmed"|"manual-search"|null`, threaded all the way from the
+    `memberLinks` entry's own `source` field through `matchMembers`'s `preAssigned`/`pairs`) tells
+    the UI *how* the link was made — confirming an algorithmic suggestion vs. manually searching for
+    the right person — without changing matching precedence at all (both sources are just
+    `"confirmed"` for assignment purposes). Member rows also carry `basecampName`/`easyspeakName`
+    (the two raw per-source names, even when matched — needed for the Members view's side-by-side
+    columns; `name` stays as the pre-existing single display name for the CSV/report view).
+    `hasOrphanedPaths(member)` — both a `basecamp-only` and an `easyspeak-only` non-`nonPathway` path
+    present on the same (necessarily `presence: "both"`) member — is the exact definition backing
+    the Members view's "Path issues" filter; it lives here, next to the matching logic it reads, not
+    duplicated in UI code.
+- **`lib/resolution-store.js`** — the only place that reads/writes the 6 persisted resolution keys
   in `chrome.storage.local` (alongside the pre-existing `basecampData`/`basecampScrapedAt`/
   `easyspeakData`/`easyspeakScrapedAt`). Unlike `lib/report.js`, this file is legitimately
   `chrome.*`-dependent (pure storage I/O) so it isn't Node-testable — same as `lib/basecamp-api.js`/
   `lib/easyspeak-api.js`. Loaded via `<script>` in `report.html`/`members.html`/`settings.html`;
   never `importScripts`'d into `background.js`, since none of this needs the service worker. Every
   write is an upsert enforcing a 1:1 invariant where applicable (e.g. confirming a link first strips
-  any prior record touching either id) — there is intentionally no "unlink"/"un-reject" UI action
-  yet. The 5 keys:
+  any prior record touching either id). The Members view can now unlink/unbind everything this file
+  can create (see below) — there is intentionally still no "un-reject"/"un-exclude" UI action,
+  mirroring how a rejected pair or a path exclusion, once recorded, has no undo either. The 6 keys:
   - `memberLinks: [{basecampUserId, easyspeakMemberId, source: "fuzzy-confirmed"|"manual-search",
     confirmedAt}]` — persisted only for human-reviewed pairs; exact matches stay dynamic
     (recomputed every sync) on purpose, so an exact match that later drifts (e.g. a name change)
-    just needs one re-confirm click once it degrades to fuzzy/unmatched.
+    just needs one re-confirm click once it degrades to fuzzy/unmatched. `unlinkMember()` removes an
+    entry outright (the Members view's "Unlink" action on a `matchConfidence === "confirmed"` row) —
+    this alone does *not* stop the pair from being re-matched/re-suggested; pair it with
+    `rejectMemberPair()` for that.
   - `memberRejectedPairs: [{basecampUserId, easyspeakMemberId, rejectedAt}]` — a specific candidate
     pair the user explicitly dismissed as "not this one"; excluded from candidate generation forever
-    after, but doesn't stop either person from matching someone else.
+    after, but doesn't stop either person from matching someone else. Also doubles as the "Unlink"
+    action for an `matchConfidence === "exact"` row: an exact match is recomputed fresh every call
+    (there's no stored record to delete), so the only way to actually break it — and let the user
+    "resolve the matching again" via manual search — is to reject the pair so it can't just
+    auto-match right back on the next refresh.
   - `clubLookup: [{basecampClubId, easyspeakClubId, basecampClubName, easyspeakClubName}]` — ID
     pins (not a name-alias table), forcing a 1:1 club match regardless of name-similarity score. The
     two `*ClubName` fields are denormalized purely for the Settings page's display.
@@ -290,7 +303,18 @@ re-derived (and possibly un-derived) from names again.
     picked mismatched paths across the two systems (both sides orphaned) without touching
     `pathLookup` for everyone else. `basecampPathName`/`easyspeakPathLabel` are the raw, verbatim
     path strings for that member's rows (matched by exact string equality in `matchPaths`, not
-    re-normalized).
+    re-normalized). `removeMemberPathOverride()` is the "Unbind" action — the pair just goes back
+    through normal canonicalization afterward (may re-match automatically, or fall back to orphaned).
+  - `memberPathExclusions: [{basecampUserId, easyspeakMemberId, basecampPathName,
+    easyspeakPathLabel, excludedAt}]` — the member-scoped *inverse* of an override: a path pair that
+    canonicalizes together *automatically* has nothing stored to delete (same problem as an exact
+    member match), so `excludePathMatch()` records an exclusion instead. `matchPaths()` checks this
+    *after* canonicalization groups paths by key — if a "both"-presence pair matches an exclusion for
+    that member, it's force-split back into two independently-orphaned entries (synthetic keys
+    `` `${key}:basecamp` ``/`` `${key}:easyspeak` ``) instead of the merged entry canonicalization
+    would otherwise produce. This is the "Force unbind" action in the Members view, letting the user
+    then re-resolve the pair manually (bind to something else, or leave as orphan) instead of it
+    snapping back together on every refresh.
 - **`report/report.html` + `report/report.js`** — the pre-existing comparison/CSV-export page
   (reached from the popup's "Open comparison report" button as a full tab, not a popup window —
   `chrome.tabs.create({url: chrome.runtime.getURL(...)})`). Reads `basecampData`/`easyspeakData`
@@ -302,15 +326,51 @@ re-derived (and possibly un-derived) from names again.
   whenever any club has no counterpart at all in the other system, or any member is left
   `presence !== "both"` within a matched club pair (an unconfirmed fuzzy guess counts as unmatched
   here too, per `allowFuzzyMemberMatches: false` above) — with links to Settings (club fixes) and
-  Member matching (member fixes). `renderClubTabs()` additionally prefixes a `⚠` warning-sign icon
-  (`.tab-warning-icon`) onto any club tab whose pair has no counterpart on the other side.
+  Member matching (member fixes). `renderClubTabs()` additionally prefixes a warning-sign icon
+  (`warningIconHtml()`, `.warning-icon`) onto any club tab whose pair has no counterpart on the
+  other side.
 - **`members/members.html` + `members/members.js`** — the primary member-matching review workflow
   (reached from the popup's "Review Matches" button, and cross-linked with Settings/Report). Same
   storage-reads-only pattern as `report.js`. One spreadsheet-style table per club (club tabs reused
   from `report.js`'s pattern): EasySpeak name / Basecamp name / member-link status / path-bind
-  status / actions, plus filter chips (All / To do / Suggested / Unmatched / Path issues / Linked —
-  "To do" is the default view and means Suggested ∪ Unmatched ∪ Path issues) and a fixed sort
-  (action-needed rows first, alphabetical within each group, even inside "All"). A missing name cell
+  status / actions, plus filter chips (All / To do / Suggested / Unmatched / Path issues / Linked
+  automatically / Linked manually — "To do" is the default view and means Suggested ∪ Unmatched ∪
+  Path issues) and a fixed sort (action-needed rows first, alphabetical within each group, even
+  inside "All"). `classifyMember()` (members.js) assigns exactly one of `"linked-automatically"` or
+  `"linked-manually"` whenever none of suggested/unmatched/path-issues apply — `"linked-manually"`
+  covers both `matchConfidence === "confirmed"` (regardless of `matchSource`) *and* an otherwise-
+  `"exact"` member match that has a `memberPathOverride` bound (`hasPathOverride()`, lib/report.js,
+  next to `hasOrphanedPaths()`): the member identity matched automatically, but a human still had
+  to manually correct which path pairs with which, so it still counts as a manual correction for
+  filtering purposes. These two are mutually exclusive by construction, so the "Linked *" chip
+  counts always add back up to what used to be a single "Linked" bucket. The "Member link" column
+  shows a "Linked manually" badge (reusing the `.badge-confirmed` styling) for any
+  `matchConfidence === "confirmed"` row, with a tooltip distinguishing "confirmed from a suggested
+  match" vs. "linked via manual search" via `matchSource`; the "Path bind" column shows a "Bound"
+  badge (also `.badge-confirmed`, tooltip listing the bound path pair(s)) instead of a blank dash
+  once `hasPathOverride()` is true — otherwise a resolved override would leave that column looking
+  empty (`hasOrphanedPaths()` goes back to `false` once bound), silently losing the "this was
+  manually corrected" signal the row's classification now depends on.
+
+  Every `presence === "both"` member (except a still-`"fuzzy"` suggestion, which uses
+  Confirm/"Not this one" instead) gets an **"Unlink"** action in the Actions column —
+  `onUnlink()` calls `unlinkMember()` for a `"confirmed"` row, or `rejectMemberPair()` for an
+  `"exact"` row (see `lib/resolution-store.js` above for why exact needs rejection, not deletion).
+  `hasReviewablePaths(member)` (`presence === "both"` and at least one non-`nonPathway` path) —
+  broader than `hasOrphanedPaths()` — now gates the "Review path(s)" toggle, so it's available on
+  essentially every linked member, not just ones with an active orphan. The expanded
+  `renderPathBindDetail()` lists three kinds of rows: **matched paths** (`presence === "both"`)
+  each with "Unbind" (if `overridden`, calls `removeMemberPathOverride()`) or "Force unbind"
+  (if automatic, calls `excludePathMatch()`) — one or the other, never both, since an overridden
+  pair never re-enters normal canonicalization; **orphan pairs** (the pre-existing bind/leave-as-
+  orphan picker, unchanged); and a fallback note when only one side has a leftover orphan with
+  nothing to bind it to. Both club tabs and
+  filter chips carry a count badge (`.tab-count`/`.chip-count`) computed via `needsAction()`/
+  `matchesFilter()` against that club's own `members[]` — filter-chip counts are re-rendered by
+  `renderActiveClub()` every time the active club or filter changes (so they always reflect the
+  currently-selected club, not a global total), while a club tab's badge only appears when that
+  club actually has action-needed members (a fully-resolved club shows no badge, rather than a
+  "0"). A missing name cell
   becomes a `<input list> + <datalist>` type-ahead (native, not a custom dropdown — deliberate
   choice, accepted limitation: can't show rich per-candidate metadata) whose candidate pool is the
   other side's currently-unmatched members in the same club; the datalist option's visible text
