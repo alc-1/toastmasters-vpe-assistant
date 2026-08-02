@@ -61,6 +61,15 @@ const expandedMemberKeys = new Set<string>();
 
 init();
 
+// Keeps this tab in sync if data is re-extracted or resolution decisions are
+// edited from another tab (e.g. Settings) while this one stays open — must
+// call init(), not refresh(): basecampData/easyspeakData are only cached
+// into module state inside init(), and refresh() alone would keep rendering
+// against that stale snapshot forever.
+chrome.storage.onChanged.addListener((_changes, area) => {
+  if (area === "local") init();
+});
+
 async function init() {
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 
@@ -70,7 +79,7 @@ async function init() {
     document.getElementById("filterChips")!.innerHTML = "";
     document.getElementById("membersRoot")!.innerHTML =
       '<p class="empty-state">Both Basecamp and EasySpeak data are needed to review matches. ' +
-      "Go back to the extension popup and run both extractions first.</p>";
+      "Click the extension's toolbar icon and run both extractions first.</p>";
     return;
   }
 
@@ -319,7 +328,7 @@ function renderClubMembers(clubPair: ClubPairReport): string {
   return `
     <div class="club-summary">${matchNote}</div>
     ${datalists}
-    <table class="members">
+    <table class="table members">
       <thead>
         <tr>
           <th>Basecamp name</th>
@@ -392,7 +401,7 @@ function renderNameCell(member: MemberReport, side: "basecamp" | "easyspeak", po
   const datalistId = side === "easyspeak" ? `dl-es-${activeClubKey}` : `dl-bc-${activeClubKey}`;
   const key = memberKey(member);
   const label = side === "easyspeak" ? "EasySpeak" : "Basecamp";
-  return `<input type="text" class="link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" autocomplete="off">`;
+  return `<input type="text" class="link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" aria-label="Search ${label} members to link" autocomplete="off">`;
 }
 
 function renderLinkStatusCell(member: MemberReport): string {
@@ -494,7 +503,7 @@ function renderPathBindDetail(member: MemberReport): string {
             <div class="path-pair-row">
               <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName ?? "")}</span>
               <span>&harr;</span>
-              <select data-role="path-bind-select">${options}</select>
+              <select data-role="path-bind-select" aria-label="Choose a path to bind this member's orphaned path to">${options}</select>
               <button data-action="bind-path" data-member-key="${key}" data-bc-index="${bcIndex}">Bind for this member only</button>
               <button class="secondary" data-action="leave-orphan" data-member-key="${key}">Leave as orphan</button>
             </div>
@@ -510,7 +519,9 @@ function renderPathBindDetail(member: MemberReport): string {
     return '<p class="muted-text">No Pathways paths to review.</p>';
   }
 
-  return sections.join("");
+  const helpText =
+    '<p class="help-text">Bind pairs a path across systems for this member only; Force unbind splits an automatic pair apart so you can rebind it differently.</p>';
+  return helpText + sections.join("");
 }
 
 // ---------------------------------------------------------------------------

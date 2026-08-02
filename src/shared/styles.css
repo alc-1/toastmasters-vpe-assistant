@@ -1,0 +1,337 @@
+/* src/shared/styles.css
+ *
+ * Shared design tokens + component classes for every extension page
+ * (popup, options/*, status/*). Referenced via <link rel="stylesheet"
+ * href="../shared/styles.css"> from each HTML entry — Vite dedupes it into
+ * one hashed dist/assets/*.css chunk shared across all pages, the same way
+ * shared JS modules already are.
+ *
+ * Each page keeps a small residual <style> block for layout that's
+ * genuinely page-unique (popup's fixed width, report's <col> widths, status
+ * pages' centered layout) — this file only carries tokens and classes that
+ * were previously duplicated (with drift) across multiple pages.
+ */
+
+:root {
+  --color-primary: #772432;
+  --color-primary-hover: #651e2a;
+  --color-primary-active: #551926;
+
+  /* Semantic pairs — collapses ~30 ad hoc values previously scattered
+     across all 6 pages down to one bg/text pair per meaning. */
+  --color-success-bg: #dff3e3;
+  --color-success-text: #1e7a34;
+  --color-info-bg: #dbe9ff;
+  --color-info-text: #1a4fa0;
+  --color-attention-bg: #ffe8d6;
+  --color-attention-text: #a65500;
+  --color-warning-bg: #fff2cc;
+  --color-warning-text: #6b5900;
+  --color-danger-bg: #ffe4e4;
+  --color-danger-text: #a01414;
+  --color-danger-solid: #b3261e;
+  --color-disabled-bg: #aaaaaa;
+
+  /* Gray scale (6 steps, collapses 13 previously ad hoc values). */
+  --gray-900: #222222; /* body text */
+  --gray-700: #444444; /* secondary-btn text, inactive tabs */
+  --gray-600: #666666; /* the one "muted but AA-readable" text color */
+  --gray-300: #cccccc; /* input borders */
+  --gray-200: #e0e0e0; /* dividers, row borders, chip bg/border */
+  --gray-100: #f5f5f5; /* table header bg, secondary-btn bg */
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 3px; /* inputs */
+  --radius-md: 4px; /* buttons, boxes, banners */
+  --radius-pill: 999px; /* badges, chips, count badges */
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Page containers                                                        */
+/* ---------------------------------------------------------------------- */
+
+body {
+  font-family: var(--font-sans);
+  margin: 0 auto;
+  padding: 16px 20px 60px;
+  color: var(--gray-900);
+}
+
+.page--wide {
+  max-width: 1100px;
+}
+
+.page--narrow {
+  max-width: 800px;
+}
+
+.page--status {
+  max-width: 520px;
+  margin: 80px auto 0;
+  padding: 0 20px 60px;
+  text-align: center;
+}
+
+.meta {
+  font-size: var(--text-sm);
+  color: var(--gray-600);
+  margin-bottom: 4px;
+}
+
+.help-text {
+  font-size: var(--text-xs);
+  color: var(--gray-600);
+  margin: 0 0 12px;
+}
+
+.page-nav {
+  font-size: var(--text-sm);
+  margin-bottom: 20px;
+}
+
+.page-nav a {
+  color: var(--color-primary);
+}
+
+.section-header {
+  font-size: var(--text-lg);
+  margin: var(--space-6) 0 var(--space-1);
+  border-top: 1px solid var(--gray-200);
+  padding-top: var(--space-4);
+}
+
+.section-header--first {
+  border-top: none;
+  padding-top: 0;
+}
+
+.empty-state {
+  font-size: 14px;
+  color: var(--gray-600);
+  margin-top: 40px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Buttons                                                                 */
+/* ---------------------------------------------------------------------- */
+
+.btn {
+  font-size: var(--text-base);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--color-primary-active);
+}
+
+.btn-secondary {
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.btn:disabled {
+  background: var(--color-disabled-bg);
+  color: white;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Tables                                                                  */
+/* ---------------------------------------------------------------------- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--gray-200);
+  vertical-align: top;
+}
+
+.table th {
+  background: var(--gray-100);
+}
+
+.table tr.muted-row {
+  color: var(--gray-600);
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Badges                                                                  */
+/* ---------------------------------------------------------------------- */
+
+.badge {
+  display: inline-block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.badge-both,
+.badge-exact {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.badge-basecamp-only,
+.badge-unmatched {
+  background: var(--color-attention-bg);
+  color: var(--color-attention-text);
+}
+
+.badge-easyspeak-only,
+.badge-confirmed {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.badge-fuzzy {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.badge-path-issue {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+/* Kept under their existing names (not renamed to something generic like
+   ".count-badge") since members.ts constructs these class names as plain
+   literal strings in its template code — no dynamic interpolation, so
+   there's no correctness reason to rename, only churn. */
+.tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  background: var(--color-danger-solid);
+  border-radius: var(--radius-pill);
+  vertical-align: middle;
+}
+
+.chip-count {
+  display: inline-block;
+  min-width: 14px;
+  padding: 0 5px;
+  margin-left: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gray-700);
+  background: white;
+  border-radius: var(--radius-pill);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Tabs + warning icon + conflict banner (previously duplicated verbatim   */
+/* between report.html and members.html)                                  */
+/* ---------------------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--gray-200);
+  margin-bottom: 12px;
+}
+
+.tab-btn {
+  padding: 8px 14px;
+  font-size: var(--text-base);
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--gray-600);
+}
+
+.tab-btn:hover {
+  color: var(--gray-900);
+}
+
+.tab-btn.active {
+  color: var(--color-primary);
+  font-weight: 600;
+  border-bottom-color: var(--color-primary);
+}
+
+.warning-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.warning-icon svg {
+  display: block;
+  fill: var(--color-danger-solid);
+}
+
+.conflict-warning {
+  background: var(--color-warning-bg);
+  border: 1px solid #f0d878;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: var(--text-base);
+  color: var(--color-warning-text);
+  margin-bottom: 16px;
+}
+
+.conflict-warning .warning-icon {
+  margin-right: 6px;
+}
+
+.conflict-warning a {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Accessibility: one consistent focus treatment everywhere                */
+/* ---------------------------------------------------------------------- */
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

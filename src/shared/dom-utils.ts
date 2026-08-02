@@ -23,12 +23,15 @@ export function escapeAttr(str: string): string {
 // clubs/conflicts with it) — an inline SVG rather than the "⚠" character,
 // since that glyph's triangle-and-exclamation strokes depend entirely on the
 // system's emoji font and can blur into an unreadable blob at small/bold
-// sizes. Plain vector shapes stay crisp at any size. Callers must define a
-// `.warning-icon` CSS rule (size/spacing) in their own page.
+// sizes. Plain vector shapes stay crisp at any size. No `fill` attribute
+// here — shared/styles.css's `.warning-icon svg` rule sets it from a token,
+// so this icon's color stays in sync with the rest of the danger palette.
+// Callers must define a `.warning-icon` CSS rule (size/spacing) in their own
+// page (already true of shared/styles.css itself for report.ts/members.ts).
 export function warningIconHtml(title: string): string {
   return `
     <span class="warning-icon" title="${escapeAttr(title)}">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960" fill="#EA3323"><path d="m40-120 440-760 440 760H40Zm138-80h604L480-720 178-200Zm330.5-51.5Q520-263 520-280t-11.5-28.5Q497-320 480-320t-28.5 11.5Q440-297 440-280t11.5 28.5Q463-240 480-240t28.5-11.5ZM440-360h80v-200h-80v200Zm40-100Z"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960"><path d="m40-120 440-760 440 760H40Zm138-80h604L480-720 178-200Zm330.5-51.5Q520-263 520-280t-11.5-28.5Q497-320 480-320t-28.5 11.5Q440-297 440-280t11.5 28.5Q463-240 480-240t28.5-11.5ZM440-360h80v-200h-80v200Zm40-100Z"/></svg>
     </span>
   `;
 }

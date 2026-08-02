@@ -66,6 +66,13 @@ async function init() {
 
   updateReportButton(!!cached.basecampData, !!cached.easyspeakData);
 
+  // Reopening the popup while a scrape is still running elsewhere (e.g. an
+  // EasySpeak tab that survived the popup's own teardown) would otherwise
+  // show this stale "Last extraction: ..." line right next to a
+  // disabled/relabeled button — set it explicitly so the two agree.
+  if (statuses.basecamp === "loading") setStatus(basecampEls, "Still extracting… this can take a minute or two.");
+  if (statuses.easyspeak === "loading") setStatus(easyspeakEls, "Still extracting… this can take a minute or two.");
+
   setButtonLoading(basecampEls, statuses.basecamp === "loading", "Basecamp data loading...");
   setButtonLoading(easyspeakEls, statuses.easyspeak === "loading", "EasySpeak data loading...");
 
@@ -80,7 +87,12 @@ async function init() {
     })
   );
 
-  easyspeakEls.btn.addEventListener("click", () =>
+  easyspeakEls.btn.addEventListener("click", () => {
+    // Set synchronously, before onScrapeClick's internal sendMessage() is
+    // awaited — ensureEasySpeakTab() steals focus almost immediately, and
+    // Chrome tears down this popup the instant it loses focus, so anything
+    // set after the await may never actually render.
+    setStatus(easyspeakEls, "Opening an EasySpeak tab now — this will close the popup (that's expected). Reopen it once the tab finishes or closes itself to see the result.");
     onScrapeClick({
       els: easyspeakEls,
       message: { type: "SCRAPE_EASYSPEAK" },
@@ -88,12 +100,19 @@ async function init() {
       scrapedAtKey: "easyspeakScrapedAt",
       loadingLabel: "EasySpeak data loading...",
       render: renderEasySpeakResult,
-    })
-  );
+    });
+  });
 
   reportEls.btn.addEventListener("click", () => chrome.tabs.create({ url: pageUrl("options/report.html") }));
 
   reportEls.reviewMatchesBtn.addEventListener("click", () => chrome.tabs.create({ url: pageUrl("options/members.html") }));
+
+  // Never disabled — Settings (mock mode, EasySpeak server) is meaningful to
+  // change before any extraction exists, unlike the report/review buttons.
+  document.getElementById("openSettingsLink")!.addEventListener("click", (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: pageUrl("options/settings.html") });
+  });
 }
 
 // Enables the report/review-matches buttons only once both sources have

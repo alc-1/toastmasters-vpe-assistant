@@ -17,6 +17,15 @@ let easyspeakData: EasySpeakScrape | null = null;
 
 init();
 
+// Keeps this tab in sync if data is re-extracted, or a club/path/mock
+// decision is edited from another tab (e.g. Members) while this one stays
+// open — must call init(), not the individual refreshers: basecampData/
+// easyspeakData (needed by the club-pin add-form) are only cached into
+// module state inside init().
+chrome.storage.onChanged.addListener((_changes, area) => {
+  if (area === "local") init();
+});
+
 async function init() {
   const cached = await local.get(["basecampData", "easyspeakData"]);
   basecampData = cached.basecampData ?? null;
@@ -42,8 +51,8 @@ function renderMockModeSection(current: boolean): string {
   return `
     <div class="add-form">
       <label><input type="checkbox" id="mockModeCheckbox"${current ? " checked" : ""}> Enable demo/mock mode</label>
-      <button data-action="save-mock-mode">Save</button>
-      <span class="save-status" id="mockModeStatus">Saved.</span>
+      <button class="btn btn-primary" data-action="save-mock-mode">Save</button>
+      <span class="save-status" id="mockModeStatus" aria-live="polite">Saved.</span>
     </div>
   `;
 }
@@ -84,9 +93,9 @@ function renderEasySpeakServerSection(current: EasySpeakServerId): string {
 
   return `
     <div class="add-form">
-      <select id="easyspeakServerSelect">${options}</select>
-      <button data-action="save-easyspeak-server">Save</button>
-      <span class="save-status" id="easyspeakServerStatus">Saved.</span>
+      <label>EasySpeak server: <select id="easyspeakServerSelect">${options}</select></label>
+      <button class="btn btn-primary" data-action="save-easyspeak-server">Save</button>
+      <span class="save-status" id="easyspeakServerStatus" aria-live="polite">Saved.</span>
     </div>
   `;
 }
@@ -129,14 +138,14 @@ function renderClubLookupSection(clubLookup: ClubLookupEntry[]): string {
       <tr>
         <td>${escapeHtml(pin.basecampClubName)}</td>
         <td>${escapeHtml(pin.easyspeakClubName)}</td>
-        <td><button class="secondary" data-action="remove-club-pin" data-basecamp-club-id="${escapeAttr(pin.basecampClubId)}">Remove</button></td>
+        <td><button class="btn btn-secondary" data-action="remove-club-pin" data-basecamp-club-id="${escapeAttr(pin.basecampClubId)}">Remove</button></td>
       </tr>
     `
     )
     .join("");
 
   const table = clubLookup.length
-    ? `<table class="lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+    ? `<table class="table lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
     : '<p class="empty-state">No club pins yet — clubs are only matched automatically on an exact name match.</p>';
 
   return `${table}${renderClubAddForm(clubLookup)}`;
@@ -165,10 +174,10 @@ function renderClubAddForm(clubLookup: ClubLookupEntry[]): string {
 
   return `
     <div class="add-form">
-      <select id="newClubPinBc">${bcOptions}</select>
+      <select id="newClubPinBc" aria-label="Basecamp club">${bcOptions}</select>
       <span>&harr;</span>
-      <select id="newClubPinEs">${esOptions}</select>
-      <button data-action="add-club-pin">Add mapping</button>
+      <select id="newClubPinEs" aria-label="EasySpeak club">${esOptions}</select>
+      <button class="btn btn-primary" data-action="add-club-pin">Add mapping</button>
     </div>
   `;
 }
@@ -212,10 +221,10 @@ function renderPathLookupSection(pathLookup: PathLookup): string {
       ([canonical, aliases]) => `
       <tr data-canonical="${escapeAttr(canonical)}">
         <td>${escapeHtml(canonical)}</td>
-        <td><input type="text" data-role="alias-input" value="${escapeAttr(aliases.join(", "))}"></td>
+        <td><input type="text" data-role="alias-input" value="${escapeAttr(aliases.join(", "))}" aria-label="Alternate spellings for ${escapeAttr(canonical)}"></td>
         <td>
-          <button class="secondary" data-action="save-aliases">Save</button>
-          <button class="secondary" data-action="delete-canonical">Delete</button>
+          <button class="btn btn-secondary" data-action="save-aliases">Save</button>
+          <button class="btn btn-secondary" data-action="delete-canonical">Delete</button>
         </td>
       </tr>
     `
@@ -223,14 +232,14 @@ function renderPathLookupSection(pathLookup: PathLookup): string {
     .join("");
 
   const table = rows
-    ? `<table class="lookup"><thead><tr><th>Canonical path name</th><th>Alternate spellings (comma-separated)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+    ? `<table class="table lookup"><thead><tr><th>Canonical path name</th><th>Alternate spellings (comma-separated)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
     : '<p class="empty-state">No path aliases configured.</p>';
 
   return `
     ${table}
     <div class="add-form">
-      <input type="text" id="newPathCanonical" placeholder="New canonical path name (lowercase)">
-      <button data-action="add-canonical">Add path</button>
+      <input type="text" id="newPathCanonical" placeholder="New canonical path name (lowercase)" aria-label="New canonical path name">
+      <button class="btn btn-primary" data-action="add-canonical">Add path</button>
     </div>
   `;
 }

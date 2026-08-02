@@ -3,50 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <title>Toastmasters VPE Tracker — Comparison Report</title>
+  <link rel="icon" type="image/png" href="../icons/icon-32.png">
+  <link rel="stylesheet" href="../shared/styles.css">
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       max-width: 1100px;
-      margin: 0 auto;
-      padding: 16px 20px 60px;
-      color: #222;
     }
     h1 {
-      font-size: 20px;
+      font-size: var(--text-xl);
       margin: 0 0 4px;
-    }
-    .meta {
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 4px;
-    }
-    .nav-links {
-      font-size: 12px;
-      margin-bottom: 16px;
-    }
-    .nav-links a {
-      color: #772432;
-    }
-    h2 {
-      font-size: 16px;
-      margin: 28px 0 4px;
-      border-top: 1px solid #ddd;
-      padding-top: 16px;
-    }
-    .club-summary {
-      font-size: 12px;
-      color: #555;
-      margin-bottom: 10px;
     }
     details.member {
       border: 1px solid #e2e2e2;
-      border-radius: 4px;
+      border-radius: var(--radius-md);
       margin-bottom: 6px;
       padding: 6px 10px;
     }
     details.member summary {
       cursor: pointer;
-      font-size: 13px;
+      font-size: var(--text-base);
       display: flex;
       align-items: center;
       gap: 8px;
@@ -54,24 +29,9 @@
     .member-name {
       font-weight: 600;
     }
-    .badge {
-      display: inline-block;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 6px;
-      border-radius: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-    }
-    .badge-both { background: #dff3e3; color: #1e7a34; }
-    .badge-basecamp-only { background: #ffe8d6; color: #a65500; }
-    .badge-easyspeak-only { background: #e0ecff; color: #1a4fa0; }
-    .badge-exact { background: #dff3e3; color: #1e7a34; }
-    .badge-fuzzy { background: #fff2cc; color: #9a7a00; }
-    .badge-confirmed { background: #dbe9ff; color: #1a4fa0; }
     .no-active-path {
-      font-size: 11px;
-      color: #888;
+      font-size: var(--text-xs);
+      color: var(--gray-600);
       font-style: italic;
       margin: 4px 0;
     }
@@ -79,124 +39,38 @@
       margin: 10px 0;
     }
     .path-title {
-      font-size: 12px;
+      font-size: var(--text-sm);
       font-weight: 600;
       margin-bottom: 4px;
     }
     .path-presence {
       font-weight: 400;
-      color: #777;
+      color: var(--gray-600);
       text-transform: none;
       letter-spacing: normal;
     }
     .non-pathway-note {
-      font-size: 12px;
-      color: #777;
+      font-size: var(--text-sm);
+      color: var(--gray-600);
       font-style: italic;
     }
-    table.levels {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-    table.levels th, table.levels td {
-      text-align: left;
-      padding: 3px 6px;
-      border-bottom: 1px solid #eee;
-    }
     table.levels tr.pending {
-      background: #fff2cc;
+      background: var(--color-warning-bg);
     }
     table.levels tr.discrepancy {
-      background: #ffe4e4;
+      background: var(--color-danger-bg);
     }
     table.levels tr.completion-row {
       font-style: italic;
-      color: #666;
+      color: var(--gray-600);
     }
     .level-note {
       cursor: help;
-      color: #888;
+      color: var(--gray-600);
       font-weight: bold;
     }
-    .empty-state {
-      font-size: 14px;
-      color: #555;
-      margin-top: 40px;
-    }
-    #downloadCsvBtn {
-      padding: 6px 12px;
-      font-size: 13px;
-      cursor: pointer;
-      background: #772432;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      margin-bottom: 16px;
-    }
-    #downloadCsvBtn:disabled {
-      background: #aaa;
-      cursor: not-allowed;
-    }
-    .summary-help {
-      font-size: 11px;
-      color: #777;
-      margin: 0 0 10px;
-    }
-    .tabs {
-      display: flex;
-      gap: 4px;
-      border-bottom: 1px solid #ddd;
-      margin-bottom: 12px;
-    }
-    .tab-btn {
-      padding: 8px 14px;
-      font-size: 13px;
-      cursor: pointer;
-      background: none;
-      border: none;
-      border-bottom: 3px solid transparent;
-      color: #666;
-    }
-    .tab-btn:hover {
-      color: #222;
-    }
-    .tab-btn.active {
-      color: #772432;
-      font-weight: 600;
-      border-bottom-color: #772432;
-    }
-    .warning-icon {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      vertical-align: middle;
-      margin-right: 6px;
-    }
-    .warning-icon svg {
-      display: block;
-    }
-    .conflict-warning {
-      background: #fff8e1;
-      border: 1px solid #f0d878;
-      border-radius: 4px;
-      padding: 10px 14px;
-      font-size: 13px;
-      color: #6b5900;
-      margin-bottom: 16px;
-    }
-    .conflict-warning .warning-icon {
-      margin-right: 6px;
-    }
-    .conflict-warning a {
-      color: #772432;
-      font-weight: 600;
-    }
     table.summary {
-      width: 100%;
       table-layout: fixed;
-      border-collapse: collapse;
-      font-size: 12px;
       margin-bottom: 30px;
     }
     table.summary col.col-member { width: 15%; }
@@ -206,27 +80,19 @@
     table.summary col.col-unreported { width: 12%; }
     table.summary col.col-real { width: 14%; }
     table.summary th, table.summary td {
-      text-align: left;
-      padding: 5px 8px;
-      border-bottom: 1px solid #eee;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     table.summary th {
       cursor: pointer;
       user-select: none;
-      background: #fafafa;
     }
     table.summary th:hover {
       background: #f0f0f0;
     }
     table.summary th .sort-indicator {
-      color: #772432;
+      color: var(--color-primary);
       margin-left: 3px;
-    }
-    table.summary tr.muted-row {
-      color: #888;
-      font-style: italic;
     }
     table.summary td.numeric {
       text-align: right;
@@ -234,29 +100,34 @@
     }
   </style>
 </head>
-<body>
+<body class="page--wide">
   <h1>Comparison Report</h1>
   <div class="meta" id="reportMeta"></div>
-  <div class="nav-links">
+  <nav class="page-nav" aria-label="Related pages">
     <a href="members.html">Member matching</a> · <a href="settings.html">Settings (lookups)</a>
-  </div>
-  <div id="conflictWarning"></div>
-  <button id="downloadCsvBtn">Download CSV</button>
+  </nav>
+  <div id="conflictWarning" aria-live="polite"></div>
+  <button id="downloadCsvBtn" class="btn btn-primary">Download CSV</button>
 
   <div id="clubTabs" class="tabs"></div>
 
-  <h2 style="border-top: none; padding-top: 0;">Next Level Summary</h2>
-  <p class="summary-help">
+  <h2 class="section-header section-header--first">Next Level Summary</h2>
+  <p class="help-text">
     One row is displayed per member per path. Click a column header to sort (click again to reverse).
   </p>
-  <p class="summary-help">
+  <p class="help-text">
     "To Next Lvl (Basecamp)"  : Amount of speeches missing to complete the current level.<br>
     "Unreported (Basecamp)"   : Amount of speeches done in EasySpeak and not reported in Basecamp.<br>
     "To Next Lvl (Real)"      : Amount of speeches to do to complete the current level, considering what's unreported at this point in time.
   </p>
   <div id="summaryTableRoot"></div>
 
-  <h2>Member List</h2>
+  <h2 class="section-header">Member List</h2>
+  <p class="help-text">
+    Members show as unmatched here whenever their match is only a computer-suggested guess rather
+    than an exact name match — confirm suggested matches on the <a href="members.html">Member
+    Matching</a> page to have them count here too.
+  </p>
   <div id="reportRoot"></div>
 
   <script type="module" src="./report.ts"></script>

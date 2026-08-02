@@ -15,19 +15,36 @@ import type { ClubPairReport, LevelSummaryRow, MemberReport, PathReport, ReportR
 const downloadCsvBtn = document.getElementById("downloadCsvBtn") as HTMLButtonElement;
 downloadCsvBtn.disabled = true;
 
-init();
+// Set once, at module load, rather than inside refresh() — refresh() can run
+// more than once per page load (see the chrome.storage.onChanged listener
+// below), and re-attaching this listener on every call would stack a new
+// one each time instead of replacing it, since downloadCsvBtn is a
+// module-level element whose innerHTML is never replaced by rendering.
+let currentReport: ReportResult | null = null;
+downloadCsvBtn.addEventListener("click", () => {
+  if (currentReport) downloadCsv(currentReport);
+});
 
-async function init() {
+refresh();
+
+// Keeps this tab in sync if data is re-extracted or resolution decisions are
+// edited from another tab (e.g. Members, Settings) while this one stays open.
+chrome.storage.onChanged.addListener((_changes, area) => {
+  if (area === "local") refresh();
+});
+
+async function refresh() {
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 
   if (!cached.basecampData || !cached.easyspeakData) {
-    downloadCsvBtn.style.display = "none";
+    currentReport = null;
+    downloadCsvBtn.disabled = true;
     document.getElementById("conflictWarning")!.innerHTML = "";
     document.getElementById("clubTabs")!.innerHTML = "";
     document.getElementById("summaryTableRoot")!.innerHTML = "";
     document.getElementById("reportRoot")!.innerHTML =
       '<p class="empty-state">Both Basecamp and EasySpeak data are needed to build this report. ' +
-      "Go back to the extension popup and run both extractions first.</p>";
+      "Click the extension's toolbar icon and run both extractions first.</p>";
     return;
   }
 
@@ -49,8 +66,8 @@ async function init() {
     { ...resolution, allowFuzzyMemberMatches: false }
   );
 
+  currentReport = report;
   downloadCsvBtn.disabled = false;
-  downloadCsvBtn.addEventListener("click", () => downloadCsv(report));
 
   renderConflictWarning(report);
 
@@ -194,7 +211,7 @@ function renderSummaryTable(rows: LevelSummaryRow[]) {
 
   const colgroupHtml = SUMMARY_COLUMNS.map((col) => `<col class="${col.colClass}">`).join("");
   const theadHtml = SUMMARY_COLUMNS.map((col) => `<th data-key="${col.key}">${escapeHtml(col.label)}</th>`).join("");
-  root.innerHTML = `<table class="summary"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>`;
+  root.innerHTML = `<table class="table summary"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>`;
 
   root.querySelectorAll<HTMLTableCellElement>("th").forEach((th) => {
     th.addEventListener("click", () => {
@@ -338,7 +355,7 @@ function renderPath(path: PathReport) {
   return `
     <div class="path-block">
       <div class="path-title">${escapeHtml(path.displayName)}<span class="path-presence">${presenceNote}</span></div>
-      <table class="levels">
+      <table class="table levels">
         <tr>
           <th>Level</th>
           <th>EasySpeak (done/needed)</th>
