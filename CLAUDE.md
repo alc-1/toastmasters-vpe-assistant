@@ -22,12 +22,13 @@ There are no build/lint/test commands. To try changes:
    server (`https://tmclub.eu/` by default — see Settings to change it; any tab, any time
    beforehand).
 4. Click the extension icon, then "Extract Basecamp data" and/or "Extract EasySpeak data" — no
-   Basecamp tab needs to stay open. EasySpeak scraping will briefly take over a tab on the
-   configured EasySpeak server (reusing one if open, otherwise opening and focusing a new one — see
-   Architecture for why), which
+   Basecamp tab needs to stay open (unless a login is required — see Architecture). EasySpeak
+   scraping always opens and focuses a brand-new tab on the configured EasySpeak server (never
+   reuses an already-open one — see Architecture for why), which
    **closes the popup immediately** (Chrome tears down `action` popups as soon as they lose focus,
-   and stealing tab/window focus is exactly what `ensureEasySpeakTab()` does). Reopen the popup once
-   that tab is done to see the result — see the storage note below for why this works.
+   and stealing tab/window focus is exactly what `ensureEasySpeakTab()` does). That tab redirects to
+   a "data fetched" confirmation page and closes itself a few seconds later once scraping finishes;
+   reopen the popup to see the result — see the storage note below for why this works.
 5. Inspect the popup summary table and the raw JSON under "Raw data", or check the background
    service worker's console (`chrome://extensions` → this extension → "service worker" inspect
    link) for errors. Code injected into the EasySpeak tab via `chrome.scripting` logs to that
@@ -104,21 +105,26 @@ background service worker → source-specific scraper**.
      focus, but the popup can still close mid-scrape for other reasons (user clicks away, etc.), and
      losing a completed scrape's result silently is worse than one redundant write.
   4. **Not-logged-in fallback**: `fetchJson()` is the sole place a request is made, and the sole
-     place a 401/403 is detected. On a 401/403 it calls `waitForBasecampLogin()`, which opens (or
-     finds-and-focuses an existing) `apps.basecamp.toastmasters.org` tab via
-     `ensureBasecampDashboardTab()` (mirroring `ensureEasySpeakTab()` below) and navigates it to
-     `/dashboard/bcm-dashboard/approvals` — a page that itself redirects an unauthenticated visitor to
-     Basecamp's own auth flow, then redirects back to that same approvals URL once login succeeds.
-     `waitForLoginRedirect()` registers its `chrome.tabs.onUpdated`/`onRemoved` listeners **before**
-     calling `chrome.tabs.update()`, for the identical race-avoidance reason documented below for
+     place a 401/403 is detected. On a 401/403 it calls `waitForBasecampLogin()`, which always opens
+     a brand-new `apps.basecamp.toastmasters.org` tab via `ensureBasecampDashboardTab()` (mirroring
+     `ensureEasySpeakTab()` below — neither ever reuses an already-open tab, so the user's own open
+     tabs are never hijacked mid-navigation) and navigates it to `/dashboard/bcm-dashboard/approvals`
+     — a page that itself redirects an unauthenticated visitor to Basecamp's own auth flow, then
+     redirects back to that same approvals URL once login succeeds. `waitForLoginRedirect()`
+     registers its `chrome.tabs.onUpdated`/`onRemoved` listeners **before** calling
+     `chrome.tabs.update()`, for the identical race-avoidance reason documented below for
      `navigateAndWaitForRealPage()`, and simply ignores every "complete" event until the tab's URL is
      exactly the approvals URL again (no Cloudflare-challenge or restricted-text checks are needed
      here, unlike EasySpeak, since Basecamp's own redirect is the only signal that matters) — capped
      at a flat 5-minute timeout. Once resolved, `fetchJson()` retries the original request exactly
-     once; a second 401/403 (e.g. wrong account) throws instead of looping. The tab is only closed if
-     `waitForBasecampLogin()` created it itself and the wait succeeded — a pre-existing tab is left
-     as-is, and a self-created tab is left open on failure/timeout so the user can see what went
-     wrong, the same rule `scrapeAllEasySpeakClubs()` applies to its own tab.
+     once; a second 401/403 (e.g. wrong account) throws instead of looping. Once
+     `waitForLoginRedirect()` resolves, `waitForBasecampLogin()` redirects the tab to
+     `status/basecamp-auth.html` — a confirmation page explaining that auth succeeded and the scrape
+     is continuing in the background — instead of closing it, so the user gets explicit confirmation
+     of a successful login. Like EasySpeak's equivalent confirmation page below, it auto-closes the
+     tab 5 seconds later via the shared `status/countdown.js` (see there), with a visible countdown
+     and a "Keep this tab open" button to cancel it. On failure/timeout, the tab is left open exactly
+     as-is (not redirected) so the user can see what went wrong.
 - **EasySpeak is architecturally different, and deliberately so** — don't "simplify" it to match
   Basecamp's fetch-only shape. All three EasySpeak deployments (see `lib/settings-store.js` below)
   sit behind Cloudflare, which blocks plain `fetch()`/`XHR` outright regardless of which extension
@@ -133,12 +139,13 @@ background service worker → source-specific scraper**.
   - **`lib/easyspeak-api.js`** — orchestration, `importScripts`'d into `background.js`. Every
     domain-specific URL is derived at call time rather than hardcoded: `scrapeAllEasySpeakClubs()`
     reads the configured server via `getEasySpeakServer()` (`lib/settings-store.js`) into a `root`
-    (`https://${server}`) used to build both `profile.php`/`memberchart.php` URLs and passed to
-    `ensureEasySpeakTab(server)`; `navigateAndWaitForRealPage(tabId, url)` derives its own
+    (`https://${server}`) used to build both `profile.php`/`memberchart.php` URLs;
+    `navigateAndWaitForRealPage(tabId, url)` derives its own
     `loginPath` from `` `${new URL(url).origin}/login.php` `` rather than a fixed constant, so it
     works against whichever server `url` itself points at without needing a separate parameter.
-    `ensureEasySpeakTab(server)` finds an existing tab on that server to reuse (focusing it) or
-    creates and focuses a new one (visible, not hidden, so the user can solve an interactive
+    `ensureEasySpeakTab()` always creates and focuses a brand-new tab (never reuses an already-open
+    one on that server, so the user's own open tabs are never hijacked mid-navigation — visible, not
+    hidden, so the user can solve an interactive
     Cloudflare puzzle if the usually-automatic "managed" challenge ever escalates to one).
     `loadAndParse(tabId, url,
     parseFnName)` calls `navigateAndWaitForRealPage(tabId, url)`, which registers its
@@ -174,11 +181,18 @@ background service worker → source-specific scraper**.
     name (`window[fnName]()`) in a second `executeScript` call, returning its result.
     `scrapeAllEasySpeakClubs()` ties it together: `profile.php?mode=editprofile#tab_ti` → officer
     clubs, then
-    `memberchart.php?chart=10&c={clubId}` per club → members; closes the tab afterward only if it
-    was created by this call (a pre-existing tab is left as-is, and a self-created tab is left open
-    on failure so the user can see/solve whatever went wrong); then writes the result to
-    `chrome.storage.local` (`easyspeakData`/`easyspeakScrapedAt`) itself before returning. **This
-    direct write is load-bearing, not redundant with popup.js's**: `ensureEasySpeakTab()` steals
+    `memberchart.php?chart=10&c={clubId}` per club → members; writes the result to
+    `chrome.storage.local` (`easyspeakData`/`easyspeakScrapedAt`) itself first, then redirects the tab
+    to `status/easyspeak-done.html` — a confirmation page that counts down 5 seconds (visibly, via a
+    `#countdown` span) and closes itself via `chrome.tabs.remove()` (not `window.close()`, which only
+    works on a tab/window a script itself opened via `window.open()`), with a "Keep this tab open"
+    button to cancel the close. This countdown/cancel behavior lives in `status/countdown.js`, shared
+    with `status/basecamp-auth.html` (see `waitForBasecampLogin()` above) rather than duplicated per
+    page — each including page just needs to define `#countdownText`/`#countdown`/`#cancelBtn`. If
+    anything above throws
+    (Cloudflare stuck, login timeout, parse failure), that redirect line is never reached and the tab
+    is left open exactly as-is so the user can see/solve whatever went wrong. **The storage write is
+    load-bearing, not redundant with popup.js's**: `ensureEasySpeakTab()` steals
     tab/window focus, and Chrome closes an `action` popup the instant it loses focus — so the popup
     that triggered the scrape is gone long before `scrapeAllEasySpeakClubs()` resolves, and its
     `await chrome.runtime.sendMessage(...)` in `onScrapeClick` never gets a chance to run its
