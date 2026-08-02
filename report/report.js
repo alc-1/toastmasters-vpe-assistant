@@ -33,10 +33,16 @@ async function init() {
     `Basecamp last extracted: ${formatDate(cached.basecampScrapedAt)} — ` +
     `EasySpeak last extracted: ${formatDate(cached.easyspeakScrapedAt)}`;
 
-  const report = buildReport(cached.basecampData, cached.easyspeakData, {
-    basecampScrapedAt: cached.basecampScrapedAt,
-    easyspeakScrapedAt: cached.easyspeakScrapedAt,
-  });
+  // Loading persisted resolution decisions here (not just in members.js) is
+  // required, not optional — otherwise this page's CSV export and Level
+  // Summary would silently diverge from what the Member matching view shows.
+  const resolution = await loadResolutionData();
+  const report = buildReport(
+    cached.basecampData,
+    cached.easyspeakData,
+    { basecampScrapedAt: cached.basecampScrapedAt, easyspeakScrapedAt: cached.easyspeakScrapedAt },
+    resolution
+  );
 
   downloadCsvBtn.disabled = false;
   downloadCsvBtn.addEventListener("click", () => downloadCsv(report));
@@ -201,11 +207,12 @@ function downloadCsv(report) {
 }
 
 function renderClubDetail(clubPair) {
-  const { basecampClubName, easyspeakClubName, matchScore, members } = clubPair;
+  const { basecampClubName, easyspeakClubName, matchScore, clubMatchForced, members } = clubPair;
 
   let matchNote;
   if (basecampClubName && easyspeakClubName) {
-    matchNote = `${escapeHtml(basecampClubName)} / ${escapeHtml(easyspeakClubName)} — match ${Math.round(matchScore * 100)}%`;
+    const scoreText = clubMatchForced ? "pinned in Settings" : `match ${Math.round(matchScore * 100)}%`;
+    matchNote = `${escapeHtml(basecampClubName)} / ${escapeHtml(easyspeakClubName)} — ${scoreText}`;
   } else if (basecampClubName) {
     matchNote = `${escapeHtml(basecampClubName)} (no EasySpeak counterpart found)`;
   } else {
@@ -232,8 +239,9 @@ function renderClubDetail(clubPair) {
 
 function renderMember(member) {
   const presenceBadge = `<span class="badge badge-${member.presence}">${presenceLabel(member.presence)}</span>`;
+  const scoreTitle = member.matchScore != null ? ` title="match score: ${member.matchScore.toFixed(2)}"` : "";
   const confidenceBadge = member.matchConfidence
-    ? `<span class="badge badge-${member.matchConfidence}" title="match score: ${member.matchScore.toFixed(2)}">${member.matchConfidence}</span>`
+    ? `<span class="badge badge-${member.matchConfidence}"${scoreTitle}>${member.matchConfidence}</span>`
     : "";
 
   const noActivePathNote = member.easyspeakNoActivePath
@@ -328,10 +336,4 @@ function renderPathCompletionRow(pathCompletion) {
 
 function formatDate(timestamp) {
   return timestamp ? new Date(timestamp).toLocaleString("en-US") : "never";
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
 }

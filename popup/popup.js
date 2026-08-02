@@ -18,6 +18,7 @@ easyspeakEls.idleLabel = easyspeakEls.btn.textContent;
 
 const reportEls = {
   btn: document.getElementById("openReportBtn"),
+  reviewMatchesBtn: document.getElementById("reviewMatchesBtn"),
   status: document.getElementById("statusReport"),
 };
 
@@ -80,16 +81,21 @@ async function init() {
   reportEls.btn.addEventListener("click", () =>
     chrome.tabs.create({ url: chrome.runtime.getURL("report/report.html") })
   );
+
+  reportEls.reviewMatchesBtn.addEventListener("click", () =>
+    chrome.tabs.create({ url: chrome.runtime.getURL("members/members.html") })
+  );
 }
 
-// Enables the report button only once both sources have data cached —
-// called on popup open and again after each successful scrape, so it goes
-// live the moment the second source finishes without needing a reopen.
+// Enables the report/review-matches buttons only once both sources have
+// data cached — called on popup open and again after each successful
+// scrape, so they go live the moment the second source finishes without
+// needing a reopen.
 function updateReportButton(hasBasecamp, hasEasyspeak) {
-  reportEls.btn.disabled = !(hasBasecamp && hasEasyspeak);
-  reportEls.status.textContent = reportEls.btn.disabled
-    ? "Extract both Basecamp and EasySpeak data first."
-    : "";
+  const disabled = !(hasBasecamp && hasEasyspeak);
+  reportEls.btn.disabled = disabled;
+  reportEls.reviewMatchesBtn.disabled = disabled;
+  reportEls.status.textContent = disabled ? "Extract both Basecamp and EasySpeak data first." : "";
 }
 
 // Loading is communicated via the button itself (disabled + relabeled),
@@ -189,10 +195,4 @@ function sumLevels(members) {
     }
   }
   return { needed, done };
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str;
-  return div.innerHTML;
 }

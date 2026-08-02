@@ -197,22 +197,136 @@ background service worker → source-specific scraper**.
 Data shape produced by a scrape (both sources): `Record<clubId, {name: string, members: object[]}>`,
 one entry in `members` per member×path row. Basecamp's member objects are raw API progress records;
 EasySpeak's are `{memberId, name, path, levels: [{level, needed, done}, ...]}`. This shared
-`Record<clubId, {...}>` shape is intentional — it's what future member-matching/delta computation
-across the two sources will key off of.
+`Record<clubId, {...}>` shape is intentional — it's what the matching/delta computation below keys
+off of. (Note: `README.md`'s "Next steps"/"Known MVP limitations" still describe member-matching as
+unimplemented future work — that's stale; matching, persistence, and three review UIs already exist,
+see below. The README hasn't been updated to match; don't trust it over this file or the code.)
 
 `example/` holds real (anonymize before sharing) HTML fixtures for the two EasySpeak pages
 (`profile.php_mode=editprofile`, `memberchart.php_chart=10&c=359`) — the source of truth for the
 parsing logic in `lib/easyspeak-parser.js`. If EasySpeak's markup changes, re-capture fresh fixtures
 there before touching the parser.
 
-## Planned direction (not yet implemented)
+## Matching, persistence, and the review UIs
 
-Per `README.md`'s "Next steps": matching members between the two systems (no shared ID — likely
-normalized-name matching) and a delta/report computation. When extending this codebase with a new
-data source, don't assume Basecamp's tab-less fetch pattern is the default template — check first
-whether the target site can be reached with a plain privileged `fetch()` (works if there's no bot
-protection distinguishing fetch from navigation) or needs EasySpeak's tab-navigation +
-`chrome.scripting` approach (required for anything behind Cloudflare or similar).
+Basecamp and EasySpeak agree on nothing structurally (different club-id spaces, no shared member
+id, differently-spelled club/path names including French/German localization on EasySpeak), so
+every level of comparison is a best-effort name-similarity match, not a join — and once a human
+corrects a match, that decision must survive future re-scrapes rather than being silently
+re-derived (and possibly un-derived) from names again.
+
+- **`lib/report.js`** — the matching/diff pipeline, zero `chrome.*` dependency (loaded via a plain
+  `<script>` tag in `report/report.html`/`members/members.html`, and via `module.exports` for
+  Node/jsdom testing — same reasoning as `lib/easyspeak-parser.js`). `buildReport(basecampData,
+  easyspeakData, meta, resolution)` groups each source's member×path rows into one entry per person
+  (`groupBasecampMembers`/`groupEasySpeakMembers`), matches clubs (`matchClubs`: Jaccard token
+  overlap on normalized names, `CLUB_MATCH_THRESHOLD = 0.5`), matches members within each matched
+  club pair (`matchMembers`: exact-normalized-name short-circuit, else a `0.3*Jaccard +
+  0.7*Levenshtein-similarity` blend against `NAME_MATCH_THRESHOLD = 0.72`), and matches paths within
+  each matched member (`matchPaths`: canonicalizes via a French/German `PATH_ALIASES` table). Club
+  and member matching share one greedy 1:1 assignment helper, `greedyAssign(candidates,
+  preAssigned)`.
+  - The optional 4th param, `resolution` (`{clubLookup, memberLinks, rejectedPairs,
+    memberPathOverrides, pathAliasLookup}`, all default to empty/hardcoded), is how persisted
+    decisions from `lib/resolution-store.js` override pure name-similarity matching — omitting it
+    entirely reproduces plain automatic matching, unchanged, so any Node-side caller that doesn't
+    pass it keeps working. Precedence, applied *before* scoring/assignment runs: **confirmed link >
+    rejected pair (exclusion) > exact name match > fuzzy suggestion > unmatched**. Confirmed
+    links/club pins are injected as `preAssigned` entries into `greedyAssign` (claimed before any
+    scored candidate, so a fresh high-scoring candidate can never displace a persisted decision);
+    rejected pairs are filtered out of candidate generation entirely (so they can never resurface as
+    a suggestion); member-scoped path-bind overrides are spliced out of both sides' raw path lists
+    in `matchPaths` *before* the normal canonicalization loop runs, force-paired under a synthetic
+    key, and tagged `overridden: true` — this is what keeps an override from touching the global
+    path-name lookup other members rely on.
+  - `matchConfidence` on a member row is now `"confirmed"|"exact"|"fuzzy"|null` (added
+    `"confirmed"` for a persisted `memberLinks` entry). Member rows also carry `basecampName`/
+    `easyspeakName` (the two raw per-source names, even when matched — needed for the Members view's
+    side-by-side columns; `name` stays as the pre-existing single display name for the CSV/report
+    view). `hasOrphanedPaths(member)` — both a `basecamp-only` and an `easyspeak-only` non-
+    `nonPathway` path present on the same (necessarily `presence: "both"`) member — is the exact
+    definition backing the Members view's "Path issues" filter; it lives here, next to the matching
+    logic it reads, not duplicated in UI code.
+- **`lib/resolution-store.js`** — the only place that reads/writes the 5 persisted resolution keys
+  in `chrome.storage.local` (alongside the pre-existing `basecampData`/`basecampScrapedAt`/
+  `easyspeakData`/`easyspeakScrapedAt`). Unlike `lib/report.js`, this file is legitimately
+  `chrome.*`-dependent (pure storage I/O) so it isn't Node-testable — same as `lib/basecamp-api.js`/
+  `lib/easyspeak-api.js`. Loaded via `<script>` in `report.html`/`members.html`/`settings.html`;
+  never `importScripts`'d into `background.js`, since none of this needs the service worker. Every
+  write is an upsert enforcing a 1:1 invariant where applicable (e.g. confirming a link first strips
+  any prior record touching either id) — there is intentionally no "unlink"/"un-reject" UI action
+  yet. The 5 keys:
+  - `memberLinks: [{basecampUserId, easyspeakMemberId, source: "fuzzy-confirmed"|"manual-search",
+    confirmedAt}]` — persisted only for human-reviewed pairs; exact matches stay dynamic
+    (recomputed every sync) on purpose, so an exact match that later drifts (e.g. a name change)
+    just needs one re-confirm click once it degrades to fuzzy/unmatched.
+  - `memberRejectedPairs: [{basecampUserId, easyspeakMemberId, rejectedAt}]` — a specific candidate
+    pair the user explicitly dismissed as "not this one"; excluded from candidate generation forever
+    after, but doesn't stop either person from matching someone else.
+  - `clubLookup: [{basecampClubId, easyspeakClubId, basecampClubName, easyspeakClubName}]` — ID
+    pins (not a name-alias table), forcing a 1:1 club match regardless of name-similarity score. The
+    two `*ClubName` fields are denormalized purely for the Settings page's display.
+  - `pathLookup: {"<canonical path name>": ["<alias 1>", ...]}` — the user-editable form of what
+    used to be only the hardcoded `PATH_ALIASES` table; seeded from `PATH_ALIASES` the first time
+    it's read (`ensurePathLookupSeeded`) so the already-verified aliases don't regress.
+  - `memberPathOverrides: [{basecampUserId, easyspeakMemberId, basecampPathName,
+    easyspeakPathLabel, boundAt}]` — member-scoped, not global: fixes the case where one member
+    picked mismatched paths across the two systems (both sides orphaned) without touching
+    `pathLookup` for everyone else. `basecampPathName`/`easyspeakPathLabel` are the raw, verbatim
+    path strings for that member's rows (matched by exact string equality in `matchPaths`, not
+    re-normalized).
+- **`report/report.html` + `report/report.js`** — the pre-existing comparison/CSV-export page
+  (reached from the popup's "Open comparison report" button as a full tab, not a popup window —
+  `chrome.tabs.create({url: chrome.runtime.getURL(...)})`). Reads `basecampData`/`easyspeakData`
+  straight from storage (no live scraping) plus resolution data via `loadResolutionData()`
+  — loading resolution here is required, not optional, otherwise this page's CSV export and "Next
+  Level Summary" would silently diverge from what the Members view shows for the same data. Renders
+  club tabs, a sortable per-member-path summary table, and per-member `<details>` cards with
+  level-by-level diff tables.
+- **`members/members.html` + `members/members.js`** — the primary member-matching review workflow
+  (reached from the popup's "Review Matches" button, and cross-linked with Settings/Report). Same
+  storage-reads-only pattern as `report.js`. One spreadsheet-style table per club (club tabs reused
+  from `report.js`'s pattern): EasySpeak name / Basecamp name / member-link status / path-bind
+  status / actions, plus filter chips (All / To do / Suggested / Unmatched / Path issues / Linked —
+  "To do" is the default view and means Suggested ∪ Unmatched ∪ Path issues) and a fixed sort
+  (action-needed rows first, alphabetical within each group, even inside "All"). A missing name cell
+  becomes a `<input list> + <datalist>` type-ahead (native, not a custom dropdown — deliberate
+  choice, accepted limitation: can't show rich per-candidate metadata) whose candidate pool is the
+  other side's currently-unmatched members in the same club; the datalist option's visible text
+  embeds the candidate's id as a `"Name (#id)"` suffix so a typed/selected value can be resolved
+  back to an id without a second lookup. A suggested (fuzzy) row's "Not this one" button
+  immediately persists the rejection (`rejectMemberPair`) — it doesn't wait for a replacement pick —
+  then re-renders, so the pair's own row and the newly-freed-up other-side row (if it isn't the same
+  UI position) both land in the normal unmatched state with the identical search component;
+  "Confirm"/"Bind for this member only"/manual "Link" writes all go straight through
+  `lib/resolution-store.js` with no new `background.js` message type, since this is plain
+  `chrome.storage.local` I/O any extension page can do itself (unlike EasySpeak's tab-navigation,
+  which genuinely needs the service worker's lifetime across popup teardown — that constraint
+  doesn't apply here). **Every write triggers a full `refresh()`** (re-read storage, rebuild the
+  whole report, re-render) rather than a targeted DOM patch — simplest way to stay correct given how
+  much a single decision can ripple (e.g. one rejection turns one row into two), and consistent with
+  the rest of this codebase's rebuild-and-reassign-`innerHTML` rendering style. A member with more
+  than one simultaneous orphaned path pair renders one picker row per `basecamp-only` path (`<select>`
+  over that member's `easyspeak-only` candidates) rather than assuming exactly one pair.
+- **`settings/settings.html` + `settings/settings.js`** — club-name and path-name lookup editors
+  (small, low-cardinality, edited rarely — no live-recompute loop like `members.js`; each section
+  just re-reads its own storage after a write). Club section's "add mapping" form is populated from
+  `basecampData`/`easyspeakData`'s current club lists (excluding already-pinned ones). Path section
+  edits `pathLookup` directly; adding a new canonical name lowercases it before saving, since
+  `canonicalizePathName()` always lowercases the raw path before consulting the lookup, so a
+  mixed-case key would simply never match.
+- **`lib/dom-utils.js`** — `escapeHtml()` (extracted from being duplicated in `popup.js`/`report.js`;
+  now shared by all four HTML pages) and `escapeAttr()`. **Use `escapeAttr`, not `escapeHtml`, for
+  any untrusted text (scraped member/path names) written into an HTML attribute value** (e.g. an
+  `<option value="...">`, a `data-*` attribute) — `escapeHtml`'s `div.textContent` →
+  `div.innerHTML` round-trip only entity-encodes what's needed for *text-node* content and does not
+  escape a literal `"`, so it can't safely go inside a double-quoted attribute.
+
+When extending this codebase with a new data source, don't assume Basecamp's tab-less fetch pattern
+is the default template — check first whether the target site can be reached with a plain
+privileged `fetch()` (works if there's no bot protection distinguishing fetch from navigation) or
+needs EasySpeak's tab-navigation + `chrome.scripting` approach (required for anything behind
+Cloudflare or similar).
 
 ## Conventions
 

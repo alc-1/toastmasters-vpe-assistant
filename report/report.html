@@ -18,7 +18,14 @@
     .meta {
       font-size: 12px;
       color: #666;
-      margin-bottom: 20px;
+      margin-bottom: 4px;
+    }
+    .nav-links {
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+    .nav-links a {
+      color: #772432;
     }
     h2 {
       font-size: 16px;
@@ -61,6 +68,7 @@
     .badge-easyspeak-only { background: #e0ecff; color: #1a4fa0; }
     .badge-exact { background: #dff3e3; color: #1e7a34; }
     .badge-fuzzy { background: #fff2cc; color: #9a7a00; }
+    .badge-confirmed { background: #dbe9ff; color: #1a4fa0; }
     .no-active-path {
       font-size: 11px;
       color: #888;
@@ -198,6 +206,9 @@
 <body>
   <h1>Comparison Report</h1>
   <div class="meta" id="reportMeta"></div>
+  <div class="nav-links">
+    <a href="../members/members.html">Member matching</a> · <a href="../settings/settings.html">Settings (lookups)</a>
+  </div>
   <button id="downloadCsvBtn">Download CSV</button>
 
   <div id="clubTabs" class="tabs"></div>
@@ -216,7 +227,9 @@
   <h2>Member List</h2>
   <div id="reportRoot"></div>
 
+  <script src="../lib/dom-utils.js"></script>
   <script src="../lib/report.js"></script>
+  <script src="../lib/resolution-store.js"></script>
   <script src="report.js"></script>
 </body>
 </html>

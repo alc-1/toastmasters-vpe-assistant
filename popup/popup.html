@@ -38,6 +38,9 @@
       background: #aaa;
       cursor: not-allowed;
     }
+    .secondary-btn {
+      margin-top: 6px;
+    }
     .status {
       margin-top: 10px;
       font-size: 12px;
@@ -97,9 +100,11 @@
   <section>
     <h2>Comparison Report</h2>
     <button id="openReportBtn">Open comparison report</button>
+    <button id="reviewMatchesBtn" class="secondary-btn">Review Matches</button>
     <div id="statusReport" class="status">Extract both Basecamp and EasySpeak data first.</div>
   </section>
 
+  <script src="../lib/dom-utils.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

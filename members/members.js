@@ -1,0 +1,482 @@
+// members/members.js
+//
+// DOM glue for the member-matching workflow: loads basecampData/easyspeakData
+// straight from chrome.storage.local (same as report/report.js — no live
+// scraping happens here), combines it with the persisted resolution
+// decisions from lib/resolution-store.js, and renders one spreadsheet-style
+// table per club. Every write action (confirm/reject/link/bind) persists
+// immediately via lib/resolution-store.js, then calls refresh(), which
+// re-reads storage and rebuilds the whole report — simplest and most robust
+// way to keep the table consistent with match-recompute side effects (e.g.
+// rejecting a suggestion frees up its other-side member into its own
+// separate "unmatched" row), matching the rest of this codebase's
+// rebuild-and-reassign-innerHTML rendering style.
+
+const FILTERS = [
+  { key: "all", label: "All" },
+  { key: "todo", label: "To do" },
+  { key: "suggested", label: "Suggested" },
+  { key: "unmatched", label: "Unmatched" },
+  { key: "path-issues", label: "Path issues" },
+  { key: "linked", label: "Linked" },
+];
+
+let basecampData = null;
+let easyspeakData = null;
+let basecampScrapedAt = null;
+let easyspeakScrapedAt = null;
+
+let clubSections = [];
+let activeClubKey = null;
+let activeFilter = "todo";
+
+// Persists across refresh() calls (but not page reloads) so expanding a
+// path-issue row survives an unrelated action elsewhere in the table.
+const expandedMemberKeys = new Set();
+
+init();
+
+async function init() {
+  const cached = await chrome.storage.local.get([
+    "basecampData",
+    "basecampScrapedAt",
+    "easyspeakData",
+    "easyspeakScrapedAt",
+  ]);
+
+  if (!cached.basecampData || !cached.easyspeakData) {
+    document.getElementById("clubTabs").innerHTML = "";
+    document.getElementById("filterChips").innerHTML = "";
+    document.getElementById("membersRoot").innerHTML =
+      '<p class="empty-state">Both Basecamp and EasySpeak data are needed to review matches. ' +
+      "Go back to the extension popup and run both extractions first.</p>";
+    return;
+  }
+
+  basecampData = cached.basecampData;
+  easyspeakData = cached.easyspeakData;
+  basecampScrapedAt = cached.basecampScrapedAt;
+  easyspeakScrapedAt = cached.easyspeakScrapedAt;
+
+  document.getElementById("pageMeta").textContent =
+    `Basecamp last extracted: ${formatDate(basecampScrapedAt)} — ` +
+    `EasySpeak last extracted: ${formatDate(easyspeakScrapedAt)}`;
+
+  renderFilterChips();
+  await refresh();
+}
+
+async function refresh() {
+  const resolution = await loadResolutionData();
+  const report = buildReport(basecampData, easyspeakData, { basecampScrapedAt, easyspeakScrapedAt }, resolution);
+
+  clubSections = report.clubPairs.map((clubPair, index) => ({
+    clubKey: `club-${index}`,
+    clubName: clubPair.basecampClubName ?? clubPair.easyspeakClubName ?? "(unnamed club)",
+    clubPair,
+  }));
+
+  if (!clubSections.some((s) => s.clubKey === activeClubKey)) {
+    activeClubKey = clubSections[0]?.clubKey ?? null;
+  }
+
+  renderClubTabs();
+  renderActiveClub();
+}
+
+// ---------------------------------------------------------------------------
+// Club tabs / filter chips
+// ---------------------------------------------------------------------------
+
+function renderClubTabs() {
+  const tabsRoot = document.getElementById("clubTabs");
+
+  if (clubSections.length === 0) {
+    tabsRoot.innerHTML = "";
+    document.getElementById("membersRoot").innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
+    return;
+  }
+
+  tabsRoot.innerHTML = clubSections
+    .map(
+      (s) =>
+        `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}">${escapeHtml(s.clubName)}</button>`
+    )
+    .join("");
+
+  tabsRoot.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activeClubKey = btn.dataset.clubKey;
+      renderClubTabs();
+      renderActiveClub();
+    });
+  });
+}
+
+function renderFilterChips() {
+  const root = document.getElementById("filterChips");
+  root.innerHTML = FILTERS.map(
+    (f) => `<button class="chip${f.key === activeFilter ? " active" : ""}" data-filter="${f.key}">${escapeHtml(f.label)}</button>`
+  ).join("");
+
+  root.querySelectorAll(".chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      activeFilter = btn.dataset.filter;
+      renderFilterChips();
+      renderActiveClub();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Classification / sorting
+// ---------------------------------------------------------------------------
+
+function classifyMember(member) {
+  const tags = [];
+  if (member.matchConfidence === "fuzzy") tags.push("suggested");
+  if (member.presence !== "both") tags.push("unmatched");
+  if (member.hasOrphanedPaths) tags.push("path-issues");
+  if (tags.length === 0) tags.push("linked");
+  return tags;
+}
+
+function needsAction(member) {
+  const tags = classifyMember(member);
+  return tags.includes("suggested") || tags.includes("unmatched") || tags.includes("path-issues");
+}
+
+function matchesFilter(member, filterKey) {
+  if (filterKey === "all") return true;
+  if (filterKey === "todo") return needsAction(member);
+  return classifyMember(member).includes(filterKey);
+}
+
+function displayName(member) {
+  return member.basecampName ?? member.easyspeakName ?? member.name ?? "(unnamed)";
+}
+
+// Action-needed rows first (even within "All"); clean/linked members sink
+// to the bottom, alphabetical within each group.
+function compareMembers(a, b) {
+  const aRank = needsAction(a) ? 0 : 1;
+  const bRank = needsAction(b) ? 0 : 1;
+  if (aRank !== bRank) return aRank - bRank;
+  return displayName(a).localeCompare(displayName(b), undefined, { sensitivity: "base" });
+}
+
+function memberKey(member) {
+  return `${member.basecampUserId ?? "x"}::${member.easyspeakMemberId ?? "x"}`;
+}
+
+function findMemberByKey(key) {
+  const section = clubSections.find((s) => s.clubKey === activeClubKey);
+  return section?.clubPair.members.find((m) => memberKey(m) === key) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Candidate pools for the type-ahead search (manual link / re-link)
+// ---------------------------------------------------------------------------
+
+function buildCandidatePools(clubPair) {
+  const easyspeakOnly = clubPair.members
+    .filter((m) => m.presence === "easyspeak-only")
+    .map((m) => ({ id: m.easyspeakMemberId, name: m.easyspeakName ?? m.name }));
+  const basecampOnly = clubPair.members
+    .filter((m) => m.presence === "basecamp-only")
+    .map((m) => ({ id: m.basecampUserId, name: m.basecampName ?? m.name }));
+  return { easyspeakOnly, basecampOnly };
+}
+
+function getCandidatesForMember(member) {
+  const section = clubSections.find((s) => s.clubKey === activeClubKey);
+  const { easyspeakOnly, basecampOnly } = buildCandidatePools(section.clubPair);
+  return member.presence === "basecamp-only" ? easyspeakOnly : basecampOnly;
+}
+
+// A <datalist> option's value is plain text, so the candidate's id is
+// embedded as a "(#id)" suffix to disambiguate same-named candidates and to
+// resolve a typed/selected value back to an id without a second lookup UI.
+function candidateOptionValue(candidate) {
+  return `${candidate.name} (#${candidate.id})`;
+}
+
+function parseCandidateSelection(inputValue, candidates) {
+  const match = /\(#(.+)\)\s*$/.exec(inputValue.trim());
+  if (!match) return null;
+  const id = match[1];
+  return candidates.find((c) => String(c.id) === id) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+function renderActiveClub() {
+  const section = clubSections.find((s) => s.clubKey === activeClubKey);
+  const root = document.getElementById("membersRoot");
+  if (!section) {
+    root.innerHTML = "";
+    return;
+  }
+  root.innerHTML = renderClubMembers(section.clubPair);
+  attachRowHandlers();
+}
+
+function renderClubMembers(clubPair) {
+  const matchNote = buildClubMatchNote(clubPair);
+  const filtered = clubPair.members.filter((m) => matchesFilter(m, activeFilter));
+  const sorted = [...filtered].sort(compareMembers);
+  const pools = buildCandidatePools(clubPair);
+
+  if (sorted.length === 0) {
+    return `<div class="club-summary">${matchNote}</div><p class="empty-state">No members match this filter.</p>`;
+  }
+
+  const datalists = `
+    <datalist id="dl-es-${activeClubKey}">
+      ${pools.easyspeakOnly.map((c) => `<option value="${escapeAttr(candidateOptionValue(c))}">`).join("")}
+    </datalist>
+    <datalist id="dl-bc-${activeClubKey}">
+      ${pools.basecampOnly.map((c) => `<option value="${escapeAttr(candidateOptionValue(c))}">`).join("")}
+    </datalist>
+  `;
+
+  const rows = sorted.map((member) => renderMemberRows(member, pools)).join("");
+
+  return `
+    <div class="club-summary">${matchNote}</div>
+    ${datalists}
+    <table class="members">
+      <thead>
+        <tr>
+          <th>EasySpeak name</th>
+          <th>Basecamp name</th>
+          <th>Member link</th>
+          <th>Path bind</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function buildClubMatchNote(clubPair) {
+  const { basecampClubName, easyspeakClubName, matchScore, clubMatchForced, members } = clubPair;
+  let note;
+  if (basecampClubName && easyspeakClubName) {
+    const scoreText = clubMatchForced ? "pinned in Settings" : `match ${Math.round((matchScore ?? 0) * 100)}%`;
+    note = `${escapeHtml(basecampClubName)} / ${escapeHtml(easyspeakClubName)} — ${scoreText}`;
+  } else if (basecampClubName) {
+    note = `${escapeHtml(basecampClubName)} (no EasySpeak counterpart found)`;
+  } else {
+    note = `${escapeHtml(easyspeakClubName)} (no Basecamp counterpart found)`;
+  }
+  const todo = members.filter(needsAction).length;
+  return `${note} · ${members.length} member(s), ${todo} need review`;
+}
+
+function renderMemberRows(member, pools) {
+  const key = memberKey(member);
+  const clean = !needsAction(member);
+
+  const mainRow = `
+    <tr class="${clean ? "muted-row" : ""}">
+      <td>${renderNameCell(member, "easyspeak", pools)}</td>
+      <td>${renderNameCell(member, "basecamp", pools)}</td>
+      <td>${renderLinkStatusCell(member)}</td>
+      <td>${renderPathBindCell(member)}</td>
+      <td class="actions">${renderActionsCell(member)}</td>
+    </tr>
+  `;
+
+  if (!member.hasOrphanedPaths) return mainRow;
+
+  const expanded = expandedMemberKeys.has(key);
+  const detailRow = `
+    <tr class="detail-row${expanded ? "" : " collapsed"}">
+      <td colspan="5">${renderPathBindDetail(member)}</td>
+    </tr>
+  `;
+  return mainRow + detailRow;
+}
+
+function renderNameCell(member, side, pools) {
+  const name = side === "easyspeak" ? member.easyspeakName : member.basecampName;
+  if (name) return escapeHtml(name);
+
+  const candidates = side === "easyspeak" ? pools.easyspeakOnly : pools.basecampOnly;
+  if (candidates.length === 0) return '<span class="muted-text">No unmatched candidates</span>';
+
+  const datalistId = side === "easyspeak" ? `dl-es-${activeClubKey}` : `dl-bc-${activeClubKey}`;
+  const key = memberKey(member);
+  const label = side === "easyspeak" ? "EasySpeak" : "Basecamp";
+  return `<input type="text" class="link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" autocomplete="off">`;
+}
+
+function renderLinkStatusCell(member) {
+  if (member.presence !== "both") return '<span class="badge badge-unmatched">Unmatched</span>';
+  if (member.matchConfidence === "confirmed") return '<span class="badge badge-confirmed">Confirmed</span>';
+  if (member.matchConfidence === "fuzzy") {
+    const score = member.matchScore != null ? member.matchScore.toFixed(2) : "—";
+    return `<span class="badge badge-fuzzy" title="match score: ${score}">Suggested</span>`;
+  }
+  return '<span class="badge badge-exact">Exact</span>';
+}
+
+function renderPathBindCell(member) {
+  if (!member.hasOrphanedPaths) return '<span class="muted-text">—</span>';
+  return '<span class="badge badge-path-issue">Path issue</span>';
+}
+
+function renderActionsCell(member) {
+  const key = memberKey(member);
+  const buttons = [];
+
+  if (member.presence === "both" && member.matchConfidence === "fuzzy") {
+    buttons.push(`<button data-action="confirm" data-member-key="${key}">Confirm</button>`);
+    buttons.push(`<button class="secondary" data-action="reject" data-member-key="${key}">Not this one</button>`);
+  }
+
+  if (member.presence !== "both") {
+    buttons.push(`<button data-action="link" data-member-key="${key}" disabled>Link</button>`);
+  }
+
+  if (member.hasOrphanedPaths) {
+    const expanded = expandedMemberKeys.has(key);
+    buttons.push(
+      `<button class="secondary" data-action="toggle-paths" data-member-key="${key}">${expanded ? "Hide path issue" : "Review path issue"}</button>`
+    );
+  }
+
+  return buttons.join("") || '<span class="muted-text">—</span>';
+}
+
+function renderPathBindDetail(member) {
+  const bcOrphans = member.paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway);
+  const esOrphans = member.paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway);
+  const key = memberKey(member);
+
+  if (bcOrphans.length === 0 || esOrphans.length === 0) {
+    return '<p class="muted-text">No compatible orphaned path found on the other side.</p>';
+  }
+
+  return bcOrphans
+    .map((bcPath, bcIndex) => {
+      const options = esOrphans
+        .map((esPath, esIndex) => `<option value="${esIndex}">${escapeHtml(esPath.easyspeakPathLabel)}</option>`)
+        .join("");
+      return `
+        <div class="path-pair-row">
+          <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName)}</span>
+          <span>&harr;</span>
+          <select data-role="path-bind-select">${options}</select>
+          <button data-action="bind-path" data-member-key="${key}" data-bc-index="${bcIndex}">Bind for this member only</button>
+          <button class="secondary" data-action="leave-orphan" data-member-key="${key}">Leave as orphan</button>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+// ---------------------------------------------------------------------------
+// Event wiring / handlers
+// ---------------------------------------------------------------------------
+
+function attachRowHandlers() {
+  const root = document.getElementById("membersRoot");
+
+  root.querySelectorAll('[data-action="confirm"]').forEach((btn) => {
+    btn.addEventListener("click", () => onConfirm(btn.dataset.memberKey));
+  });
+  root.querySelectorAll('[data-action="reject"]').forEach((btn) => {
+    btn.addEventListener("click", () => onReject(btn.dataset.memberKey));
+  });
+  root.querySelectorAll('[data-action="toggle-paths"]').forEach((btn) => {
+    btn.addEventListener("click", () => onTogglePaths(btn.dataset.memberKey));
+  });
+  root.querySelectorAll('[data-action="bind-path"]').forEach((btn) => {
+    btn.addEventListener("click", () => onBindPath(btn));
+  });
+  root.querySelectorAll('[data-action="leave-orphan"]').forEach((btn) => {
+    btn.addEventListener("click", () => onLeaveOrphan(btn.dataset.memberKey));
+  });
+  root.querySelectorAll('[data-role="link-input"]').forEach((input) => {
+    input.addEventListener("input", () => onLinkInputChange(input));
+  });
+  root.querySelectorAll('[data-action="link"]').forEach((btn) => {
+    btn.addEventListener("click", () => onLink(btn));
+  });
+}
+
+async function onConfirm(key) {
+  const member = findMemberByKey(key);
+  if (!member) return;
+  await confirmMemberLink(member.basecampUserId, member.easyspeakMemberId, "fuzzy-confirmed");
+  await refresh();
+}
+
+async function onReject(key) {
+  const member = findMemberByKey(key);
+  if (!member) return;
+  await rejectMemberPair(member.basecampUserId, member.easyspeakMemberId);
+  await refresh();
+}
+
+function onTogglePaths(key) {
+  if (expandedMemberKeys.has(key)) expandedMemberKeys.delete(key);
+  else expandedMemberKeys.add(key);
+  renderActiveClub();
+}
+
+function onLeaveOrphan(key) {
+  expandedMemberKeys.delete(key);
+  renderActiveClub();
+}
+
+async function onBindPath(btn) {
+  const key = btn.dataset.memberKey;
+  const bcIndex = Number(btn.dataset.bcIndex);
+  const member = findMemberByKey(key);
+  if (!member) return;
+
+  const bcOrphans = member.paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway);
+  const esOrphans = member.paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway);
+  const bcPath = bcOrphans[bcIndex];
+  const select = btn.closest(".path-pair-row").querySelector("select");
+  const esPath = esOrphans[Number(select.value)];
+  if (!bcPath || !esPath) return;
+
+  await setMemberPathOverride(member.basecampUserId, member.easyspeakMemberId, bcPath.basecampPathName, esPath.easyspeakPathLabel);
+  expandedMemberKeys.delete(key);
+  await refresh();
+}
+
+function onLinkInputChange(input) {
+  const member = findMemberByKey(input.dataset.memberKey);
+  const row = input.closest("tr");
+  const linkBtn = row.querySelector('[data-action="link"]');
+  if (!member || !linkBtn) return;
+  const candidates = getCandidatesForMember(member);
+  linkBtn.disabled = !parseCandidateSelection(input.value, candidates);
+}
+
+async function onLink(btn) {
+  const member = findMemberByKey(btn.dataset.memberKey);
+  if (!member) return;
+  const row = btn.closest("tr");
+  const input = row.querySelector('[data-role="link-input"]');
+  const candidates = getCandidatesForMember(member);
+  const match = parseCandidateSelection(input.value, candidates);
+  if (!match) return;
+
+  const basecampUserId = member.presence === "basecamp-only" ? member.basecampUserId : match.id;
+  const easyspeakMemberId = member.presence === "easyspeak-only" ? member.easyspeakMemberId : match.id;
+  await confirmMemberLink(basecampUserId, easyspeakMemberId, "manual-search");
+  await refresh();
+}
+
+function formatDate(timestamp) {
+  return timestamp ? new Date(timestamp).toLocaleString("en-US") : "never";
+}
