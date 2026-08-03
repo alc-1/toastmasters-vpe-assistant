@@ -11,21 +11,31 @@
  * pages' centered layout) — this file only carries tokens and classes that
  * are shared across multiple pages.
  *
- * Toastmasters brand system: burgundy is the primary brand color, navy is
- * the secondary/"info" accent, silver is reserved for subtle brand-tinted
- * borders. Font stays the existing system sans-serif stack — Inter isn't
- * bundled anywhere in this project and adding it would mean either a new
- * npm dependency or a remote font request (blocked by MV3's default CSP
- * anyway), both out of scope for a framework-free visual pass.
+ * Toastmasters brand system: Loyal Blue is the primary brand color, True
+ * Maroon is the secondary/"info" accent, Cool Gray is reserved for subtle
+ * brand-tinted borders, Happy Yellow is used only for the app title text.
+ * Component rules should reference the semantic --primary/--info aliases
+ * below, not the physical --tm-* variables directly, so a future re-theme
+ * only touches one place. Font stays the existing system sans-serif stack —
+ * Inter isn't bundled anywhere in this project and adding it would mean
+ * either a new npm dependency or a remote font request (blocked by MV3's
+ * default CSP anyway), both out of scope for a framework-free visual pass.
  */
 
 :root {
-  /* Toastmasters brand */
-  --tm-burgundy: #772432;
-  --tm-burgundy-hover: #651e2a;
-  --tm-burgundy-active: #551926;
-  --tm-navy: #004165;
-  --tm-silver: #a9b2b1;
+  /* Toastmasters brand — physical hex values */
+  --tm-burgundy: #772432; /* True Maroon */
+  --tm-navy: #004165; /* Loyal Blue */
+  --tm-navy-hover: #003654;
+  --tm-navy-active: #002e47;
+  --tm-silver: #a9b2b1; /* Cool Gray */
+  --tm-yellow: #f2df74; /* Happy Yellow — app-header__title only, nowhere else */
+
+  /* Semantic roles — component rules reference these, not the physical
+     --tm-* variables directly, so a future re-theme only touches these. */
+  --primary: var(--tm-navy);
+  --primary-hover: var(--tm-navy-hover);
+  --primary-active: var(--tm-navy-active);
 
   /* Semantic status colors — one solid + one pale-bg tint each. --warning's
      solid value (#d97706, as specified) is too light for AA-safe small bold
@@ -40,8 +50,8 @@
   --warning-bg: #fef3e2;
   --danger: #c62828;
   --danger-bg: #fdecea;
-  --info: var(--tm-navy);
-  --info-bg: #e6eef2;
+  --info: var(--tm-burgundy);
+  --info-bg: #f5e9ea;
   --disabled-bg: #aaaaaa;
 
   /* Surfaces (cards, page background, dividers) */
@@ -123,7 +133,7 @@ body {
 }
 
 .page-nav a {
-  color: var(--tm-burgundy);
+  color: var(--primary);
 }
 
 .section-header {
@@ -145,58 +155,139 @@ body {
 }
 
 /* ---------------------------------------------------------------------- */
-/* App shell: branded header + primary nav, shared by report/members/     */
-/* settings (see shared/app-shell.ts, the one place that renders this     */
-/* markup — every page just calls it into a placeholder div).             */
+/* App shell: branded header (see shared/app-shell.ts) + a separate        */
+/* stepper nav section, shared by report/members/settings/sync-data/      */
+/* club-review. Popup reuses .app-header/.app-header__brand/__logo/__text/ */
+/* __title/__subtitle directly in its own hand-written header markup.     */
 /* ---------------------------------------------------------------------- */
 
 .app-header {
-  background: var(--tm-burgundy);
+  background: var(--primary);
   color: #ffffff;
   border-radius: var(--radius-md);
-  margin-bottom: var(--space-5);
-  overflow: hidden;
+  margin-bottom: var(--space-3);
 }
 
 .app-header__brand {
-  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.app-header__logo {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  display: block;
+}
+
+.app-header__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .app-header__title {
   font-size: var(--text-lg);
   font-weight: 700;
+  color: var(--tm-yellow);
 }
 
 .app-header__subtitle {
   font-size: var(--text-sm);
-  color: rgba(255, 255, 255, 0.78);
-  margin-top: 2px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.85);
 }
 
-.app-nav {
+/* Stepper — its own section, deliberately outside .app-header. Steps are
+   plain nav links (direct navigation, not a gated wizard); only the
+   *current* step is highlighted, the connecting line is neutral throughout
+   so nothing implies "completed" vs "not completed" steps. */
+
+.app-stepper {
   display: flex;
-  gap: var(--space-1);
-  padding: 0 var(--space-3);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  justify-content: center;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-3) var(--space-3);
+  margin-bottom: var(--space-5);
 }
 
-.app-nav__link {
-  display: inline-block;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-base);
-  color: rgba(255, 255, 255, 0.75);
+.app-stepper__step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 var(--space-2);
   text-decoration: none;
-  border-bottom: 3px solid transparent;
 }
 
-.app-nav__link:hover {
+.app-stepper__step:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: 15px; /* vertical center of the 32px circle */
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+  z-index: 0;
+}
+
+.app-stepper__circle {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  color: var(--gray-700);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+.app-stepper__label {
+  font-size: var(--text-xs);
+  color: var(--gray-700);
+  text-align: center;
+}
+
+.app-stepper__step:hover .app-stepper__circle {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.app-stepper__step:hover .app-stepper__label {
+  color: var(--gray-900);
+}
+
+.app-stepper__step.active .app-stepper__circle {
+  background: var(--primary);
+  border-color: var(--primary);
   color: #ffffff;
 }
 
-.app-nav__link.active {
-  color: #ffffff;
+.app-stepper__step.active .app-stepper__label {
+  color: var(--primary);
   font-weight: 600;
-  border-bottom-color: #ffffff;
+}
+
+.app-stepper__step:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -282,16 +373,16 @@ body {
 }
 
 .btn-primary {
-  background: var(--tm-burgundy);
+  background: var(--primary);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--tm-burgundy-hover);
+  background: var(--primary-hover);
 }
 
 .btn-primary:active:not(:disabled) {
-  background: var(--tm-burgundy-active);
+  background: var(--primary-active);
 }
 
 .btn-secondary {
@@ -441,9 +532,9 @@ body {
 }
 
 .tab-btn.active {
-  color: var(--tm-burgundy);
+  color: var(--primary);
   font-weight: 600;
-  border-bottom-color: var(--tm-burgundy);
+  border-bottom-color: var(--primary);
 }
 
 .warning-icon {
@@ -474,7 +565,7 @@ body {
 }
 
 .conflict-warning a {
-  color: var(--tm-burgundy);
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -510,12 +601,12 @@ body {
 .chip.active {
   background: var(--surface-alt);
   border-color: var(--border);
-  color: var(--tm-burgundy);
+  color: var(--primary);
   font-weight: 600;
 }
 
 .chip.active .chip-count {
-  color: var(--tm-burgundy);
+  color: var(--primary);
   background: var(--surface);
 }
 
@@ -579,6 +670,6 @@ a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 2px solid var(--tm-burgundy);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
