@@ -16,6 +16,7 @@ import { local } from "./storage";
 import { buildPathAliasLookup, PATH_ALIASES } from "./sync/conflicts";
 import type {
   ClubLookupEntry,
+  ClubRejectedPair,
   MemberLink,
   MemberPathExclusion,
   MemberPathOverride,
@@ -26,7 +27,7 @@ import type {
 } from "./types";
 
 /**
- * Reads all 6 keys and shapes them into exactly what buildReport()'s
+ * Reads all 7 keys and shapes them into exactly what buildReport()'s
  * (shared/sync/delta.ts) 4th "resolution" param expects.
  */
 export async function loadResolutionData(): Promise<Required<Omit<ResolutionData, "allowFuzzyMemberMatches">>> {
@@ -34,6 +35,7 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     "memberLinks",
     "memberRejectedPairs",
     "clubLookup",
+    "clubRejectedPairs",
     "pathLookup",
     "memberPathOverrides",
     "memberPathExclusions",
@@ -44,6 +46,7 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     memberLinks: stored.memberLinks ?? [],
     rejectedPairs: stored.memberRejectedPairs ?? [],
     clubLookup: stored.clubLookup ?? [],
+    clubRejectedPairs: stored.clubRejectedPairs ?? [],
     memberPathOverrides: stored.memberPathOverrides ?? [],
     memberPathExclusions: stored.memberPathExclusions ?? [],
     pathAliasLookup: buildPathAliasLookup(pathLookup),
@@ -190,11 +193,12 @@ export async function pinClub(
   basecampClubId: string,
   easyspeakClubId: string,
   basecampClubName: string,
-  easyspeakClubName: string
+  easyspeakClubName: string,
+  source: MatchSource = "manual-search"
 ): Promise<void> {
   const clubLookup = await local.value("clubLookup");
   const filtered = (clubLookup ?? []).filter((pin) => pin.basecampClubId !== basecampClubId && pin.easyspeakClubId !== easyspeakClubId);
-  const entry: ClubLookupEntry = { basecampClubId, easyspeakClubId, basecampClubName, easyspeakClubName };
+  const entry: ClubLookupEntry = { basecampClubId, easyspeakClubId, basecampClubName, easyspeakClubName, source };
   filtered.push(entry);
   await local.set({ clubLookup: filtered });
 }
@@ -203,6 +207,26 @@ export async function removeClubPin(basecampClubId: string): Promise<void> {
   const clubLookup = await local.value("clubLookup");
   const filtered = (clubLookup ?? []).filter((pin) => pin.basecampClubId !== basecampClubId);
   await local.set({ clubLookup: filtered });
+}
+
+export async function getClubRejectedPairs(): Promise<ClubRejectedPair[]> {
+  const pairs = await local.value("clubRejectedPairs");
+  return pairs ?? [];
+}
+
+/**
+ * The "Unlink" action for a club pairing that has nothing stored to delete —
+ * an "exact" name match, like a member's, is recomputed fresh every call, so
+ * rejecting the pair is the only way to keep it from immediately re-matching.
+ * Also doubles as the persisted "Not this one" for a fuzzy club suggestion.
+ */
+export async function rejectClubPair(basecampClubId: string, easyspeakClubId: string): Promise<void> {
+  const clubRejectedPairs = await local.value("clubRejectedPairs");
+  const existing = clubRejectedPairs ?? [];
+  const alreadyRejected = existing.some((r) => r.basecampClubId === basecampClubId && r.easyspeakClubId === easyspeakClubId);
+  if (alreadyRejected) return;
+  const entry: ClubRejectedPair = { basecampClubId, easyspeakClubId, rejectedAt: Date.now() };
+  await local.set({ clubRejectedPairs: [...existing, entry] });
 }
 
 /**

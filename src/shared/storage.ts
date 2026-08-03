@@ -14,6 +14,7 @@
 import type {
   BasecampScrape,
   ClubLookupEntry,
+  ClubRejectedPair,
   EasySpeakScrape,
   EasySpeakServerId,
   IconStatuses,
@@ -36,6 +37,7 @@ export interface LocalSchema {
   // every existing user's rejected pairs).
   memberRejectedPairs: RejectedPair[];
   clubLookup: ClubLookupEntry[];
+  clubRejectedPairs: ClubRejectedPair[];
   pathLookup: PathLookup;
   memberPathOverrides: MemberPathOverride[];
   memberPathExclusions: MemberPathExclusion[];

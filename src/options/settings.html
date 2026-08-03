@@ -40,6 +40,12 @@
     .save-status.visible {
       display: inline;
     }
+    .muted-text {
+      color: var(--gray-600);
+    }
+    .actions button {
+      margin-right: 4px;
+    }
   </style>
 </head>
 <body class="page--narrow">
@@ -72,7 +78,10 @@
   <div class="card">
     <div class="card-header"><span class="card-header__title">Club name lookup</span></div>
     <div class="card-body">
-      <p class="help-text">Pins a Basecamp club to an EasySpeak club regardless of how similar their names are.</p>
+      <p class="help-text">
+        Pins a Basecamp club to an EasySpeak club regardless of how similar their names are.
+        Suggested matches based on name similarity can be confirmed or rejected below.
+      </p>
       <div id="clubLookupRoot"></div>
     </div>
   </div>

@@ -170,7 +170,7 @@ describe("matchClubs", () => {
       [{ id: "b1", name: "Riverside Toastmasters", people: [] }],
       [{ id: "e1", name: "Riverside Toastmasters", people: [] }]
     );
-    expect(pairs).toEqual([{ basecamp: expect.any(Object), easyspeak: expect.any(Object), score: 1, forced: false }]);
+    expect(pairs).toEqual([{ basecamp: expect.any(Object), easyspeak: expect.any(Object), score: 1, confidence: "exact", source: null }]);
   });
 
   it("forces a pin from clubLookup even without a name match", () => {
@@ -180,7 +180,35 @@ describe("matchClubs", () => {
       [{ basecampClubId: "b1", easyspeakClubId: "e1", basecampClubName: "Basecamp Name", easyspeakClubName: "Totally Different Name" }]
     );
     expect(pairs).toHaveLength(1);
-    expect(pairs[0]).toMatchObject({ score: null, forced: true });
+    expect(pairs[0]).toMatchObject({ score: null, confidence: "confirmed" });
+  });
+
+  it("only surfaces a fuzzy (partial-score) suggestion when allowFuzzy is true", () => {
+    const bc = [{ id: "b1", name: "Riverside Downtown Toastmasters", people: [] }];
+    const es = [{ id: "e1", name: "Riverside Downtown Professionals Club", people: [] }];
+
+    const withoutFuzzy = matchClubs(bc, es);
+    expect(withoutFuzzy).toEqual([
+      { basecamp: bc[0], easyspeak: null, score: null, confidence: null, source: null },
+      { basecamp: null, easyspeak: es[0], score: null, confidence: null, source: null },
+    ]);
+
+    const withFuzzy = matchClubs(bc, es, [], [], true);
+    const pair = withFuzzy.find((p) => p.basecamp && p.easyspeak)!;
+    expect(pair.confidence).toBe("fuzzy");
+    expect(pair.score).toBeGreaterThanOrEqual(0.5);
+    expect(pair.score).toBeLessThan(1);
+  });
+
+  it("excludes a rejected club pair from candidate generation even with allowFuzzy", () => {
+    const bc = [{ id: "b1", name: "Riverside Downtown Toastmasters", people: [] }];
+    const es = [{ id: "e1", name: "Riverside Downtown Professionals Club", people: [] }];
+
+    const pairs = matchClubs(bc, es, [], [{ basecampClubId: "b1", easyspeakClubId: "e1", rejectedAt: 0 }], true);
+    expect(pairs).toEqual([
+      { basecamp: bc[0], easyspeak: null, score: null, confidence: null, source: null },
+      { basecamp: null, easyspeak: es[0], score: null, confidence: null, source: null },
+    ]);
   });
 });
 

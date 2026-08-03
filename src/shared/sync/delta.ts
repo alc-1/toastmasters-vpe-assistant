@@ -22,6 +22,7 @@ import type {
   ClubPairReport,
   EasySpeakMemberRow,
   EasySpeakScrape,
+  MatchConfidence,
   MemberReport,
   PathReport,
   Presence,
@@ -55,7 +56,7 @@ export function buildReport(
     people: groupEasySpeakMembers(club.members),
   }));
 
-  const clubPairs = matchClubs(basecampClubs, easyspeakClubs, resolution.clubLookup ?? []).map((pair) =>
+  const clubPairs = matchClubs(basecampClubs, easyspeakClubs, resolution.clubLookup ?? [], resolution.clubRejectedPairs ?? []).map((pair) =>
     buildClubPairReport(pair.basecamp, pair.easyspeak, resolution, pair)
   );
 
@@ -150,7 +151,7 @@ function buildClubPairReport(
   basecampClub: ClubGroup<BasecampPerson> | null,
   easyspeakClub: ClubGroup<EasySpeakPerson> | null,
   resolution: ResolutionData = {},
-  clubMatch: { score?: number | null; forced?: boolean } = {}
+  clubMatch: { score?: number | null; confidence?: MatchConfidence } = {}
 ): ClubPairReport {
   const memberLinks = resolution.memberLinks ?? [];
   const rejectedPairs = resolution.rejectedPairs ?? [];
@@ -198,7 +199,7 @@ function buildClubPairReport(
     easyspeakClubId: easyspeakClub?.id ?? null,
     easyspeakClubName: easyspeakClub?.name ?? null,
     matchScore: clubMatch.score ?? null,
-    clubMatchForced: !!clubMatch.forced,
+    clubMatchForced: clubMatch.confidence === "confirmed",
     members,
   };
 }

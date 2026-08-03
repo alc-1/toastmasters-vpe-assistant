@@ -23,6 +23,7 @@
 import type {
   BasecampProgression,
   ClubLookupEntry,
+  ClubRejectedPair,
   EasySpeakLevel,
   LevelDiff,
   MemberLink,
@@ -36,6 +37,11 @@ import type {
 } from "../types";
 
 export const NAME_MATCH_THRESHOLD = 0.72;
+
+// clubNameScore() is plain Jaccard token-overlap (no edit-distance blending
+// like member matching's nameScore()), so this is a conservative, adjustable
+// starting point rather than a tuned constant.
+export const CLUB_FUZZY_THRESHOLD = 0.5;
 
 // Canonical English Pathways path name -> known alternate spellings (FR/DE)
 // that should normalize to it. Entries marked "confirmed" were seen
@@ -171,39 +177,51 @@ export interface ClubMatchPair<BC, ES> {
   basecamp: BC | null;
   easyspeak: ES | null;
   score: number | null;
-  forced: boolean;
+  confidence: MatchConfidence;
+  source: MatchSource;
 }
 
 /**
  * @param clubLookup persisted club ID pins — forced 1:1, regardless of name.
- *   Absent an entry here, two clubs only auto-match on an exact
- *   normalized-name match (no fuzzy/partial-similarity auto-matching —
- *   there's no "suggested club" review UI anywhere to resolve a wrong guess,
- *   unlike members).
+ * @param rejectedPairs persisted "known non-match" pairs — excluded from
+ *   candidate generation entirely, so they can never resurface as a
+ *   suggestion (also how an "exact" match, which has nothing stored to
+ *   delete, gets permanently unlinked — see rejectClubPair()).
+ * @param allowFuzzy when false (the default — used by delta.ts's buildReport,
+ *   consumed by Report/Members), fuzzy-confidence candidates are dropped
+ *   from the pool entirely, so an unconfirmed club-name guess never silently
+ *   joins two clubs' rosters. Settings' own Club Lookup review table is the
+ *   only caller that passes true, mirroring how options/members.ts relies on
+ *   matchMembers()'s fuzzy default while options/report.ts opts out.
  */
 export function matchClubs<BC extends ClubGroup<unknown>, ES extends ClubGroup<unknown>>(
   basecampClubs: BC[],
   easyspeakClubs: ES[],
-  clubLookup: ClubLookupEntry[] = []
+  clubLookup: ClubLookupEntry[] = [],
+  rejectedPairs: ClubRejectedPair[] = [],
+  allowFuzzy = false
 ): ClubMatchPair<BC, ES>[] {
   const bcById = new Map(basecampClubs.map((c) => [c.id, c]));
   const esById = new Map(easyspeakClubs.map((c) => [c.id, c]));
 
-  const preAssigned: (Candidate & { forced: boolean })[] = [];
+  const preAssigned: (Candidate & { confidence: MatchConfidence; source: MatchSource })[] = [];
   for (const pin of clubLookup) {
     if (bcById.has(pin.basecampClubId) && esById.has(pin.easyspeakClubId)) {
-      preAssigned.push({ aKey: pin.basecampClubId, bKey: pin.easyspeakClubId, score: null, forced: true });
+      preAssigned.push({ aKey: pin.basecampClubId, bKey: pin.easyspeakClubId, score: null, confidence: "confirmed", source: pin.source ?? null });
     }
   }
 
-  const candidates: (Candidate & { forced: boolean })[] = [];
+  const rejectedSet = new Set(rejectedPairs.map((r) => `${r.basecampClubId}::${r.easyspeakClubId}`));
+
+  const candidates: (Candidate & { confidence: MatchConfidence; source: MatchSource })[] = [];
   for (const bc of basecampClubs) {
     for (const es of easyspeakClubs) {
+      if (rejectedSet.has(`${bc.id}::${es.id}`)) continue;
       const score = clubNameScore(bc.name, es.name);
-      // Exact normalized-name match only (score === 1, i.e. identical token
-      // sets) — no fuzzy/partial-similarity auto-matching for clubs.
       if (score === 1) {
-        candidates.push({ aKey: bc.id, bKey: es.id, score, forced: false });
+        candidates.push({ aKey: bc.id, bKey: es.id, score, confidence: "exact", source: null });
+      } else if (allowFuzzy && score >= CLUB_FUZZY_THRESHOLD) {
+        candidates.push({ aKey: bc.id, bKey: es.id, score, confidence: "fuzzy", source: null });
       }
     }
   }
@@ -217,13 +235,14 @@ export function matchClubs<BC extends ClubGroup<unknown>, ES extends ClubGroup<u
     basecamp: bcById.get(a.aKey as string) ?? null,
     easyspeak: esById.get(a.bKey as string) ?? null,
     score: a.score,
-    forced: a.forced,
+    confidence: a.confidence,
+    source: a.source,
   }));
   for (const bc of basecampClubs) {
-    if (!matchedBcIds.has(bc.id)) pairs.push({ basecamp: bc, easyspeak: null, score: null, forced: false });
+    if (!matchedBcIds.has(bc.id)) pairs.push({ basecamp: bc, easyspeak: null, score: null, confidence: null, source: null });
   }
   for (const es of easyspeakClubs) {
-    if (!matchedEsIds.has(es.id)) pairs.push({ basecamp: null, easyspeak: es, score: null, forced: false });
+    if (!matchedEsIds.has(es.id)) pairs.push({ basecamp: null, easyspeak: es, score: null, confidence: null, source: null });
   }
   return pairs;
 }

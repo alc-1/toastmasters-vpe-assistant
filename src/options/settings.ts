@@ -8,10 +8,20 @@
 
 import { escapeAttr, escapeHtml } from "../shared/dom-utils";
 import { local } from "../shared/storage";
-import { getClubLookup, getPathLookup, pinClub, removeClubPin, setPathAliases, deletePathCanonical } from "../shared/resolution-store";
+import {
+  getClubLookup,
+  getClubRejectedPairs,
+  getPathLookup,
+  pinClub,
+  rejectClubPair,
+  removeClubPin,
+  setPathAliases,
+  deletePathCanonical,
+} from "../shared/resolution-store";
+import { matchClubs, type ClubGroup, type ClubMatchPair } from "../shared/sync/conflicts";
 import { EASYSPEAK_SERVERS, getEasySpeakServer, getMockMode, setEasySpeakServer, setMockMode } from "../shared/settings-store";
 import { renderAppShell } from "../shared/app-shell";
-import type { BasecampScrape, ClubLookupEntry, EasySpeakScrape, EasySpeakServerId, PathLookup } from "../shared/types";
+import type { BasecampScrape, EasySpeakScrape, EasySpeakServerId, PathLookup } from "../shared/types";
 
 let basecampData: BasecampScrape | null = null;
 let easyspeakData: EasySpeakScrape | null = null;
@@ -125,54 +135,128 @@ async function onSaveEasySpeakServer() {
 }
 
 // ---------------------------------------------------------------------------
-// Club name lookup
+// Club name lookup — a review table (every club from both sources, not just
+// already-pinned ones), same shape/vocabulary as options/members.ts's
+// member-matching table: a status badge per club pair (Exact/Suggested/
+// Linked manually/Unmatched) and Confirm/"Not this one"/Unlink actions.
 // ---------------------------------------------------------------------------
 
+type ClubPair = ClubMatchPair<ClubGroup<unknown>, ClubGroup<unknown>>;
+
 async function refreshClubLookup() {
-  const clubLookup = await getClubLookup();
-  document.getElementById("clubLookupRoot")!.innerHTML = renderClubLookupSection(clubLookup);
+  const matches = await computeClubMatches();
+  document.getElementById("clubLookupRoot")!.innerHTML = renderClubLookupSection(matches);
   attachClubLookupHandlers();
 }
 
-function renderClubLookupSection(clubLookup: ClubLookupEntry[]): string {
-  const rows = clubLookup
-    .map(
-      (pin) => `
-      <tr>
-        <td>${escapeHtml(pin.basecampClubName)}</td>
-        <td>${escapeHtml(pin.easyspeakClubName)}</td>
-        <td><button class="btn btn-secondary" data-action="remove-club-pin" data-basecamp-club-id="${escapeAttr(pin.basecampClubId)}">Remove</button></td>
-      </tr>
-    `
-    )
-    .join("");
-
-  const table = clubLookup.length
-    ? `<table class="table lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
-    : '<p class="empty-state">No club pins yet — clubs are only matched automatically on an exact name match.</p>';
-
-  return `${table}${renderClubAddForm(clubLookup)}`;
+async function computeClubMatches(): Promise<ClubPair[]> {
+  if (!basecampData || !easyspeakData) return [];
+  const clubLookup = await getClubLookup();
+  const clubRejectedPairs = await getClubRejectedPairs();
+  const bcClubs: ClubGroup<unknown>[] = Object.entries(basecampData).map(([id, club]) => ({ id, name: club.name, people: [] }));
+  const esClubs: ClubGroup<unknown>[] = Object.entries(easyspeakData).map(([id, club]) => ({ id, name: club.name, people: [] }));
+  // allowFuzzy: true — unlike buildReport()'s own matchClubs() call (which
+  // never surfaces an unconfirmed guess, so two clubs' rosters can't get
+  // silently joined elsewhere), this is the one place a fuzzy suggestion is
+  // meant to be reviewed.
+  return matchClubs(bcClubs, esClubs, clubLookup, clubRejectedPairs, true);
 }
 
-function renderClubAddForm(clubLookup: ClubLookupEntry[]): string {
+function needsClubAction(pair: ClubPair): boolean {
+  return pair.confidence === "fuzzy" || !pair.basecamp || !pair.easyspeak;
+}
+
+function clubSortName(pair: ClubPair): string {
+  return String(pair.basecamp?.name ?? pair.easyspeak?.name ?? "");
+}
+
+function compareClubPairs(a: ClubPair, b: ClubPair): number {
+  const aRank = needsClubAction(a) ? 0 : 1;
+  const bRank = needsClubAction(b) ? 0 : 1;
+  if (aRank !== bRank) return aRank - bRank;
+  return clubSortName(a).localeCompare(clubSortName(b), undefined, { sensitivity: "base" });
+}
+
+function renderClubLookupSection(matches: ClubPair[]): string {
+  if (!basecampData || !easyspeakData) {
+    return '<p class="empty-state">Extract both Basecamp and EasySpeak data first to review club matches.</p>';
+  }
+  if (matches.length === 0) {
+    return '<p class="empty-state">No clubs found in either data source.</p>';
+  }
+
+  const sorted = [...matches].sort(compareClubPairs);
+  const rows = sorted.map(renderClubMatchRow).join("");
+  const table = `<table class="table lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  return `${table}${renderClubAddForm(matches)}`;
+}
+
+function renderClubMatchRow(pair: ClubPair): string {
+  return `
+    <tr>
+      <td>${pair.basecamp ? escapeHtml(pair.basecamp.name) : '<span class="muted-text">—</span>'}</td>
+      <td>${pair.easyspeak ? escapeHtml(pair.easyspeak.name) : '<span class="muted-text">—</span>'}</td>
+      <td>${renderClubStatusCell(pair)}</td>
+      <td class="actions">${renderClubActionsCell(pair)}</td>
+    </tr>
+  `;
+}
+
+function renderClubStatusCell(pair: ClubPair): string {
+  if (!pair.basecamp || !pair.easyspeak) return '<span class="badge badge-unmatched">Unmatched</span>';
+  if (pair.confidence === "confirmed") {
+    const sourceLabel = pair.source === "manual-search" ? "linked via manual search" : "confirmed from a suggested match";
+    return `<span class="badge badge-confirmed" title="${escapeAttr(sourceLabel)}">Linked manually</span>`;
+  }
+  if (pair.confidence === "fuzzy") {
+    const score = pair.score != null ? pair.score.toFixed(2) : "—";
+    return `<span class="badge badge-fuzzy" title="match score: ${score}">Suggested</span>`;
+  }
+  return '<span class="badge badge-exact">Exact</span>';
+}
+
+function renderClubActionsCell(pair: ClubPair): string {
+  if (!pair.basecamp || !pair.easyspeak) return '<span class="muted-text">Use the form below to pin manually</span>';
+
+  const bcId = escapeAttr(pair.basecamp.id as string);
+  const esId = escapeAttr(pair.easyspeak.id as string);
+
+  if (pair.confidence === "fuzzy") {
+    const bcName = escapeAttr(pair.basecamp.name as string);
+    const esName = escapeAttr(pair.easyspeak.name as string);
+    return (
+      `<button class="btn btn-primary" data-action="confirm-club" data-bc-id="${bcId}" data-es-id="${esId}" data-bc-name="${bcName}" data-es-name="${esName}">Confirm</button>` +
+      `<button class="btn btn-secondary" data-action="reject-club" data-bc-id="${bcId}" data-es-id="${esId}">Not this one</button>`
+    );
+  }
+
+  const title =
+    pair.confidence === "exact"
+      ? "Excludes this pairing so it won't auto-match again, marking both clubs unmatched so you can pin the correct one manually."
+      : "Removes this pin so the pairing can be re-matched or re-pinned.";
+  return `<button class="btn btn-secondary" data-action="unlink-club" data-confidence="${escapeAttr(pair.confidence ?? "")}" data-bc-id="${bcId}" data-es-id="${esId}" title="${title}">Unlink</button>`;
+}
+
+function renderClubAddForm(matches: ClubPair[]): string {
   if (!basecampData || !easyspeakData) {
     return '<p class="empty-state">Extract both Basecamp and EasySpeak data first to add a club pin.</p>';
   }
 
-  const pinnedBcIds = new Set(clubLookup.map((p) => p.basecampClubId));
-  const pinnedEsIds = new Set(clubLookup.map((p) => p.easyspeakClubId));
+  const matchedBcIds = new Set(matches.filter((m) => m.basecamp && m.easyspeak).map((m) => m.basecamp!.id));
+  const matchedEsIds = new Set(matches.filter((m) => m.basecamp && m.easyspeak).map((m) => m.easyspeak!.id));
 
   const bcOptions = Object.entries(basecampData)
-    .filter(([id]) => !pinnedBcIds.has(id))
+    .filter(([id]) => !matchedBcIds.has(id))
     .map(([id, club]) => `<option value="${escapeAttr(id)}">${escapeHtml(club.name)}</option>`)
     .join("");
   const esOptions = Object.entries(easyspeakData)
-    .filter(([id]) => !pinnedEsIds.has(id))
+    .filter(([id]) => !matchedEsIds.has(id))
     .map(([id, club]) => `<option value="${escapeAttr(id)}">${escapeHtml(club.name)}</option>`)
     .join("");
 
   if (!bcOptions || !esOptions) {
-    return '<p class="empty-state">All clubs are already pinned.</p>';
+    return '<p class="empty-state">All clubs are already matched or pinned.</p>';
   }
 
   return `
@@ -187,15 +271,39 @@ function renderClubAddForm(clubLookup: ClubLookupEntry[]): string {
 
 function attachClubLookupHandlers() {
   const root = document.getElementById("clubLookupRoot")!;
-  root.querySelectorAll<HTMLButtonElement>('[data-action="remove-club-pin"]').forEach((btn) => {
-    btn.addEventListener("click", () => onRemoveClubPin(btn.dataset.basecampClubId!));
+  root.querySelectorAll<HTMLButtonElement>('[data-action="confirm-club"]').forEach((btn) => {
+    btn.addEventListener("click", () => onConfirmClubPair(btn));
+  });
+  root.querySelectorAll<HTMLButtonElement>('[data-action="reject-club"]').forEach((btn) => {
+    btn.addEventListener("click", () => onRejectClubPair(btn));
+  });
+  root.querySelectorAll<HTMLButtonElement>('[data-action="unlink-club"]').forEach((btn) => {
+    btn.addEventListener("click", () => onUnlinkClubPair(btn));
   });
   const addBtn = root.querySelector<HTMLButtonElement>('[data-action="add-club-pin"]');
   if (addBtn) addBtn.addEventListener("click", onAddClubPin);
 }
 
-async function onRemoveClubPin(basecampClubId: string) {
-  await removeClubPin(basecampClubId);
+async function onConfirmClubPair(btn: HTMLButtonElement) {
+  const { bcId, esId, bcName, esName } = btn.dataset;
+  await pinClub(bcId!, esId!, bcName!, esName!, "fuzzy-confirmed");
+  await refreshClubLookup();
+}
+
+async function onRejectClubPair(btn: HTMLButtonElement) {
+  await rejectClubPair(btn.dataset.bcId!, btn.dataset.esId!);
+  await refreshClubLookup();
+}
+
+async function onUnlinkClubPair(btn: HTMLButtonElement) {
+  // An "exact" match is recomputed fresh every time (nothing stored to
+  // delete), so unlinking it means rejecting the pair instead — otherwise it
+  // would just reappear as "Exact" again on the next refresh.
+  if (btn.dataset.confidence === "exact") {
+    await rejectClubPair(btn.dataset.bcId!, btn.dataset.esId!);
+  } else {
+    await removeClubPin(btn.dataset.bcId!);
+  }
   await refreshClubLookup();
 }
 
@@ -204,7 +312,7 @@ async function onAddClubPin() {
   const esId = (document.getElementById("newClubPinEs") as HTMLSelectElement).value;
   const bcName = basecampData?.[bcId]?.name ?? bcId;
   const esName = easyspeakData?.[esId]?.name ?? esId;
-  await pinClub(bcId, esId, bcName, esName);
+  await pinClub(bcId, esId, bcName, esName, "manual-search");
   await refreshClubLookup();
 }
 

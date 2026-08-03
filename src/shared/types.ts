@@ -198,12 +198,20 @@ export interface RejectedPair {
   rejectedAt: number;
 }
 
+export interface ClubRejectedPair {
+  basecampClubId: string;
+  easyspeakClubId: string;
+  rejectedAt: number;
+}
+
 export interface ClubLookupEntry {
   basecampClubId: string;
   easyspeakClubId: string;
   /** Denormalized, for the Settings page's display only. */
   basecampClubName: string;
   easyspeakClubName: string;
+  /** How this pin was created — absent on pins persisted before this field existed. */
+  source?: MatchSource;
 }
 
 /** Canonical path name -> alternate spellings. */
@@ -231,6 +239,7 @@ export interface ResolutionData {
   memberLinks?: MemberLink[];
   rejectedPairs?: RejectedPair[];
   clubLookup?: ClubLookupEntry[];
+  clubRejectedPairs?: ClubRejectedPair[];
   memberPathOverrides?: MemberPathOverride[];
   memberPathExclusions?: MemberPathExclusion[];
   pathAliasLookup?: Map<string, string>;
