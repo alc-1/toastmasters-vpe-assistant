@@ -18,12 +18,16 @@ import {
   confirmMemberLink,
   excludePathMatch,
   loadResolutionData,
+  markMemberOrphan,
+  markPathOrphan,
   rejectMemberPair,
   removeMemberPathOverride,
   setMemberPathOverride,
   unlinkMember,
+  unmarkMemberOrphan,
+  unmarkPathOrphan,
 } from "../shared/resolution-store";
-import { buildReport, hasPathOverride } from "../shared/sync/delta";
+import { buildReport, hasPathOrphan, hasPathOverride } from "../shared/sync/delta";
 import { renderAppShell } from "../shared/app-shell";
 import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport } from "../shared/types";
 
@@ -38,7 +42,7 @@ const FILTERS: FilterDef[] = [
   { key: "suggested", label: "Suggested" },
   { key: "unmatched", label: "Unmatched" },
   { key: "path-issues", label: "Path issues" },
-  { key: "linked-manually", label: "Linked manually" },
+  { key: "resolved-manually", label: "Resolved manually" },
 ];
 
 let basecampData: BasecampScrape | null = null;
@@ -202,16 +206,22 @@ function renderFilterChips(members: MemberReport[]) {
 
 // Not mutually exclusive — a member can carry more than one tag at once
 // (e.g. a manually-confirmed link that still has an unresolved path issue
-// shows under both "Path issues" and "Linked manually", so each chip gives
+// shows under both "Path issues" and "Resolved manually", so each chip gives
 // an accurate view of everything that still needs — or already got — a
 // fix). There's no tag at all for a plain automatic match with nothing to
 // flag; "All" is how you see those.
+//
+// A one-sided member marked as an orphan (matchConfidence === "confirmed"
+// with no real counterpart — see markMemberOrphan()) is deliberately
+// excluded from "unmatched" here: it's been reviewed and resolved, not left
+// outstanding, which is what lets needsAction() below (and everything built
+// on it — the "To do" count, club-tab badges) actually reach zero.
 function classifyMember(member: MemberReport): string[] {
   const tags: string[] = [];
   if (member.matchConfidence === "fuzzy") tags.push("suggested");
-  if (member.presence !== "both") tags.push("unmatched");
+  if (member.presence !== "both" && member.matchConfidence !== "confirmed") tags.push("unmatched");
   if (member.hasOrphanedPaths) tags.push("path-issues");
-  if (member.matchConfidence === "confirmed" || hasPathOverride(member)) tags.push("linked-manually");
+  if (member.matchConfidence === "confirmed" || hasPathOverride(member) || hasPathOrphan(member)) tags.push("resolved-manually");
   return tags;
 }
 
@@ -398,6 +408,10 @@ function renderNameCell(member: MemberReport, side: "basecamp" | "easyspeak", po
   const name = side === "easyspeak" ? member.easyspeakName : member.basecampName;
   if (name) return escapeHtml(name);
 
+  if (member.matchConfidence === "confirmed" && member.matchSource === "orphan") {
+    return '<span class="muted-text">No counterpart (resolved)</span>';
+  }
+
   const candidates = side === "easyspeak" ? pools.easyspeakOnly : pools.basecampOnly;
   if (candidates.length === 0) return '<span class="muted-text">No unmatched candidates</span>';
 
@@ -408,11 +422,19 @@ function renderNameCell(member: MemberReport, side: "basecamp" | "easyspeak", po
 }
 
 function renderLinkStatusCell(member: MemberReport): string {
-  if (member.presence !== "both") return '<span class="badge badge-unmatched">Unmatched</span>';
+  // Checked before the presence check below so an orphan-resolved one-sided
+  // member (matchConfidence "confirmed", no real counterpart) shows as
+  // resolved rather than falling into the "Unmatched" branch.
   if (member.matchConfidence === "confirmed") {
-    const sourceLabel = member.matchSource === "manual-search" ? "linked via manual search" : "confirmed from a suggested match";
-    return `<span class="badge badge-confirmed" title="${escapeAttr(sourceLabel)}">Linked manually</span>`;
+    const sourceLabel =
+      member.matchSource === "manual-search"
+        ? "linked via manual search"
+        : member.matchSource === "orphan"
+          ? "marked as having no counterpart"
+          : "confirmed from a suggested match";
+    return `<span class="badge badge-confirmed" title="${escapeAttr(sourceLabel)}">Resolved manually</span>`;
   }
+  if (member.presence !== "both") return '<span class="badge badge-unmatched">Unmatched</span>';
   if (member.matchConfidence === "fuzzy") {
     const score = member.matchScore != null ? member.matchScore.toFixed(2) : "—";
     return `<span class="badge badge-fuzzy" title="match score: ${score}">Suggested</span>`;
@@ -421,10 +443,15 @@ function renderLinkStatusCell(member: MemberReport): string {
 }
 
 function renderPathBindCell(member: MemberReport): string {
-  if (hasPathOverride(member)) {
-    const bound = member.paths.filter((p) => p.overridden);
-    const title = bound.map((p) => `${p.basecampPathName} ↔ ${p.easyspeakPathLabel}`).join("; ");
-    return `<span class="badge badge-confirmed" title="${escapeAttr(title)}">Bound</span>`;
+  const bound = member.paths.filter((p) => p.overridden);
+  const orphaned = member.paths.filter((p) => p.orphaned);
+  if (bound.length > 0 || orphaned.length > 0) {
+    const titleParts = [
+      ...bound.map((p) => `${p.basecampPathName} ↔ ${p.easyspeakPathLabel}`),
+      ...orphaned.map((p) => `${p.displayName} (marked as orphan)`),
+    ];
+    const label = bound.length > 0 && orphaned.length === 0 ? "Bound" : "Resolved";
+    return `<span class="badge badge-confirmed" title="${escapeAttr(titleParts.join("; "))}">${label}</span>`;
   }
   if (!member.hasOrphanedPaths) return '<span class="muted-text">—</span>';
   return '<span class="badge badge-path-issue">Path issue</span>';
@@ -454,7 +481,16 @@ function renderActionsCell(member: MemberReport): string {
   }
 
   if (member.presence !== "both") {
-    buttons.push(`<button data-action="link" data-member-key="${key}" disabled>Link</button>`);
+    if (member.matchConfidence === "confirmed" && member.matchSource === "orphan") {
+      buttons.push(
+        `<button class="secondary" data-action="unorphan" data-member-key="${key}" title="Returns this member to Unmatched so it can be linked or re-resolved.">Unmark orphan</button>`
+      );
+    } else {
+      buttons.push(`<button data-action="link" data-member-key="${key}" disabled>Link</button>`);
+      buttons.push(
+        `<button class="secondary" data-action="mark-orphan" data-member-key="${key}" title="Marks this as having no counterpart in the other system, so it stops showing as needing review.">Mark as orphan</button>`
+      );
+    }
   }
 
   if (hasReviewablePaths(member)) {
@@ -470,8 +506,12 @@ function renderPathBindDetail(member: MemberReport): string {
   const key = memberKey(member);
   const realPaths = member.paths.filter((p) => !p.nonPathway);
   const matchedPaths = realPaths.filter((p) => p.presence === "both");
-  const bcOrphans = realPaths.filter((p) => p.presence === "basecamp-only");
-  const esOrphans = realPaths.filter((p) => p.presence === "easyspeak-only");
+  const resolvedOrphans = realPaths.filter((p) => p.orphaned);
+  // Excludes already orphan-marked paths — onBindPath() recomputes these same
+  // two filters internally, so data-bc-index must stay aligned with what's
+  // rendered here.
+  const bcOrphans = realPaths.filter((p) => p.presence === "basecamp-only" && !p.orphaned);
+  const esOrphans = realPaths.filter((p) => p.presence === "easyspeak-only" && !p.orphaned);
 
   const sections: string[] = [];
 
@@ -495,27 +535,61 @@ function renderPathBindDetail(member: MemberReport): string {
     );
   }
 
-  if (bcOrphans.length > 0 && esOrphans.length > 0) {
+  if (resolvedOrphans.length > 0) {
     sections.push(
-      bcOrphans
-        .map((bcPath, bcIndex) => {
-          const options = esOrphans
-            .map((esPath, esIndex) => `<option value="${esIndex}">${escapeHtml(esPath.easyspeakPathLabel ?? "")}</option>`)
-            .join("");
+      resolvedOrphans
+        .map((p) => {
+          const side = p.presence === "basecamp-only" ? "basecamp" : "easyspeak";
+          const sideLabel = side === "basecamp" ? "Basecamp" : "EasySpeak";
+          const pathName = side === "basecamp" ? (p.basecampPathName ?? "") : (p.easyspeakPathLabel ?? "");
           return `
             <div class="path-pair-row">
-              <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName ?? "")}</span>
-              <span>&harr;</span>
-              <select data-role="path-bind-select" aria-label="Choose a path to bind this member's orphaned path to">${options}</select>
-              <button data-action="bind-path" data-member-key="${key}" data-bc-index="${bcIndex}">Bind for this member only</button>
-              <button class="secondary" data-action="leave-orphan" data-member-key="${key}">Leave as orphan</button>
+              <span><strong>${sideLabel}:</strong> ${escapeHtml(pathName)}</span>
+              <span class="muted-text">Resolved as orphan</span>
+              <button class="secondary" data-action="unmark-path-orphan" data-member-key="${key}" data-side="${side}" data-path="${escapeAttr(pathName)}">Unmark orphan</button>
             </div>
           `;
         })
         .join("")
     );
-  } else if (bcOrphans.length > 0 || esOrphans.length > 0) {
-    sections.push('<p class="muted-text">An orphaned path exists on one side only — no compatible candidate to bind it to yet.</p>');
+  }
+
+  if (bcOrphans.length > 0) {
+    const esOptions = esOrphans.map((esPath, esIndex) => `<option value="${esIndex}">${escapeHtml(esPath.easyspeakPathLabel ?? "")}</option>`).join("");
+    sections.push(
+      bcOrphans
+        .map((bcPath, bcIndex) => {
+          const bindControls =
+            esOrphans.length > 0
+              ? `<span>&harr;</span>
+                 <select data-role="path-bind-select" aria-label="Choose a path to bind this member's orphaned path to">${esOptions}</select>
+                 <button data-action="bind-path" data-member-key="${key}" data-bc-index="${bcIndex}">Bind for this member only</button>`
+              : "";
+          return `
+            <div class="path-pair-row">
+              <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName ?? "")}</span>
+              ${bindControls}
+              <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="basecamp" data-path="${escapeAttr(bcPath.basecampPathName ?? "")}">Mark as orphan</button>
+            </div>
+          `;
+        })
+        .join("")
+    );
+  }
+
+  if (esOrphans.length > 0) {
+    sections.push(
+      esOrphans
+        .map(
+          (esPath) => `
+            <div class="path-pair-row">
+              <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
+              <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
+            </div>
+          `
+        )
+        .join("")
+    );
   }
 
   if (sections.length === 0) {
@@ -523,7 +597,7 @@ function renderPathBindDetail(member: MemberReport): string {
   }
 
   const helpText =
-    '<p class="help-text">Bind pairs a path across systems for this member only; Force unbind splits an automatic pair apart so you can rebind it differently.</p>';
+    '<p class="help-text">Bind pairs a path across systems for this member only; Mark as orphan confirms a path genuinely has no counterpart; Force unbind splits an automatic pair apart so you can rebind it differently.</p>';
   return helpText + sections.join("");
 }
 
@@ -543,14 +617,23 @@ function attachRowHandlers() {
   root.querySelectorAll<HTMLButtonElement>('[data-action="unlink"]').forEach((btn) => {
     btn.addEventListener("click", () => onUnlink(btn.dataset.memberKey!));
   });
+  root.querySelectorAll<HTMLButtonElement>('[data-action="mark-orphan"]').forEach((btn) => {
+    btn.addEventListener("click", () => onMarkOrphan(btn.dataset.memberKey!));
+  });
+  root.querySelectorAll<HTMLButtonElement>('[data-action="unorphan"]').forEach((btn) => {
+    btn.addEventListener("click", () => onUnmarkOrphan(btn.dataset.memberKey!));
+  });
   root.querySelectorAll<HTMLButtonElement>('[data-action="toggle-paths"]').forEach((btn) => {
     btn.addEventListener("click", () => onTogglePaths(btn.dataset.memberKey!));
   });
   root.querySelectorAll<HTMLButtonElement>('[data-action="bind-path"]').forEach((btn) => {
     btn.addEventListener("click", () => onBindPath(btn));
   });
-  root.querySelectorAll<HTMLButtonElement>('[data-action="leave-orphan"]').forEach((btn) => {
-    btn.addEventListener("click", () => onLeaveOrphan(btn.dataset.memberKey!));
+  root.querySelectorAll<HTMLButtonElement>('[data-action="mark-path-orphan"]').forEach((btn) => {
+    btn.addEventListener("click", () => onMarkPathOrphan(btn));
+  });
+  root.querySelectorAll<HTMLButtonElement>('[data-action="unmark-path-orphan"]').forEach((btn) => {
+    btn.addEventListener("click", () => onUnmarkPathOrphan(btn));
   });
   root.querySelectorAll<HTMLButtonElement>('[data-action="unbind-path"]').forEach((btn) => {
     btn.addEventListener("click", () => onUnbindPath(btn));
@@ -594,14 +677,23 @@ async function onUnlink(key: string) {
   await refresh();
 }
 
+async function onMarkOrphan(key: string) {
+  const member = findMemberByKey(key);
+  if (!member) return;
+  await markMemberOrphan(member.basecampUserId, member.easyspeakMemberId);
+  await refresh();
+}
+
+async function onUnmarkOrphan(key: string) {
+  const member = findMemberByKey(key);
+  if (!member) return;
+  await unmarkMemberOrphan(member.basecampUserId, member.easyspeakMemberId);
+  await refresh();
+}
+
 function onTogglePaths(key: string) {
   if (expandedMemberKeys.has(key)) expandedMemberKeys.delete(key);
   else expandedMemberKeys.add(key);
-  renderActiveClub();
-}
-
-function onLeaveOrphan(key: string) {
-  expandedMemberKeys.delete(key);
   renderActiveClub();
 }
 
@@ -611,8 +703,8 @@ async function onBindPath(btn: HTMLButtonElement) {
   const member = findMemberByKey(key);
   if (!member) return;
 
-  const bcOrphans = member.paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway);
-  const esOrphans = member.paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway);
+  const bcOrphans = member.paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway && !p.orphaned);
+  const esOrphans = member.paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.orphaned);
   const bcPath = bcOrphans[bcIndex];
   const select = btn.closest(".path-pair-row")!.querySelector("select")!;
   const esPath = esOrphans[Number(select.value)];
@@ -620,6 +712,24 @@ async function onBindPath(btn: HTMLButtonElement) {
 
   await setMemberPathOverride(member.basecampUserId!, member.easyspeakMemberId!, bcPath.basecampPathName!, esPath.easyspeakPathLabel!);
   expandedMemberKeys.delete(key);
+  await refresh();
+}
+
+async function onMarkPathOrphan(btn: HTMLButtonElement) {
+  const member = findMemberByKey(btn.dataset.memberKey!);
+  if (!member) return;
+  const side = btn.dataset.side as "basecamp" | "easyspeak";
+  const path = btn.dataset.path!;
+  await markPathOrphan(member.basecampUserId!, member.easyspeakMemberId!, side === "basecamp" ? path : null, side === "easyspeak" ? path : null);
+  await refresh();
+}
+
+async function onUnmarkPathOrphan(btn: HTMLButtonElement) {
+  const member = findMemberByKey(btn.dataset.memberKey!);
+  if (!member) return;
+  const side = btn.dataset.side as "basecamp" | "easyspeak";
+  const path = btn.dataset.path!;
+  await unmarkPathOrphan(member.basecampUserId!, member.easyspeakMemberId!, side === "basecamp" ? path : null, side === "easyspeak" ? path : null);
   await refresh();
 }
 

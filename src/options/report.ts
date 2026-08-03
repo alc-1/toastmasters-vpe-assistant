@@ -101,7 +101,13 @@ function renderConflictWarning(report: ReportResult) {
   const root = document.getElementById("conflictWarning")!;
 
   const unmatchedClubCount = report.clubPairs.filter((c) => !c.basecampClubId || !c.easyspeakClubId).length;
-  const unmatchedMemberCount = report.clubPairs.reduce((sum, c) => sum + c.members.filter((m) => m.presence !== "both").length, 0);
+  // An orphan-resolved member (matchConfidence "confirmed" with no real
+  // counterpart) has already been reviewed and dismissed, so it's excluded
+  // here the same way a "both"-presence member is.
+  const unmatchedMemberCount = report.clubPairs.reduce(
+    (sum, c) => sum + c.members.filter((m) => m.presence !== "both" && m.matchConfidence !== "confirmed").length,
+    0
+  );
 
   if (unmatchedClubCount === 0 && unmatchedMemberCount === 0) {
     root.innerHTML = "";
@@ -151,7 +157,9 @@ function computeKpis(report: ReportResult): ReportKpis {
     for (const member of club.members) {
       paths += member.paths.filter((p) => !p.nonPathway).length;
       if (member.matchConfidence === "fuzzy") needsReview += 1;
-      if (member.presence !== "both") missingMatches += 1;
+      // Excludes orphan-resolved members (matchConfidence "confirmed" with no
+      // real counterpart) — a reviewed-and-dismissed member isn't "missing".
+      if (member.presence !== "both" && member.matchConfidence !== "confirmed") missingMatches += 1;
     }
   }
 

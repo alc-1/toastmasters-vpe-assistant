@@ -18,7 +18,9 @@ import type {
   ClubLookupEntry,
   ClubRejectedPair,
   MemberLink,
+  MemberOrphan,
   MemberPathExclusion,
+  MemberPathOrphan,
   MemberPathOverride,
   MatchSource,
   PathLookup,
@@ -27,7 +29,7 @@ import type {
 } from "./types";
 
 /**
- * Reads all 7 keys and shapes them into exactly what buildReport()'s
+ * Reads all 9 keys and shapes them into exactly what buildReport()'s
  * (shared/sync/delta.ts) 4th "resolution" param expects.
  */
 export async function loadResolutionData(): Promise<Required<Omit<ResolutionData, "allowFuzzyMemberMatches">>> {
@@ -36,9 +38,11 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     "memberRejectedPairs",
     "clubLookup",
     "clubRejectedPairs",
+    "memberOrphans",
     "pathLookup",
     "memberPathOverrides",
     "memberPathExclusions",
+    "memberPathOrphans",
   ]);
   const pathLookup = await ensurePathLookupSeeded(stored.pathLookup);
 
@@ -47,8 +51,10 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     rejectedPairs: stored.memberRejectedPairs ?? [],
     clubLookup: stored.clubLookup ?? [],
     clubRejectedPairs: stored.clubRejectedPairs ?? [],
+    memberOrphans: stored.memberOrphans ?? [],
     memberPathOverrides: stored.memberPathOverrides ?? [],
     memberPathExclusions: stored.memberPathExclusions ?? [],
+    memberPathOrphans: stored.memberPathOrphans ?? [],
     pathAliasLookup: buildPathAliasLookup(pathLookup),
   };
 }
@@ -105,6 +111,28 @@ export async function rejectMemberPair(basecampUserId: number, easyspeakMemberId
   if (alreadyRejected) return;
   const entry: RejectedPair = { basecampUserId, easyspeakMemberId, rejectedAt: Date.now() };
   await local.set({ memberRejectedPairs: [...existing, entry] });
+}
+
+/**
+ * Confirms a one-sided member (basecampUserId XOR easyspeakMemberId is
+ * non-null — whichever side actually has data) genuinely has no counterpart,
+ * so it stops counting as outstanding work everywhere (Members' "To
+ * do"/unmatched counts, Report's "Missing Matches" KPI and conflict banner).
+ */
+export async function markMemberOrphan(basecampUserId: number | null, easyspeakMemberId: string | null): Promise<void> {
+  const memberOrphans = await local.value("memberOrphans");
+  const existing = memberOrphans ?? [];
+  const already = existing.some((o) => o.basecampUserId === basecampUserId && o.easyspeakMemberId === easyspeakMemberId);
+  if (already) return;
+  const entry: MemberOrphan = { basecampUserId, easyspeakMemberId, orphanedAt: Date.now() };
+  await local.set({ memberOrphans: [...existing, entry] });
+}
+
+/** The "Unmark orphan" action — returns the member to the normal unmatched state. */
+export async function unmarkMemberOrphan(basecampUserId: number | null, easyspeakMemberId: string | null): Promise<void> {
+  const memberOrphans = await local.value("memberOrphans");
+  const filtered = (memberOrphans ?? []).filter((o) => !(o.basecampUserId === basecampUserId && o.easyspeakMemberId === easyspeakMemberId));
+  await local.set({ memberOrphans: filtered });
 }
 
 /**
@@ -186,6 +214,52 @@ export async function excludePathMatch(
   if (alreadyExcluded) return;
   const entry: MemberPathExclusion = { basecampUserId, easyspeakMemberId, basecampPathName, easyspeakPathLabel, excludedAt: Date.now() };
   await local.set({ memberPathExclusions: [...existing, entry] });
+}
+
+/**
+ * Confirms a single-sided path (basecampPathName XOR easyspeakPathLabel is
+ * non-null — whichever side actually has the path) genuinely has no
+ * counterpart for this member, so it stops counting toward
+ * hasOrphanedPaths() — the path-level counterpart of markMemberOrphan().
+ */
+export async function markPathOrphan(
+  basecampUserId: number,
+  easyspeakMemberId: string,
+  basecampPathName: string | null,
+  easyspeakPathLabel: string | null
+): Promise<void> {
+  const memberPathOrphans = await local.value("memberPathOrphans");
+  const existing = memberPathOrphans ?? [];
+  const already = existing.some(
+    (o) =>
+      o.basecampUserId === basecampUserId &&
+      o.easyspeakMemberId === easyspeakMemberId &&
+      o.basecampPathName === basecampPathName &&
+      o.easyspeakPathLabel === easyspeakPathLabel
+  );
+  if (already) return;
+  const entry: MemberPathOrphan = { basecampUserId, easyspeakMemberId, basecampPathName, easyspeakPathLabel, orphanedAt: Date.now() };
+  await local.set({ memberPathOrphans: [...existing, entry] });
+}
+
+/** The "Unmark orphan" action — returns the path to the normal orphan/bind-picker state. */
+export async function unmarkPathOrphan(
+  basecampUserId: number,
+  easyspeakMemberId: string,
+  basecampPathName: string | null,
+  easyspeakPathLabel: string | null
+): Promise<void> {
+  const memberPathOrphans = await local.value("memberPathOrphans");
+  const filtered = (memberPathOrphans ?? []).filter(
+    (o) =>
+      !(
+        o.basecampUserId === basecampUserId &&
+        o.easyspeakMemberId === easyspeakMemberId &&
+        o.basecampPathName === basecampPathName &&
+        o.easyspeakPathLabel === easyspeakPathLabel
+      )
+  );
+  await local.set({ memberPathOrphans: filtered });
 }
 
 /** @param basecampClubName / easyspeakClubName denormalized, for Settings display only */

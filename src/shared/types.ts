@@ -92,7 +92,7 @@ export interface LevelCellCounts {
 
 export type Presence = "both" | "basecamp-only" | "easyspeak-only";
 export type MatchConfidence = "confirmed" | "exact" | "fuzzy" | null;
-export type MatchSource = "fuzzy-confirmed" | "manual-search" | null;
+export type MatchSource = "fuzzy-confirmed" | "manual-search" | "orphan" | null;
 
 export interface PathCompletion {
   completed: number;
@@ -118,6 +118,7 @@ export interface PathReport {
   presence: Presence;
   nonPathway: boolean;
   overridden: boolean;
+  orphaned: boolean;
   levels: LevelDiff[];
   pathCompletion: PathCompletion | null;
 }
@@ -198,6 +199,13 @@ export interface RejectedPair {
   rejectedAt: number;
 }
 
+/** Exactly one of the two ids is non-null — the side that does have data. */
+export interface MemberOrphan {
+  basecampUserId: number | null;
+  easyspeakMemberId: string | null;
+  orphanedAt: number;
+}
+
 export interface ClubRejectedPair {
   basecampClubId: string;
   easyspeakClubId: string;
@@ -233,6 +241,15 @@ export interface MemberPathExclusion {
   excludedAt: number;
 }
 
+/** Exactly one of basecampPathName/easyspeakPathLabel is set — the side being marked orphan. */
+export interface MemberPathOrphan {
+  basecampUserId: number;
+  easyspeakMemberId: string;
+  basecampPathName: string | null;
+  easyspeakPathLabel: string | null;
+  orphanedAt: number;
+}
+
 /** Exactly buildReport()'s 4th param shape — omitting it entirely reproduces
  * plain automatic matching, unchanged. */
 export interface ResolutionData {
@@ -240,8 +257,10 @@ export interface ResolutionData {
   rejectedPairs?: RejectedPair[];
   clubLookup?: ClubLookupEntry[];
   clubRejectedPairs?: ClubRejectedPair[];
+  memberOrphans?: MemberOrphan[];
   memberPathOverrides?: MemberPathOverride[];
   memberPathExclusions?: MemberPathExclusion[];
+  memberPathOrphans?: MemberPathOrphan[];
   pathAliasLookup?: Map<string, string>;
   /** Default true (Members view). report.ts passes false so an unconfirmed
    * fuzzy guess never renders there as if it were a fact. */

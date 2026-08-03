@@ -19,7 +19,9 @@ import type {
   EasySpeakServerId,
   IconStatuses,
   MemberLink,
+  MemberOrphan,
   MemberPathExclusion,
+  MemberPathOrphan,
   MemberPathOverride,
   PathLookup,
   RejectedPair,
@@ -38,9 +40,11 @@ export interface LocalSchema {
   memberRejectedPairs: RejectedPair[];
   clubLookup: ClubLookupEntry[];
   clubRejectedPairs: ClubRejectedPair[];
+  memberOrphans: MemberOrphan[];
   pathLookup: PathLookup;
   memberPathOverrides: MemberPathOverride[];
   memberPathExclusions: MemberPathExclusion[];
+  memberPathOrphans: MemberPathOrphan[];
   easyspeakServer: EasySpeakServerId;
   mockMode: boolean;
 }

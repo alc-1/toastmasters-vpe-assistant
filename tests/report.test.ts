@@ -13,7 +13,17 @@ import {
   diffLevel,
   matchPaths,
 } from "../src/shared/sync/conflicts";
-import { buildLevelSummary, buildReport, hasOrphanedPaths, hasPathOverride, reportToRows, toCsv } from "../src/shared/sync/delta";
+import {
+  buildLevelSummary,
+  buildReport,
+  computeMatchSummary,
+  hasOrphanedPaths,
+  hasPathOrphan,
+  hasPathOverride,
+  isMemberResolved,
+  reportToRows,
+  toCsv,
+} from "../src/shared/sync/delta";
 import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport, PathReport } from "../src/shared/types";
 
 const DATA_DIR = fileURLToPath(new URL("../test-data/report/", import.meta.url));
@@ -239,6 +249,18 @@ describe("matchMembers", () => {
     const es = pairs.find((p) => p.easyspeak?.memberId === "b")!;
     expect(es.basecamp).toBeNull();
   });
+
+  it("marks a leftover as orphan-resolved when present in the orphans param", () => {
+    const pairs = matchMembers(basecampPeople, easyspeakPeople, [], [], true, [{ basecampUserId: 1, easyspeakMemberId: null, orphanedAt: 0 }]);
+    const alice = pairs.find((p) => p.basecamp?.userId === 1)!;
+    expect(alice.easyspeak).toBeNull();
+    expect(alice.confidence).toBe("confirmed");
+    expect(alice.source).toBe("orphan");
+
+    const withoutOrphan = matchMembers(basecampPeople, easyspeakPeople);
+    const aliceUnresolved = withoutOrphan.find((p) => p.basecamp?.userId === 1)!;
+    expect(aliceUnresolved.confidence).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -344,6 +366,34 @@ describe("buildReport (synthetic fixtures)", () => {
     expect(boundPath.presence).toBe("both");
   });
 
+  it("resolves a member-scoped path orphan and reports it via hasPathOrphan / PathReport.orphaned", () => {
+    const orphaned = buildReport(
+      basecampData,
+      easyspeakData,
+      {},
+      {
+        memberPathOrphans: [
+          {
+            basecampUserId: 9005,
+            easyspeakMemberId: "305",
+            basecampPathName: "Strategic Relationships",
+            easyspeakPathLabel: null,
+            orphanedAt: 0,
+          },
+        ],
+      }
+    );
+    const club = findClubPair(orphaned, {
+      basecampClubName: "Riverside Toastmasters",
+      easyspeakClubName: "Riverside Toastmasters",
+    });
+    const helena = findMember(club, { basecampName: "Helena Voss", easyspeakName: "Helena Voss" });
+    expect(hasOrphanedPaths(helena)).toBe(false);
+    expect(hasPathOrphan(helena)).toBe(true);
+    const orphanPath = helena.paths.find((p: PathReport) => p.orphaned)!;
+    expect(orphanPath.presence).toBe("basecamp-only");
+  });
+
   it("round-trips through reportToRows/toCsv without throwing, header row intact", () => {
     const rows = reportToRows(report);
     expect(rows[0][0]).toBe("Basecamp Club");
@@ -357,5 +407,134 @@ describe("buildReport (synthetic fixtures)", () => {
     const graceRow = riversideSummary.rows.find((r) => r.memberName === "Grace Thompson")!;
     expect(graceRow.currentLevelLabel).toBe("Level 2");
     expect(graceRow.nextLevelLabel).toBe("Level 3");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isMemberResolved / computeMatchSummary — the popup's "Matches: X/Y" stat
+// ---------------------------------------------------------------------------
+
+describe("isMemberResolved", () => {
+  it("counts an exact match with no path issues as resolved", () => {
+    expect(isMemberResolved({ matchConfidence: "exact", hasOrphanedPaths: false })).toBe(true);
+  });
+
+  it("excludes a fuzzy (still-unconfirmed) suggestion — it's an unreviewed guess, not a settled match", () => {
+    expect(isMemberResolved({ matchConfidence: "fuzzy", hasOrphanedPaths: false })).toBe(false);
+  });
+
+  it("excludes an exact match with an unresolved path issue", () => {
+    expect(isMemberResolved({ matchConfidence: "exact", hasOrphanedPaths: true })).toBe(false);
+  });
+
+  it("counts a member explicitly resolved as an Orphan (or a manually-confirmed link)", () => {
+    expect(isMemberResolved({ matchConfidence: "confirmed", hasOrphanedPaths: false })).toBe(true);
+  });
+
+  it("excludes a plain unmatched member", () => {
+    expect(isMemberResolved({ matchConfidence: null, hasOrphanedPaths: false })).toBe(false);
+  });
+});
+
+describe("computeMatchSummary (synthetic fixtures)", () => {
+  it("excludes a fuzzy suggestion and an exact match that still has an unresolved path issue", () => {
+    const report = buildReport(basecampData, easyspeakData);
+    const club = findClubPair(report, { basecampClubName: "Riverside Toastmasters", easyspeakClubName: "Riverside Toastmasters" });
+
+    const owen = findMember(club, { basecampName: "Owen Bright", easyspeakName: "Owen Brights" });
+    expect(owen.matchConfidence).toBe("fuzzy");
+    expect(isMemberResolved(owen)).toBe(false);
+
+    const helena = findMember(club, { basecampName: "Helena Voss", easyspeakName: "Helena Voss" });
+    expect(helena.hasOrphanedPaths).toBe(true);
+    expect(isMemberResolved(helena)).toBe(false);
+  });
+
+  it("aggregates matched/total across every club, excluding unmatched/fuzzy members and Helena's path issue", () => {
+    const report = buildReport(basecampData, easyspeakData);
+    const summary = computeMatchSummary(report);
+    // Riverside (8: Grace/Marcus exact+resolved, Owen fuzzy-excluded, Helena
+    // exact but path-issue-excluded, Priya/Samuel/Someone Completely
+    // Different/Nadia unmatched) + Basecamp Only Club (1: Ingrid, unmatched)
+    // + Easyspeak Only Club (1: Tomasz, unmatched) = 10 total, 2 resolved.
+    expect(summary.total).toBe(10);
+    expect(summary.matched).toBe(2);
+  });
+
+  it("matched count increases once an unmatched member is resolved as an Orphan", () => {
+    const report = buildReport(basecampData, easyspeakData, {}, {
+      memberOrphans: [{ basecampUserId: 9004, easyspeakMemberId: null, orphanedAt: 0 }], // Priya Chandrasekaran
+    });
+    const summary = computeMatchSummary(report);
+    expect(summary.total).toBe(10);
+    expect(summary.matched).toBe(3);
+  });
+
+  it("matched count increases once a path-orphaned member's path issue is bound", () => {
+    const report = buildReport(basecampData, easyspeakData, {}, {
+      memberPathOverrides: [
+        {
+          basecampUserId: 9005,
+          easyspeakMemberId: "305",
+          basecampPathName: "Strategic Relationships",
+          easyspeakPathLabel: "Team Collaboration",
+          boundAt: 0,
+        },
+      ],
+    });
+    const summary = computeMatchSummary(report);
+    expect(summary.total).toBe(10);
+    expect(summary.matched).toBe(3);
+  });
+
+  it("a fuzzy suggestion still doesn't count until it's actually confirmed, even once everything else is resolved", () => {
+    const report = buildReport(basecampData, easyspeakData, {}, {
+      memberOrphans: [
+        { basecampUserId: 9004, easyspeakMemberId: null, orphanedAt: 0 }, // Priya Chandrasekaran
+        { basecampUserId: 9006, easyspeakMemberId: null, orphanedAt: 0 }, // Samuel Osei
+        { basecampUserId: null, easyspeakMemberId: "304", orphanedAt: 0 }, // Someone Completely Different
+        { basecampUserId: null, easyspeakMemberId: "306", orphanedAt: 0 }, // Nadia Okafor
+        { basecampUserId: 9101, easyspeakMemberId: null, orphanedAt: 0 }, // Ingrid Solberg
+        { basecampUserId: null, easyspeakMemberId: "401", orphanedAt: 0 }, // Tomasz Nowak
+      ],
+      memberPathOverrides: [
+        {
+          basecampUserId: 9005,
+          easyspeakMemberId: "305",
+          basecampPathName: "Strategic Relationships",
+          easyspeakPathLabel: "Team Collaboration",
+          boundAt: 0,
+        },
+      ],
+    });
+    const summary = computeMatchSummary(report);
+    // Owen Bright/Owen Brights is still an unconfirmed fuzzy suggestion, so
+    // it alone keeps the ratio short of total/total.
+    expect(summary.matched).toBe(summary.total - 1);
+  });
+
+  it("matched count reaches total once the fuzzy suggestion is confirmed too", () => {
+    const report = buildReport(basecampData, easyspeakData, {}, {
+      memberLinks: [{ basecampUserId: 9003, easyspeakMemberId: "303", source: "fuzzy-confirmed", confirmedAt: 0 }], // Owen Bright / Owen Brights
+      memberOrphans: [
+        { basecampUserId: 9004, easyspeakMemberId: null, orphanedAt: 0 }, // Priya Chandrasekaran
+        { basecampUserId: 9006, easyspeakMemberId: null, orphanedAt: 0 }, // Samuel Osei
+        { basecampUserId: null, easyspeakMemberId: "304", orphanedAt: 0 }, // Someone Completely Different
+        { basecampUserId: null, easyspeakMemberId: "306", orphanedAt: 0 }, // Nadia Okafor
+        { basecampUserId: 9101, easyspeakMemberId: null, orphanedAt: 0 }, // Ingrid Solberg
+        { basecampUserId: null, easyspeakMemberId: "401", orphanedAt: 0 }, // Tomasz Nowak
+      ],
+      memberPathOverrides: [
+        {
+          basecampUserId: 9005,
+          easyspeakMemberId: "305",
+          basecampPathName: "Strategic Relationships",
+          easyspeakPathLabel: "Team Collaboration",
+          boundAt: 0,
+        },
+      ],
+    });
+    const summary = computeMatchSummary(report);
+    expect(summary.matched).toBe(summary.total);
   });
 });

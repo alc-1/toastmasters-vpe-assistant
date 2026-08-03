@@ -117,12 +117,16 @@ function groupEasySpeakMembers(members: EasySpeakMemberRow[]): EasySpeakPerson[]
  * Definition backing the Members view's "Path issues" filter: a member with
  * at least one Pathways path orphaned on each side (both sides picked a
  * path the other doesn't have) even though the member link itself is fine —
- * exactly the case a member-scoped path-bind override exists to fix.
+ * exactly the case a member-scoped path-bind override exists to fix. A path
+ * marked orphaned (matchPaths()'s `orphaned` tag — see markPathOrphan() in
+ * shared/resolution-store.ts) has already been reviewed and dismissed, so
+ * it's excluded from each side's count here, the same way hasOrphanedPaths
+ * treats a bound path as no longer orphaned.
  */
 export function hasOrphanedPaths(member: { paths?: PathReport[] }): boolean {
   const paths = member.paths ?? [];
-  const hasBasecampOrphan = paths.some((p) => p.presence === "basecamp-only" && !p.nonPathway);
-  const hasEasyspeakOrphan = paths.some((p) => p.presence === "easyspeak-only" && !p.nonPathway);
+  const hasBasecampOrphan = paths.some((p) => p.presence === "basecamp-only" && !p.nonPathway && !p.orphaned);
+  const hasEasyspeakOrphan = paths.some((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.orphaned);
   return hasBasecampOrphan && hasEasyspeakOrphan;
 }
 
@@ -137,6 +141,50 @@ export function hasOrphanedPaths(member: { paths?: PathReport[] }): boolean {
  */
 export function hasPathOverride(member: { paths?: PathReport[] }): boolean {
   return (member.paths ?? []).some((p) => p.overridden);
+}
+
+/**
+ * A member-scoped path orphan resolution took effect for this member (see
+ * the `orphaned` tag matchPaths() sets — the path-level counterpart of
+ * hasPathOverride()/`overridden`). Kept separate from hasPathOverride since
+ * they're different resolutions with different undo actions (Unbind vs.
+ * Unmark orphan).
+ */
+export function hasPathOrphan(member: { paths?: PathReport[] }): boolean {
+  return (member.paths ?? []).some((p) => p.orphaned);
+}
+
+/**
+ * The predicate behind the popup's quick "Matches: X/Y" stat
+ * (popup/index.ts): a member counts once its identity is *settled* —
+ * matchConfidence "exact" (certain, automatic) or "confirmed" (human-
+ * verified: a linked pair or an explicit Orphan resolution) — AND it has no
+ * unresolved path issues left (hasOrphanedPaths). A "fuzzy" suggestion is
+ * deliberately excluded: it's still an unreviewed algorithmic guess, not a
+ * settled match, so it shouldn't read as "done" any more than a plain
+ * unmatched (null-confidence) member would. A settled identity with an
+ * outstanding path issue still isn't "done" either, so it's excluded until
+ * that's bound or marked orphan too.
+ */
+export function isMemberResolved(member: { matchConfidence: MatchConfidence; hasOrphanedPaths: boolean }): boolean {
+  return (member.matchConfidence === "exact" || member.matchConfidence === "confirmed") && !member.hasOrphanedPaths;
+}
+
+export interface MatchSummary {
+  matched: number;
+  total: number;
+}
+
+export function computeMatchSummary(report: ReportResult): MatchSummary {
+  let matched = 0;
+  let total = 0;
+  for (const club of report.clubPairs) {
+    for (const member of club.members) {
+      total += 1;
+      if (isMemberResolved(member)) matched += 1;
+    }
+  }
+  return { matched, total };
 }
 
 // ---------------------------------------------------------------------------
@@ -155,12 +203,14 @@ function buildClubPairReport(
 ): ClubPairReport {
   const memberLinks = resolution.memberLinks ?? [];
   const rejectedPairs = resolution.rejectedPairs ?? [];
+  const memberOrphans = resolution.memberOrphans ?? [];
   const memberPathOverrides = resolution.memberPathOverrides ?? [];
   const memberPathExclusions = resolution.memberPathExclusions ?? [];
+  const memberPathOrphans = resolution.memberPathOrphans ?? [];
   const pathAliasLookup = resolution.pathAliasLookup ?? PATH_ALIAS_LOOKUP;
   const allowFuzzy = resolution.allowFuzzyMemberMatches ?? true;
 
-  const memberMatches = matchMembers(basecampClub?.people ?? [], easyspeakClub?.people ?? [], memberLinks, rejectedPairs, allowFuzzy);
+  const memberMatches = matchMembers(basecampClub?.people ?? [], easyspeakClub?.people ?? [], memberLinks, rejectedPairs, allowFuzzy, memberOrphans);
 
   const members: MemberReport[] = memberMatches.map(({ basecamp, easyspeak, confidence, score, source }) => {
     const presence: Presence = basecamp && easyspeak ? "both" : basecamp ? "basecamp-only" : "easyspeak-only";
@@ -170,7 +220,17 @@ function buildClubPairReport(
     const exclusionsForMember = memberPathExclusions.filter(
       (e) => e.basecampUserId === basecamp?.userId && e.easyspeakMemberId === easyspeak?.memberId
     );
-    const { paths, easyspeakNoActivePath } = matchPaths(basecamp, easyspeak, overridesForMember, pathAliasLookup, exclusionsForMember);
+    const pathOrphansForMember = memberPathOrphans.filter(
+      (o) => o.basecampUserId === basecamp?.userId && o.easyspeakMemberId === easyspeak?.memberId
+    );
+    const { paths, easyspeakNoActivePath } = matchPaths(
+      basecamp,
+      easyspeak,
+      overridesForMember,
+      pathAliasLookup,
+      exclusionsForMember,
+      pathOrphansForMember
+    );
     const member: MemberReport = {
       basecampUserId: basecamp?.userId ?? null,
       easyspeakMemberId: easyspeak?.memberId ?? null,

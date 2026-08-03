@@ -27,7 +27,9 @@ import type {
   EasySpeakLevel,
   LevelDiff,
   MemberLink,
+  MemberOrphan,
   MemberPathExclusion,
+  MemberPathOrphan,
   MemberPathOverride,
   MatchConfidence,
   MatchSource,
@@ -327,13 +329,19 @@ export interface MemberMatchPair<BC, ES> {
  *   below, i.e. reported as unmatched) — used by options/report.ts so an
  *   unconfirmed guess never renders there as if it were a fact. Exact
  *   matches and confirmed links are unaffected either way.
+ * @param orphans persisted "confirmed — this side genuinely has no
+ *   counterpart" decisions. Applied only to whoever is still unassigned
+ *   after matching/greedy-assignment runs, so it never blocks a real match:
+ *   if a genuine counterpart later appears (e.g. after a re-scrape), it wins
+ *   the normal way and the stale orphan record just becomes inert.
  */
 export function matchMembers(
   basecampPeople: BasecampPerson[],
   easyspeakPeople: EasySpeakPerson[],
   memberLinks: MemberLink[] = [],
   rejectedPairs: RejectedPair[] = [],
-  allowFuzzy = true
+  allowFuzzy = true,
+  orphans: MemberOrphan[] = []
 ): MemberMatchPair<BasecampPerson, EasySpeakPerson>[] {
   const bcById = new Map(basecampPeople.map((p) => [p.userId, p]));
   const esById = new Map(easyspeakPeople.map((p) => [p.memberId, p]));
@@ -376,14 +384,19 @@ export function matchMembers(
     score: a.score,
     source: a.source ?? null,
   }));
+  const orphanedBcIds = new Set(orphans.filter((o) => o.basecampUserId != null).map((o) => o.basecampUserId));
+  const orphanedEsIds = new Set(orphans.filter((o) => o.easyspeakMemberId != null).map((o) => o.easyspeakMemberId));
+
   for (const bc of basecampPeople) {
     if (!matchedBcIds.has(bc.userId)) {
-      pairs.push({ basecamp: bc, easyspeak: null, confidence: null, score: null, source: null });
+      const isOrphan = orphanedBcIds.has(bc.userId);
+      pairs.push({ basecamp: bc, easyspeak: null, confidence: isOrphan ? "confirmed" : null, score: null, source: isOrphan ? "orphan" : null });
     }
   }
   for (const es of easyspeakPeople) {
     if (!matchedEsIds.has(es.memberId)) {
-      pairs.push({ basecamp: null, easyspeak: es, confidence: null, score: null, source: null });
+      const isOrphan = orphanedEsIds.has(es.memberId);
+      pairs.push({ basecamp: null, easyspeak: es, confidence: isOrphan ? "confirmed" : null, score: null, source: isOrphan ? "orphan" : null });
     }
   }
   return pairs;
@@ -495,13 +508,20 @@ export interface MatchPathsResult {
  *   canonicalization back into two independently-orphaned entries, so a
  *   wrongly-automatic pairing can be broken and re-resolved manually without
  *   touching the global path-name lookup other members rely on.
+ * @param memberPathOrphans member-scoped "confirmed — this side genuinely has
+ *   no counterpart" decisions, already pre-filtered by the caller to this
+ *   member pair. Tags the matching single-sided PathReport with
+ *   `orphaned: true` (never both/overridden entries, which by construction
+ *   never reach this check) — see markPathOrphan() in
+ *   shared/resolution-store.ts.
  */
 export function matchPaths(
   basecampPerson: BasecampPerson | null,
   easyspeakPerson: EasySpeakPerson | null,
   memberOverrides: MemberPathOverride[] = [],
   pathAliasLookup: Map<string, string> = PATH_ALIAS_LOOKUP,
-  memberExclusions: MemberPathExclusion[] = []
+  memberExclusions: MemberPathExclusion[] = [],
+  memberPathOrphans: MemberPathOrphan[] = []
 ): MatchPathsResult {
   const bcPaths = [...(basecampPerson?.paths ?? [])];
   const esPaths = [...(easyspeakPerson?.paths ?? [])];
@@ -526,10 +546,16 @@ export function matchPaths(
       presence: "both",
       nonPathway: false,
       overridden: true,
+      orphaned: false,
       levels: diffLevels(es, bc),
       pathCompletion: buildPathCompletion(bc),
     });
   });
+
+  const isBasecampOrphaned = (pathName: string) =>
+    memberPathOrphans.some((o) => o.basecampPathName === pathName && o.easyspeakPathLabel === null);
+  const isEasyspeakOrphaned = (pathLabel: string) =>
+    memberPathOrphans.some((o) => o.easyspeakPathLabel === pathLabel && o.basecampPathName === null);
 
   const bcByKey = new Map<string, BasecampPersonPath>();
   for (const p of bcPaths) {
@@ -567,6 +593,7 @@ export function matchPaths(
         presence: "basecamp-only",
         nonPathway: false,
         overridden: false,
+        orphaned: isBasecampOrphaned(bc.path_name),
         levels: diffLevels(null, bc),
         pathCompletion: buildPathCompletion(bc),
       });
@@ -578,6 +605,7 @@ export function matchPaths(
         presence: "easyspeak-only",
         nonPathway,
         overridden: false,
+        orphaned: isEasyspeakOrphaned(es.path),
         levels: nonPathway ? [] : diffLevels(es, null),
         pathCompletion: null,
       });
@@ -585,6 +613,8 @@ export function matchPaths(
     }
 
     const presence = bc && es ? "both" : bc ? "basecamp-only" : "easyspeak-only";
+    const orphaned =
+      presence === "basecamp-only" ? isBasecampOrphaned(bc!.path_name) : presence === "easyspeak-only" ? isEasyspeakOrphaned(es!.path) : false;
 
     paths.push({
       canonicalKey: key,
@@ -594,6 +624,7 @@ export function matchPaths(
       presence,
       nonPathway,
       overridden: false,
+      orphaned,
       levels: nonPathway ? [] : diffLevels(es, bc),
       pathCompletion: buildPathCompletion(bc),
     });

@@ -5,7 +5,7 @@ import { local, type LocalSchema } from "../shared/storage";
 import { pageUrl } from "../shared/pages";
 import { sendMessage } from "../shared/send-message";
 import { loadResolutionData } from "../shared/resolution-store";
-import { buildReport } from "../shared/sync/delta";
+import { buildReport, computeMatchSummary, type MatchSummary } from "../shared/sync/delta";
 import type { BasecampScrape, EasySpeakScrape } from "../shared/types";
 
 type ScrapeRequest = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSPEAK" };
@@ -234,7 +234,7 @@ async function renderStatusSummary(loading: { basecamp?: boolean; easyspeak?: bo
   ];
 
   if (cached.basecampData && cached.easyspeakData) {
-    const { matched, total } = await computeMatchSummary(cached.basecampData, cached.easyspeakData);
+    const { matched, total } = await loadMatchSummary(cached.basecampData, cached.easyspeakData);
     rows.push(renderStatusRow("Matches", { text: `${matched}/${total}`, tone: total > 0 && matched === total ? "success" : "pending" }));
   } else {
     rows.push(renderStatusRow("Matches", { text: "—", tone: null }));
@@ -260,22 +260,13 @@ function renderStatusRow(label: string, value: { text: string; tone: "success" |
   `;
 }
 
-// "Matched" here means presence === "both" — any pairing the matching
-// algorithm found, confirmed or not (mirrors members.ts's default, not
-// report.ts's stricter allowFuzzyMemberMatches: false) — since this is a
-// quick-glance popup stat, not the VPE's authoritative record.
-async function computeMatchSummary(basecampData: BasecampScrape, easyspeakData: EasySpeakScrape): Promise<{ matched: number; total: number }> {
+// The actual "which members count as matched" rule (isMemberResolved) lives
+// in shared/sync/delta.ts, where it's pure and Vitest-testable — this is
+// just the storage/report-building glue around it.
+async function loadMatchSummary(basecampData: BasecampScrape, easyspeakData: EasySpeakScrape): Promise<MatchSummary> {
   const resolution = await loadResolutionData();
   const report = buildReport(basecampData, easyspeakData, {}, resolution);
-  let matched = 0;
-  let total = 0;
-  for (const club of report.clubPairs) {
-    for (const member of club.members) {
-      total += 1;
-      if (member.presence === "both") matched += 1;
-    }
-  }
-  return { matched, total };
+  return computeMatchSummary(report);
 }
 
 function updatePopupSubtitle(basecampData: BasecampScrape | null | undefined, easyspeakData: EasySpeakScrape | null | undefined) {
