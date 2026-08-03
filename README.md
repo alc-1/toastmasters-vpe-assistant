@@ -1,20 +1,17 @@
-# Toastmasters VPE Tracker — MVP
+# Toastmasters VPE Assistant
 
 Chrome extension (Manifest V3) that extracts, for the clubs the logged-in
 user belongs to, the Pathways progress of all members from two sources:
 **Basecamp Toastmasters** (`basecamp.toastmasters.org`, via its internal
-JSON API) and **EasySpeak** (`tmclub.eu`, by parsing its HTML pages).
-
-Scope of this MVP: **extraction and local storage only**. No matching
-members between the two sources yet, no delta report yet — these are the
-next steps.
+JSON API) and **EasySpeak** (`tmclub.eu`, by parsing its HTML pages), then
+matches members/paths across both and reports the differences.
 
 ## Installation (developer mode)
 
 1. Open `chrome://extensions`
 2. Enable "Developer mode" (top right)
 3. Click "Load unpacked"
-4. Select the `toastmasters-vpe-tracker/` folder
+4. Select the `toastmasters-vpe-assistant/` folder
 
 ## Usage
 
@@ -57,7 +54,7 @@ given the point above.
 ## Project structure
 
 ```
-toastmasters-vpe-tracker/
+toastmasters-vpe-assistant/
 ├── manifest.json                  # Manifest V3, permissions + host_permissions + icons
 ├── background.js                  # Service worker: handles scrape requests from the popup
 ├── icons/                         # Toolbar icon PNGs: idle, loading (8 animation frames), success, error
@@ -67,7 +64,7 @@ toastmasters-vpe-tracker/
 │   ├── easyspeak-parser.js        # Pure DOM parsing, injected into the EasySpeak tab
 │   └── icon-state.js              # Toolbar icon state machine (background-only)
 └── popup/
-    ├── popup.html                 # MVP UI
+    ├── popup.html                 # Popup UI
     └── popup.js                   # Triggers scraping, displays the result
 ```
 
@@ -148,7 +145,7 @@ normal way a real page load would.
 
 ### Toolbar icon status
 
-`background.js` + `lib/icon-state.js` track each source's status
+`background.js` + `lib/icon-state.js` follow each source's status
 (`idle`/`loading`/`success`/`error`) in `chrome.storage.session` (cleared on
 browser restart, so a stuck status can't survive one) and keep the toolbar
 icon in sync — combined across both sources with priority **loading >
@@ -161,7 +158,7 @@ independent intervals to fight over the icon). Opening the popup sends a
 `POPUP_OPENED` message that reverts any finished (`success`/`error`) source
 back to `idle`, leaving a still-`loading` source untouched.
 
-## Known MVP limitations
+## Known limitations
 
 - No handling of the case where a member follows multiple paths in parallel
   beyond what each source already returns (member×path rows)
@@ -187,12 +184,3 @@ back to `idle`, leaving a still-`loading` source untouched.
   minutes, the scrape fails with a message asking you to log in and retry
 - If multiple `tmclub.eu` tabs are open, the EasySpeak scraper reuses
   whichever one `chrome.tabs.query` returns first
-- No matching of members between Basecamp and EasySpeak yet: delta
-  computation isn't possible yet
-
-## Next steps
-
-1. Define the logic for matching members between the two systems (no shared
-   ID a priori — likely matching by normalized name)
-2. Build the delta computation and consolidated report in the popup or a
-   dedicated page

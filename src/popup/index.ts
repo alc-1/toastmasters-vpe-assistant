@@ -130,5 +130,5 @@ function updatePopupSubtitle(basecampData: BasecampScrape | null | undefined, ea
   const el = document.getElementById("popupSubtitle")!;
   const data = basecampData ?? easyspeakData;
   const count = data ? Object.keys(data).length : 0;
-  el.textContent = count > 0 ? `${count} club${count === 1 ? "" : "s"} tracked` : "";
+  el.textContent = count > 0 ? `${count} club${count === 1 ? "" : "s"} followed` : "";
 }

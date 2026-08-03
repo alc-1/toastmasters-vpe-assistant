@@ -13,7 +13,7 @@ import { acknowledgeIconStatuses, setSourceStatus } from "./icon-state";
 import type { BasecampScrape, EasySpeakScrape, Request, ScrapeEnvelope, ScrapeFn, SourceKey } from "../shared/types";
 
 /**
- * Runs a scrape function, tracking its loading/success/error status (and
+ * Runs a scrape function, following its loading/success/error status (and
  * therefore the toolbar icon) throughout, regardless of whether the popup
  * that sent the triggering message is still around to receive sendResponse.
  */

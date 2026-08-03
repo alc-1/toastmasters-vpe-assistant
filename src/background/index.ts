@@ -23,7 +23,7 @@
 import { registerMessageHandlers } from "./messaging";
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("[Toastmasters VPE Tracker] Extension installed.");
+  console.log("[Toastmasters VPE Assistant] Extension installed.");
 });
 
 registerMessageHandlers();

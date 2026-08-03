@@ -37,7 +37,7 @@ export function renderAppShell({ active }: AppShellOptions): string {
   return `
     <header class="app-header">
       <div class="app-header__brand">
-        <div class="app-header__title">Toastmasters VPE Tracker</div>
+        <div class="app-header__title">Toastmasters VPE Assistant</div>
       </div>
       <nav class="app-nav" aria-label="Primary">${navHtml}</nav>
     </header>

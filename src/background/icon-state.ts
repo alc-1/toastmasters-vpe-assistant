@@ -1,6 +1,6 @@
 // src/background/icon-state.ts
 //
-// Tracks per-source (basecamp/easyspeak) scrape status and keeps the
+// Follows per-source (basecamp/easyspeak) scrape status and keeps the
 // toolbar icon in sync: idle -> loading (animated spinner) -> success
 // (green check) / error (red cross). This is background-only — it is
 // deliberately NOT imported from any options/popup page. It owns a running

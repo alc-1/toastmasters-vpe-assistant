@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A Chrome extension (Manifest V3) for a Toastmasters VPE (Vice President Education) to consolidate
-member Pathways progress tracking, from two sources: **Basecamp Toastmasters** (a clean internal
+member Pathways progress following, from two sources: **Basecamp Toastmasters** (a clean internal
 JSON API) and **EasySpeak** (no API — HTML pages that must be parsed; runs as three separate
 regional deployments — `tmclub.eu` (default), `toastmasterclub.org`, `easy-speak.org` — picked on
 Setup, see `shared/settings-store.ts` below). Both scrapers store their extraction locally.
@@ -194,7 +194,7 @@ background service worker → source-specific scraper**.
   sources, delta computation).
 - **`background/icon-state.ts`** — toolbar icon state machine, imported only by `background/index.ts`
   (via `messaging.ts`) — see the layering rule above for why it must never be imported by a page. It
-  owns a running `setInterval` for the spin animation. Tracks `{basecamp, easyspeak}` status
+  owns a running `setInterval` for the spin animation. Follows `{basecamp, easyspeak}` status
   (`"idle"|"loading"|"success"|"error"`) in `chrome.storage.session` (via `shared/storage.ts`'s
   `session` wrapper) — session-scoped, not `.local`, specifically so a status can never survive a
   browser restart and permanently disable a button. `combineStatus()` reduces both sources to the
@@ -368,9 +368,7 @@ Data shape produced by a scrape (both sources): `Record<clubId, {name: string, m
 row. Basecamp's member objects are raw API progress records (minus stripped photo/email fields);
 EasySpeak's are `{memberId, name, path, levels: [{level, needed, done}, ...]}`. This shared
 `Record<clubId, {...}>` shape is intentional — it's what the matching/delta computation below keys
-off of. (Note: `README.md`'s "Next steps"/"Known MVP limitations" still describe member-matching as
-unimplemented future work — that's stale; matching, persistence, and multiple review UIs already
-exist, see below. The README hasn't been updated to match; don't trust it over this file or the code.)
+off of.
 
 `example/` holds real (anonymize before sharing) HTML fixtures for the two EasySpeak pages
 (`profile.php_mode=editprofile`, `memberchart.php_chart=10&c=359`) — the source of truth for the
