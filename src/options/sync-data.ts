@@ -24,6 +24,42 @@ import type { BasecampScrape, EasySpeakScrape } from "../shared/types";
 const basecampEls: SourceEls = bindSourceEls({ btn: "scrapeBasecampBtn", status: "statusBasecamp", summary: "summaryBasecamp", rawData: "rawDataBasecamp" });
 const easyspeakEls: SourceEls = bindSourceEls({ btn: "scrapeEasySpeakBtn", status: "statusEasySpeak", summary: "summaryEasySpeak", rawData: "rawDataEasySpeak" });
 
+// Attached once, at module load, rather than inside init() — init() can run
+// more than once per page load (see the chrome.storage.onChanged listener
+// below), and re-attaching these listeners on every call would stack a new
+// one each time instead of replacing it, since basecampEls.btn/
+// easyspeakEls.btn are module-level elements whose innerHTML is never
+// replaced by rendering. A single click previously fired the handler once
+// per accumulated listener, each sending its own SCRAPE_EASYSPEAK/
+// SCRAPE_BASECAMP message and opening its own EasySpeak tab.
+basecampEls.btn.addEventListener("click", () =>
+  onScrapeClick<BasecampScrape>({
+    els: basecampEls,
+    message: { type: "SCRAPE_BASECAMP" },
+    dataKey: "basecampData",
+    scrapedAtKey: "basecampScrapedAt",
+    loadingLabel: "Basecamp data loading...",
+    render: renderScrapeResult,
+    onDone: async () => {
+      await renderStatusSummary();
+    },
+  })
+);
+
+easyspeakEls.btn.addEventListener("click", () =>
+  onScrapeClick<EasySpeakScrape>({
+    els: easyspeakEls,
+    message: { type: "SCRAPE_EASYSPEAK" },
+    dataKey: "easyspeakData",
+    scrapedAtKey: "easyspeakScrapedAt",
+    loadingLabel: "EasySpeak data loading...",
+    render: renderScrapeResult,
+    onDone: async () => {
+      await renderStatusSummary();
+    },
+  })
+);
+
 init();
 
 // Keeps this tab in sync if a scrape started elsewhere (e.g. the popup)
@@ -63,32 +99,4 @@ async function init() {
 
   setButtonLoading(basecampEls, statuses.basecamp === "loading", "Basecamp data loading...");
   setButtonLoading(easyspeakEls, statuses.easyspeak === "loading", "EasySpeak data loading...");
-
-  basecampEls.btn.addEventListener("click", () =>
-    onScrapeClick<BasecampScrape>({
-      els: basecampEls,
-      message: { type: "SCRAPE_BASECAMP" },
-      dataKey: "basecampData",
-      scrapedAtKey: "basecampScrapedAt",
-      loadingLabel: "Basecamp data loading...",
-      render: renderScrapeResult,
-      onDone: async () => {
-        await renderStatusSummary();
-      },
-    })
-  );
-
-  easyspeakEls.btn.addEventListener("click", () =>
-    onScrapeClick<EasySpeakScrape>({
-      els: easyspeakEls,
-      message: { type: "SCRAPE_EASYSPEAK" },
-      dataKey: "easyspeakData",
-      scrapedAtKey: "easyspeakScrapedAt",
-      loadingLabel: "EasySpeak data loading...",
-      render: renderScrapeResult,
-      onDone: async () => {
-        await renderStatusSummary();
-      },
-    })
-  );
 }
