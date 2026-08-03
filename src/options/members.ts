@@ -29,6 +29,7 @@ import {
 } from "../shared/resolution-store";
 import { buildReport, hasPathOrphan, hasPathOverride } from "../shared/sync/delta";
 import { renderAppShell } from "../shared/app-shell";
+import { computeStepperInfo } from "../shared/stepper-info";
 import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport } from "../shared/types";
 
 interface FilterDef {
@@ -76,7 +77,8 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 });
 
 async function init() {
-  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "members" });
+  const stepperInfo = await computeStepperInfo();
+  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "members", info: stepperInfo });
 
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 

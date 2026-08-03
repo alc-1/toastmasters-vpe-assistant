@@ -16,9 +16,9 @@ import { local } from "./storage";
 import type { EasySpeakServer, EasySpeakServerId } from "./types";
 
 export const EASYSPEAK_SERVERS: EasySpeakServer[] = [
-  { id: "tmclub.eu", label: "Continental Europe (tmclub.eu)" },
-  { id: "toastmasterclub.org", label: "UK & Ireland (toastmasterclub.org)" },
-  { id: "easy-speak.org", label: "Rest of the World (easy-speak.org)" },
+  { id: "tmclub.eu", label: "Continental Europe (tmclub.eu)", region: "Continental Europe" },
+  { id: "toastmasterclub.org", label: "UK & Ireland (toastmasterclub.org)", region: "UK & Ireland" },
+  { id: "easy-speak.org", label: "Rest of the World (easy-speak.org)", region: "Rest of the World" },
 ];
 
 export const DEFAULT_EASYSPEAK_SERVER: EasySpeakServerId = "tmclub.eu";

@@ -16,6 +16,7 @@ import { escapeAttr, escapeHtml } from "../shared/dom-utils";
 import { EASYSPEAK_SERVERS, getEasySpeakServer, setEasySpeakServer, setMockMode } from "../shared/settings-store";
 import { local } from "../shared/storage";
 import { renderAppShell } from "../shared/app-shell";
+import { computeStepperInfo } from "../shared/stepper-info";
 import type { EasySpeakServerId } from "../shared/types";
 
 // null = no choice made yet (the Setup step's required no-default state).
@@ -37,7 +38,8 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 });
 
 async function init() {
-  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "settings" });
+  const stepperInfo = await computeStepperInfo();
+  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "settings", info: stepperInfo });
 
   const choice = await readChoice();
   const region = await getEasySpeakServer();

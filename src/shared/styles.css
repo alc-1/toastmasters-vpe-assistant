@@ -265,6 +265,15 @@ body {
   text-align: center;
 }
 
+/* Horizontal-only: the vertical variant lays its own info line out inside
+   .app-stepper__body (see below), which already centers/spaces it via flex
+   gap — this rule only applies outside that variant. */
+.app-stepper:not(.app-stepper--vertical) .app-stepper__info {
+  display: block;
+  text-align: center;
+  margin-top: 2px;
+}
+
 .app-stepper__step:hover .app-stepper__circle {
   border-color: var(--primary);
   color: var(--primary);

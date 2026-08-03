@@ -19,10 +19,12 @@
 // redundant).
 //
 // renderVerticalStepper() (bottom of this file) is the popup's version of
-// the same idea, rotated 90 degrees to fit the popup's narrow width, with an
-// extra per-step info line the horizontal one has no room for. It shares
-// NAV_ITEMS (order + labels) but not renderAppShell()'s header/markup, since
-// the popup already has its own hand-written header (see popup/index.html).
+// the same idea, rotated 90 degrees to fit the popup's narrow width. It
+// shares NAV_ITEMS (order + labels) but not renderAppShell()'s header/markup,
+// since the popup already has its own hand-written header (see
+// popup/index.html) — and, since shared/stepper-info.ts's computeStepperInfo(),
+// the same per-step info line (e.g. "12 clubs followed") shown under each
+// step's label, so both steppers surface identical information.
 
 import { escapeHtml } from "./dom-utils";
 
@@ -46,16 +48,27 @@ export const NAV_ITEMS: { key: AppShellPage; label: string; href: string }[] = [
 const GOAL_SUBTITLE =
   "Get a clear view of your club's progress by bringing EasySpeak and Basecamp data together in one place.";
 
+/** One line of contextual info shown under a step's label — e.g. "12 clubs
+ *  followed" under Club Review. Computed by shared/stepper-info.ts's
+ *  computeStepperInfo() and shared verbatim by both renderAppShell() and
+ *  renderVerticalStepper() below. Plain text, escaped by each renderer. */
+export type StepperInfo = Partial<Record<AppShellPage, string>>;
+
 export interface AppShellOptions {
   active: AppShellPage;
+  /** Omit while the info is still loading — steps render without their info
+   *  line rather than with a placeholder. */
+  info?: StepperInfo;
 }
 
-export function renderAppShell({ active }: AppShellOptions): string {
+export function renderAppShell({ active, info }: AppShellOptions): string {
   const stepsHtml = NAV_ITEMS.map((item, index) => {
     const isActive = item.key === active;
+    const infoText = info?.[item.key];
     return `<a href="${item.href}" class="app-stepper__step${isActive ? " active" : ""}"${isActive ? ' aria-current="page"' : ""}>
         <span class="app-stepper__circle">${index + 1}</span>
         <span class="app-stepper__label">${item.label}</span>
+        ${infoText ? `<span class="app-stepper__info">${escapeHtml(infoText)}</span>` : ""}
       </a>`;
   }).join("");
 
@@ -73,10 +86,6 @@ export function renderAppShell({ active }: AppShellOptions): string {
   `;
 }
 
-/** One line of contextual info shown under a step's label — e.g. the popup
- *  shows "12 clubs followed" under Club Review. Plain text, escaped here. */
-export type VerticalStepperInfo = Partial<Record<AppShellPage, string>>;
-
 /**
  * The popup's vertical stepper. Unlike renderAppShell()'s links (relative
  * hrefs meant for options-page-to-options-page navigation), a popup click
@@ -86,7 +95,7 @@ export type VerticalStepperInfo = Partial<Record<AppShellPage, string>>;
  * handling via shared/pages.ts, which this chrome.*-free file must not
  * import directly.
  */
-export function renderVerticalStepper(info: VerticalStepperInfo): string {
+export function renderVerticalStepper(info: StepperInfo): string {
   const stepsHtml = NAV_ITEMS.map((item, index) => {
     const infoText = info[item.key] ?? "";
     return `<a href="#" class="app-stepper__step" data-page-key="${item.key}">

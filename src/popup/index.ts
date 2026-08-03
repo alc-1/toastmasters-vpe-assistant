@@ -4,17 +4,16 @@
 // data extraction (buttons, per-source status, raw data) and the sync/match
 // indicators live on the Sync Data page only (options/sync-data.html +
 // shared/sync-status-panel.ts). This file's only two jobs are rendering the
-// header subtitle and the stepper's five info lines, both read straight from
-// storage, plus telling background the popup was opened (see init() below).
+// header subtitle (read straight from storage) and the stepper (its five
+// info lines come from shared/stepper-info.ts, shared with the options
+// pages' horizontal stepper), plus telling background the popup was opened
+// (see init() below).
 
 import { renderVerticalStepper } from "../shared/app-shell";
 import { local } from "../shared/storage";
 import { PAGES, pageUrl } from "../shared/pages";
-import { loadResolutionData } from "../shared/resolution-store";
 import { sendMessage } from "../shared/send-message";
-import { getEasySpeakServer, getMockMode } from "../shared/settings-store";
-import { buildReport, computeMatchSummary, countMembersReadyForNextLevel } from "../shared/sync/delta";
-import { formatDate } from "../shared/sync-status-panel";
+import { computeStepperInfo } from "../shared/stepper-info";
 import type { BasecampScrape, EasySpeakScrape } from "../shared/types";
 
 const stepperRoot = document.getElementById("popupStepperRoot")!;
@@ -43,63 +42,14 @@ async function init() {
 }
 
 async function renderPopup() {
-  const [setupInfo, cached] = await Promise.all([
-    formatSetupInfo(),
-    local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]),
+  const [info, cached] = await Promise.all([
+    computeStepperInfo(),
+    local.get(["basecampData", "easyspeakData"]),
   ]);
 
   updatePopupSubtitle(cached.basecampData ?? null, cached.easyspeakData ?? null);
 
-  const reportInfo = await computeReportInfo(cached.basecampData ?? null, cached.easyspeakData ?? null);
-
-  stepperRoot.innerHTML = renderVerticalStepper({
-    settings: setupInfo,
-    syncData: formatOldestSync(cached.basecampScrapedAt, cached.easyspeakScrapedAt),
-    clubReview: reportInfo.clubs,
-    members: reportInfo.members,
-    report: reportInfo.nextLevel,
-  });
-}
-
-async function formatSetupInfo(): Promise<string> {
-  if (await getMockMode()) return "Mock mode";
-  const serverId = await getEasySpeakServer();
-  return `EasySpeak: ${serverId}`;
-}
-
-function formatOldestSync(basecampScrapedAt?: number, easyspeakScrapedAt?: number): string {
-  const timestamps = [basecampScrapedAt, easyspeakScrapedAt].filter((t): t is number => typeof t === "number");
-  if (timestamps.length === 0) return "Not synced yet";
-  return `Oldest: ${formatDate(Math.min(...timestamps))}`;
-}
-
-interface ReportStepInfo {
-  clubs: string;
-  members: string;
-  nextLevel: string;
-}
-
-// Both sources are needed to build any meaningful ReportResult (same
-// requirement report.ts/members.ts already enforce) — with only one or
-// neither extracted yet, these three steps just point back at Sync Data.
-async function computeReportInfo(basecampData: BasecampScrape | null, easyspeakData: EasySpeakScrape | null): Promise<ReportStepInfo> {
-  if (!basecampData || !easyspeakData) {
-    const notReady = "Extract both sources first";
-    return { clubs: notReady, members: notReady, nextLevel: notReady };
-  }
-
-  const resolution = await loadResolutionData();
-  const report = buildReport(basecampData, easyspeakData, {}, resolution);
-  const clubCount = report.clubPairs.length;
-  const { matched, total } = computeMatchSummary(report);
-  const toReview = total - matched;
-  const readyForNextLevel = countMembersReadyForNextLevel(report);
-
-  return {
-    clubs: `${clubCount} club${clubCount === 1 ? "" : "s"} followed`,
-    members: `${total} member${total === 1 ? "" : "s"} · ${toReview} to review`,
-    nextLevel: `${readyForNextLevel} member${readyForNextLevel === 1 ? "" : "s"} ready for next level`,
-  };
+  stepperRoot.innerHTML = renderVerticalStepper(info);
 }
 
 // ---------------------------------------------------------------------------

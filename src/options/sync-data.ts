@@ -8,6 +8,7 @@
 import { local } from "../shared/storage";
 import { sendMessage } from "../shared/send-message";
 import { renderAppShell } from "../shared/app-shell";
+import { computeStepperInfo } from "../shared/stepper-info";
 import {
   bindSourceEls,
   formatDate,
@@ -34,7 +35,8 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 });
 
 async function init() {
-  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "syncData" });
+  const stepperInfo = await computeStepperInfo();
+  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "syncData", info: stepperInfo });
 
   // Tells background this counts as "having seen" any finished (success/
   // error) result, reverting the toolbar icon to idle — a still-loading

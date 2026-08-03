@@ -20,6 +20,7 @@ import {
 } from "../shared/resolution-store";
 import { matchClubs, type ClubGroup, type ClubMatchPair } from "../shared/sync/conflicts";
 import { renderAppShell } from "../shared/app-shell";
+import { computeStepperInfo } from "../shared/stepper-info";
 import type { BasecampScrape, EasySpeakScrape, PathLookup } from "../shared/types";
 
 let basecampData: BasecampScrape | null = null;
@@ -37,7 +38,8 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 });
 
 async function init() {
-  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "clubReview" });
+  const stepperInfo = await computeStepperInfo();
+  document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "clubReview", info: stepperInfo });
 
   const cached = await local.get(["basecampData", "easyspeakData"]);
   basecampData = cached.basecampData ?? null;

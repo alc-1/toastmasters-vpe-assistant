@@ -276,6 +276,11 @@ export type EasySpeakServerId = "tmclub.eu" | "toastmasterclub.org" | "easy-spea
 export interface EasySpeakServer {
   id: EasySpeakServerId;
   label: string;
+  /** Plain region name with no URL — e.g. "Continental Europe" — for
+   *  contexts (like the stepper's info line) that shouldn't show the raw
+   *  server id/URL. `label` stays the fuller "Region (url)" form used in
+   *  the Setup dropdown. */
+  region: string;
 }
 
 export type SourceKey = "basecamp" | "easyspeak";
