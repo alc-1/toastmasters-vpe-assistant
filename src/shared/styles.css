@@ -290,6 +290,90 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* Vertical variant — the popup's version of the same stepper (see
+   shared/app-shell.ts's renderVerticalStepper()). Rows stack top-to-bottom
+   instead of side-by-side; the connecting line is a flex-filled rail segment
+   between each circle and the next rather than the horizontal ::before
+   trick above, since a vertical row's height varies with its info line's
+   text length. No "active" state here — the popup is never itself one of
+   these five pages. */
+
+.app-stepper--vertical {
+  flex-direction: column;
+  gap: 0;
+  padding: var(--space-2);
+}
+
+.app-stepper--vertical .app-stepper__step {
+  flex-direction: row;
+  align-items: stretch;
+  flex: none;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* Cancels the horizontal variant's absolutely-positioned connecting-line
+   ::before — the vertical layout draws its own line via .app-stepper__line
+   instead (see below), which flexes to the row's actual height. */
+.app-stepper--vertical .app-stepper__step::before {
+  content: none;
+}
+
+.app-stepper--vertical .app-stepper__step:hover {
+  background: var(--surface-alt);
+}
+
+.app-stepper__rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: var(--space-3);
+}
+
+.app-stepper--vertical .app-stepper__circle {
+  margin-bottom: 0;
+}
+
+.app-stepper__line {
+  flex: 1;
+  width: 2px;
+  min-height: var(--space-2);
+  background: var(--border);
+  margin: var(--space-1) 0;
+}
+
+.app-stepper--vertical .app-stepper__step:last-child .app-stepper__line {
+  visibility: hidden;
+}
+
+.app-stepper__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding-bottom: var(--space-3);
+  min-width: 0;
+}
+
+.app-stepper--vertical .app-stepper__label {
+  text-align: left;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.app-stepper__info {
+  font-size: var(--text-xs);
+  color: var(--gray-600);
+}
+
+.app-stepper--vertical .app-stepper__step:hover .app-stepper__label {
+  color: var(--primary);
+}
+
 /* ---------------------------------------------------------------------- */
 /* Cards                                                                   */
 /* ---------------------------------------------------------------------- */

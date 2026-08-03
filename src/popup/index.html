@@ -12,56 +12,11 @@
       padding: 12px;
       background: var(--surface);
     }
-    .card-header__title {
-      font-size: var(--text-base);
-    }
     .app-header__title {
       font-size: var(--text-md);
     }
-    .btn {
-      width: 100%;
-    }
-    details {
-      margin-top: 8px;
-      font-size: var(--text-sm);
-    }
-    details summary {
-      cursor: pointer;
-      color: var(--gray-600);
-    }
-    .status {
-      margin-top: 8px;
-      font-size: var(--text-sm);
-      color: var(--gray-600);
-      white-space: pre-wrap;
-    }
-    .summary {
-      margin-top: 8px;
-      font-size: var(--text-sm);
-    }
-    .summary table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .summary td, .summary th {
-      text-align: left;
-      padding: 2px 4px;
-      border-bottom: 1px solid var(--border);
-    }
-    pre {
-      max-height: 220px;
-      overflow: auto;
-      background: var(--surface-alt);
-      padding: 6px;
-      font-size: 10px;
-    }
-    .action-gap {
-      margin-top: 8px;
-    }
-    .popup-footer-nav {
-      margin-top: 4px;
+    #popupStepperRoot .app-stepper--vertical {
       margin-bottom: 0;
-      text-align: center;
     }
   </style>
 </head>
@@ -76,41 +31,7 @@
     </div>
   </header>
 
-  <div id="statusSummary" class="status-summary"></div>
-
-  <div class="card">
-    <div class="card-header"><span class="card-header__title">Data Extraction</span></div>
-    <div class="card-body">
-      <button id="scrapeBasecampBtn" class="btn btn-primary">Extract Basecamp data</button>
-      <div id="statusBasecamp" class="status" aria-live="polite">Click the button to extract your Basecamp data (you must be logged into Basecamp Toastmasters in this browser).</div>
-      <details>
-        <summary>Basecamp details</summary>
-        <div id="summaryBasecamp" class="summary"></div>
-        <pre id="rawDataBasecamp"></pre>
-      </details>
-
-      <button id="scrapeEasySpeakBtn" class="btn btn-primary action-gap">Extract EasySpeak data</button>
-      <div id="statusEasySpeak" class="status" aria-live="polite">Click the button to extract your EasySpeak data (you must be logged into EasySpeak in this browser). This closes the popup and switches to an EasySpeak tab — reopen the popup once that tab is done (or has closed itself) to see the results.</div>
-      <details>
-        <summary>EasySpeak details</summary>
-        <div id="summaryEasySpeak" class="summary"></div>
-        <pre id="rawDataEasySpeak"></pre>
-      </details>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header"><span class="card-header__title">Actions</span></div>
-    <div class="card-body">
-      <button id="openReportBtn" class="btn btn-primary">Open Club Progress</button>
-      <button id="reviewMatchesBtn" class="btn btn-secondary action-gap">Member Review</button>
-      <div id="statusReport" class="status" aria-live="polite">Extract both Basecamp and EasySpeak data first.</div>
-    </div>
-  </div>
-
-  <nav class="page-nav popup-footer-nav" aria-label="More">
-    <a href="#" id="openSettingsLink">Setup</a>
-  </nav>
+  <div id="popupStepperRoot"></div>
 
   <script type="module" src="./index.ts"></script>
 </body>

@@ -491,3 +491,22 @@ export function buildLevelSummary(report: ReportResult): LevelSummaryGroup[] {
     };
   });
 }
+
+/**
+ * Distinct members with at least one Pathways path exactly one level (or
+ * Path Completion) away from being reported complete in Basecamp — nothing
+ * outstanding once EasySpeak-reported-but-not-yet-approved work is accounted
+ * for (realMissing === 0). Backs the popup's vertical-stepper "Club
+ * Progress" step: the count a VPE actually wants at a glance, without
+ * opening the full Next Level Summary table.
+ */
+export function countMembersReadyForNextLevel(report: ReportResult): number {
+  let count = 0;
+  for (const club of report.clubPairs) {
+    for (const member of club.members) {
+      const ready = member.paths.some((path) => !path.nonPathway && computeLevelSummary(path).realMissing === 0);
+      if (ready) count += 1;
+    }
+  }
+  return count;
+}
