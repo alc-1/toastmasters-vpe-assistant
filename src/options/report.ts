@@ -119,7 +119,7 @@ function renderConflictWarning(report: ReportResult) {
   if (unmatchedMemberCount > 0) parts.push(`${unmatchedMemberCount} member${unmatchedMemberCount === 1 ? "" : "s"}`);
 
   const fixLinks = [
-    unmatchedClubCount > 0 ? '<a href="settings.html">Fix club matches in Settings</a>' : "",
+    unmatchedClubCount > 0 ? '<a href="settings.html">Fix club matches in Setup</a>' : "",
     unmatchedMemberCount > 0 ? '<a href="members.html">Fix member matches in Member matching</a>' : "",
   ].filter(Boolean);
 
@@ -355,7 +355,7 @@ function renderClubDetail(clubPair: ClubPairReport) {
 
   let matchNote: string;
   if (basecampClubName && easyspeakClubName) {
-    const scoreText = clubMatchForced ? "pinned in Settings" : `match ${Math.round((matchScore ?? 0) * 100)}%`;
+    const scoreText = clubMatchForced ? "pinned in Setup" : `match ${Math.round((matchScore ?? 0) * 100)}%`;
     matchNote = `${escapeHtml(basecampClubName)} / ${escapeHtml(easyspeakClubName)} — ${scoreText}`;
   } else if (basecampClubName) {
     matchNote = `${escapeHtml(basecampClubName)} (no EasySpeak counterpart found)`;

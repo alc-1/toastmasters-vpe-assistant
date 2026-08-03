@@ -15,9 +15,9 @@
 export type AppShellPage = "report" | "members" | "settings";
 
 const NAV_ITEMS: { key: AppShellPage; label: string; href: string }[] = [
-  { key: "report", label: "Report", href: "report.html" },
-  { key: "members", label: "Member Matching", href: "members.html" },
-  { key: "settings", label: "Settings", href: "settings.html" },
+  { key: "report", label: "Club Progress", href: "report.html" },
+  { key: "members", label: "Member Review", href: "members.html" },
+  { key: "settings", label: "Setup", href: "settings.html" },
 ];
 
 export interface AppShellOptions {

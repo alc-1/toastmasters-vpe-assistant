@@ -143,7 +143,7 @@ function renderClubMatchWarning() {
         .map((s) => escapeHtml(s.clubName))
         .join(", ")}) ${unmatchedClubs.length === 1 ? "has" : "have"} no match between Basecamp and
       EasySpeak. Member matching can't work properly for a club until its name is resolved —
-      it's best to <a href="settings.html">fix club matches in Settings</a> first.
+      it's best to <a href="settings.html">fix club matches in Setup</a> first.
     </div>
   `;
 }
@@ -360,7 +360,7 @@ function buildClubMatchNote(clubPair: ClubPairReport): string {
   const { basecampClubName, easyspeakClubName, matchScore, clubMatchForced, members } = clubPair;
   let note: string;
   if (basecampClubName && easyspeakClubName) {
-    const scoreText = clubMatchForced ? "pinned in Settings" : `match ${Math.round((matchScore ?? 0) * 100)}%`;
+    const scoreText = clubMatchForced ? "pinned in Setup" : `match ${Math.round((matchScore ?? 0) * 100)}%`;
     note = `${escapeHtml(basecampClubName)} / ${escapeHtml(easyspeakClubName)} — ${scoreText}`;
   } else if (basecampClubName) {
     note = `${escapeHtml(basecampClubName)} (no EasySpeak counterpart found)`;
