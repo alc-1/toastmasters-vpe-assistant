@@ -30,6 +30,8 @@ export default defineConfig({
         report: r("src/options/report.html"),
         members: r("src/options/members.html"),
         settings: r("src/options/settings.html"),
+        syncData: r("src/options/sync-data.html"),
+        clubReview: r("src/options/club-review.html"),
         basecampAuth: r("src/status/basecamp-auth.html"),
         easyspeakDone: r("src/status/easyspeak-done.html"),
       },

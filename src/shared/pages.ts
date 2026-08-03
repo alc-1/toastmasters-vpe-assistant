@@ -14,6 +14,8 @@ export const PAGES = {
   report: "options/report.html",
   members: "options/members.html",
   settings: "options/settings.html",
+  syncData: "options/sync-data.html",
+  clubReview: "options/club-review.html",
   basecampAuth: "status/basecamp-auth.html",
   easyspeakDone: "status/easyspeak-done.html",
 } as const;

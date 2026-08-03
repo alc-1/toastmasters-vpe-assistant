@@ -13,14 +13,6 @@
       font-size: var(--text-xl);
       margin: 0 0 4px;
     }
-    table.lookup input[type="text"] {
-      width: 100%;
-      box-sizing: border-box;
-      font-size: var(--text-sm);
-      padding: 3px 6px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-    }
     .add-form {
       display: flex;
       gap: 6px;
@@ -39,12 +31,6 @@
     }
     .save-status.visible {
       display: inline;
-    }
-    .muted-text {
-      color: var(--gray-600);
-    }
-    .actions button {
-      margin-right: 4px;
     }
   </style>
 </head>
@@ -72,28 +58,6 @@
         This only affects future loadings, so run "Extract EasySpeak data" again after switching.
       </p>
       <div id="easyspeakServerRoot"></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header"><span class="card-header__title">Club name lookup</span></div>
-    <div class="card-body">
-      <p class="help-text">
-        Pins a Basecamp club to an EasySpeak club regardless of how similar their names are.
-        Suggested matches based on name similarity can be confirmed or rejected below.
-      </p>
-      <div id="clubLookupRoot"></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header"><span class="card-header__title">Path name lookup</span></div>
-    <div class="card-body">
-      <p class="help-text">
-        Maps alternate spellings (e.g. French/German Pathways titles) to a canonical path name.
-        Member-level path binds (set from the Member matching view) take priority over this table and are not shown here.
-      </p>
-      <div id="pathLookupRoot"></div>
     </div>
   </div>
 

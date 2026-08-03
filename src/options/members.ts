@@ -67,7 +67,7 @@ const expandedMemberKeys = new Set<string>();
 init();
 
 // Keeps this tab in sync if data is re-extracted or resolution decisions are
-// edited from another tab (e.g. Settings) while this one stays open — must
+// edited from another tab (e.g. Club Review) while this one stays open — must
 // call init(), not refresh(): basecampData/easyspeakData are only cached
 // into module state inside init(), and refresh() alone would keep rendering
 // against that stale snapshot forever.
@@ -123,7 +123,7 @@ async function refresh() {
 // ---------------------------------------------------------------------------
 // Club-match warning: a club with no counterpart at all in the other system
 // can't be member-matched properly (there's nothing on the other side to
-// match against), so this points the user at Settings before they spend
+// match against), so this points the user at Club Review before they spend
 // time reviewing members in a club that isn't even paired up yet.
 // ---------------------------------------------------------------------------
 
@@ -143,7 +143,7 @@ function renderClubMatchWarning() {
         .map((s) => escapeHtml(s.clubName))
         .join(", ")}) ${unmatchedClubs.length === 1 ? "has" : "have"} no match between Basecamp and
       EasySpeak. Member matching can't work properly for a club until its name is resolved —
-      it's best to <a href="settings.html">fix club matches in Setup</a> first.
+      it's best to <a href="club-review.html">fix club matches in Club Review</a> first.
     </div>
   `;
 }

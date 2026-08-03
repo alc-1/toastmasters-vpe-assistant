@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Toastmasters VPE Tracker — Club Review</title>
+  <link rel="icon" type="image/png" href="../icons/icon-32.png">
+  <link rel="stylesheet" href="../shared/styles.css">
+  <style>
+    body {
+      max-width: 800px;
+    }
+    h1 {
+      font-size: var(--text-xl);
+      margin: 0 0 4px;
+    }
+    table.lookup input[type="text"] {
+      width: 100%;
+      box-sizing: border-box;
+      font-size: var(--text-sm);
+      padding: 3px 6px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .add-form {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .add-form select, .add-form input[type="text"] {
+      font-size: var(--text-sm);
+      padding: 4px 6px;
+    }
+    .save-status {
+      font-size: var(--text-sm);
+      color: var(--success);
+      display: none;
+    }
+    .save-status.visible {
+      display: inline;
+    }
+    .muted-text {
+      color: var(--gray-600);
+    }
+    .actions button {
+      margin-right: 4px;
+    }
+  </style>
+</head>
+<body class="page--narrow">
+  <div id="appShell"></div>
+  <h1>Club Review</h1>
+
+  <div class="card">
+    <div class="card-header"><span class="card-header__title">Club name lookup</span></div>
+    <div class="card-body">
+      <p class="help-text">
+        Pins a Basecamp club to an EasySpeak club regardless of how similar their names are.
+        Suggested matches based on name similarity can be confirmed or rejected below.
+      </p>
+      <div id="clubLookupRoot"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-header__title">Path name lookup</span></div>
+    <div class="card-body">
+      <p class="help-text">
+        Maps alternate spellings (e.g. French/German Pathways titles) to a canonical path name.
+        Member-level path binds (set from the Member Review view) take priority over this table and are not shown here.
+      </p>
+      <div id="pathLookupRoot"></div>
+    </div>
+  </div>
+
+  <script type="module" src="./club-review.ts"></script>
+</body>
+</html>

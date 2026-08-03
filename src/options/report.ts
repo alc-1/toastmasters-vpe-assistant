@@ -29,7 +29,7 @@ downloadCsvBtn.addEventListener("click", () => {
 refresh();
 
 // Keeps this tab in sync if data is re-extracted or resolution decisions are
-// edited from another tab (e.g. Members, Settings) while this one stays open.
+// edited from another tab (e.g. Members, Club Review) while this one stays open.
 chrome.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") refresh();
 });
@@ -57,7 +57,7 @@ async function refresh() {
 
   // Loading persisted resolution decisions here (not just in members.ts) is
   // required, not optional — otherwise this page's CSV export and Level
-  // Summary would silently diverge from what the Member matching view shows.
+  // Summary would silently diverge from what the Member Review view shows.
   const resolution = await loadResolutionData();
   const report = buildReport(
     cached.basecampData,
@@ -119,8 +119,8 @@ function renderConflictWarning(report: ReportResult) {
   if (unmatchedMemberCount > 0) parts.push(`${unmatchedMemberCount} member${unmatchedMemberCount === 1 ? "" : "s"}`);
 
   const fixLinks = [
-    unmatchedClubCount > 0 ? '<a href="settings.html">Fix club matches in Setup</a>' : "",
-    unmatchedMemberCount > 0 ? '<a href="members.html">Fix member matches in Member matching</a>' : "",
+    unmatchedClubCount > 0 ? '<a href="club-review.html">Fix club matches in Club Review</a>' : "",
+    unmatchedMemberCount > 0 ? '<a href="members.html">Fix member matches in Member Review</a>' : "",
   ].filter(Boolean);
 
   root.innerHTML = `

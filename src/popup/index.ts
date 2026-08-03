@@ -1,40 +1,22 @@
 // src/popup/index.ts
 
-import { escapeHtml } from "../shared/dom-utils";
-import { local, type LocalSchema } from "../shared/storage";
+import { local } from "../shared/storage";
 import { pageUrl } from "../shared/pages";
 import { sendMessage } from "../shared/send-message";
-import { loadResolutionData } from "../shared/resolution-store";
-import { buildReport, computeMatchSummary, type MatchSummary } from "../shared/sync/delta";
+import {
+  bindSourceEls,
+  formatDate,
+  onScrapeClick,
+  renderScrapeResult,
+  renderStatusSummary,
+  setButtonLoading,
+  setStatus,
+  type SourceEls,
+} from "../shared/sync-status-panel";
 import type { BasecampScrape, EasySpeakScrape } from "../shared/types";
 
-type ScrapeRequest = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSPEAK" };
-
-interface SourceEls {
-  btn: HTMLButtonElement;
-  status: HTMLElement;
-  summary: HTMLElement;
-  rawData: HTMLElement;
-  idleLabel: string;
-}
-
-const basecampEls: SourceEls = {
-  btn: document.getElementById("scrapeBasecampBtn") as HTMLButtonElement,
-  status: document.getElementById("statusBasecamp")!,
-  summary: document.getElementById("summaryBasecamp")!,
-  rawData: document.getElementById("rawDataBasecamp")!,
-  idleLabel: "",
-};
-basecampEls.idleLabel = basecampEls.btn.textContent ?? "";
-
-const easyspeakEls: SourceEls = {
-  btn: document.getElementById("scrapeEasySpeakBtn") as HTMLButtonElement,
-  status: document.getElementById("statusEasySpeak")!,
-  summary: document.getElementById("summaryEasySpeak")!,
-  rawData: document.getElementById("rawDataEasySpeak")!,
-  idleLabel: "",
-};
-easyspeakEls.idleLabel = easyspeakEls.btn.textContent ?? "";
+const basecampEls: SourceEls = bindSourceEls({ btn: "scrapeBasecampBtn", status: "statusBasecamp", summary: "summaryBasecamp", rawData: "rawDataBasecamp" });
+const easyspeakEls: SourceEls = bindSourceEls({ btn: "scrapeEasySpeakBtn", status: "statusEasySpeak", summary: "summaryEasySpeak", rawData: "rawDataEasySpeak" });
 
 const reportEls = {
   btn: document.getElementById("openReportBtn") as HTMLButtonElement,
@@ -58,16 +40,17 @@ async function init() {
 
   if (cached.basecampData) {
     setStatus(basecampEls, `Last extraction: ${formatDate(cached.basecampScrapedAt)}`);
-    renderBasecampResult(basecampEls, cached.basecampData);
+    renderScrapeResult(basecampEls, cached.basecampData);
   }
 
   if (cached.easyspeakData) {
     setStatus(easyspeakEls, `Last extraction: ${formatDate(cached.easyspeakScrapedAt)}`);
-    renderEasySpeakResult(easyspeakEls, cached.easyspeakData);
+    renderScrapeResult(easyspeakEls, cached.easyspeakData);
   }
 
   updateReportButton(!!cached.basecampData, !!cached.easyspeakData);
-  await renderStatusSummary({ basecamp: statuses.basecamp === "loading", easyspeak: statuses.easyspeak === "loading" });
+  const { basecampData, easyspeakData } = await renderStatusSummary({ basecamp: statuses.basecamp === "loading", easyspeak: statuses.easyspeak === "loading" });
+  updatePopupSubtitle(basecampData, easyspeakData);
 
   // Reopening the popup while a scrape is still running elsewhere (e.g. an
   // EasySpeak tab that survived the popup's own teardown) would otherwise
@@ -80,13 +63,14 @@ async function init() {
   setButtonLoading(easyspeakEls, statuses.easyspeak === "loading", "EasySpeak data loading...");
 
   basecampEls.btn.addEventListener("click", () =>
-    onScrapeClick({
+    onScrapeClick<BasecampScrape>({
       els: basecampEls,
       message: { type: "SCRAPE_BASECAMP" },
       dataKey: "basecampData",
       scrapedAtKey: "basecampScrapedAt",
       loadingLabel: "Basecamp data loading...",
-      render: renderBasecampResult,
+      render: renderScrapeResult,
+      onDone: onScrapeDone,
     })
   );
 
@@ -96,13 +80,14 @@ async function init() {
     // Chrome tears down this popup the instant it loses focus, so anything
     // set after the await may never actually render.
     setStatus(easyspeakEls, "Opening an EasySpeak tab now — this will close the popup (that's expected). Reopen it once the tab finishes or closes itself to see the result.");
-    onScrapeClick({
+    onScrapeClick<EasySpeakScrape>({
       els: easyspeakEls,
       message: { type: "SCRAPE_EASYSPEAK" },
       dataKey: "easyspeakData",
       scrapedAtKey: "easyspeakScrapedAt",
       loadingLabel: "EasySpeak data loading...",
-      render: renderEasySpeakResult,
+      render: renderScrapeResult,
+      onDone: onScrapeDone,
     });
   });
 
@@ -110,12 +95,18 @@ async function init() {
 
   reportEls.reviewMatchesBtn.addEventListener("click", () => chrome.tabs.create({ url: pageUrl("options/members.html") }));
 
-  // Never disabled — Settings (mock mode, EasySpeak server) is meaningful to
+  // Never disabled — Setup (mock mode, EasySpeak server) is meaningful to
   // change before any extraction exists, unlike the report/review buttons.
   document.getElementById("openSettingsLink")!.addEventListener("click", (e) => {
     e.preventDefault();
     chrome.tabs.create({ url: pageUrl("options/settings.html") });
   });
+}
+
+async function onScrapeDone() {
+  const { basecampData, easyspeakData } = await renderStatusSummary();
+  updateReportButton(!!basecampData, !!easyspeakData);
+  updatePopupSubtitle(basecampData, easyspeakData);
 }
 
 // Enables the report/review-matches buttons only once both sources have
@@ -129,145 +120,11 @@ function updateReportButton(hasBasecamp: boolean, hasEasyspeak: boolean) {
   reportEls.status.textContent = disabled ? "Extract both Basecamp and EasySpeak data first." : "";
 }
 
-// Loading is communicated via the button itself (disabled + relabeled),
-// not the status line — that keeps showing the last extraction time.
-function setButtonLoading(els: SourceEls, isLoading: boolean, loadingLabel: string) {
-  els.btn.disabled = isLoading;
-  els.btn.textContent = isLoading ? loadingLabel : els.idleLabel;
-}
-
-interface ScrapeClickOptions<T> {
-  els: SourceEls;
-  message: ScrapeRequest;
-  dataKey: "basecampData" | "easyspeakData";
-  scrapedAtKey: "basecampScrapedAt" | "easyspeakScrapedAt";
-  loadingLabel: string;
-  render: (els: SourceEls, data: T) => void;
-}
-
-async function onScrapeClick<T>({ els, message, dataKey, scrapedAtKey, loadingLabel, render }: ScrapeClickOptions<T>) {
-  setButtonLoading(els, true, loadingLabel);
-  // Deliberately not touching els.status/els.summary/els.rawData here —
-  // keep showing the last extraction time and data until fresh data
-  // actually arrives (or an error replaces the status line below).
-
-  try {
-    const response = await sendMessage(message);
-
-    if (!response) {
-      setStatus(els, "No response from the extension background worker. Try again.");
-      return;
-    }
-
-    if (!response.ok) {
-      setStatus(els, `Error during extraction: ${response.error}`);
-      return;
-    }
-
-    const scrapedAt = Date.now();
-    await local.set({ [dataKey]: response.data, [scrapedAtKey]: scrapedAt } as Partial<LocalSchema>);
-
-    setStatus(els, `Extraction complete: ${formatDate(scrapedAt)}`);
-    render(els, response.data as T);
-
-    const both = await local.get(["basecampData", "easyspeakData"]);
-    updateReportButton(!!both.basecampData, !!both.easyspeakData);
-    await renderStatusSummary();
-  } catch (err) {
-    setStatus(els, `Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
-  } finally {
-    setButtonLoading(els, false, loadingLabel);
-  }
-}
-
-function formatDate(timestamp: number | undefined): string {
-  return timestamp ? new Date(timestamp).toLocaleString("en-US") : "never";
-}
-
-function setStatus(els: SourceEls, text: string) {
-  els.status.textContent = text;
-}
-
-function renderBasecampResult(els: SourceEls, data: BasecampScrape) {
-  const clubCount = Object.keys(data).length;
-  const totalMembers = Object.values(data).reduce((sum, club) => sum + club.members.length, 0);
-
-  let html = `<table><tr><th>Club</th><th>Entries (member x path)</th></tr>`;
-  for (const club of Object.values(data)) {
-    html += `<tr><td>${escapeHtml(club.name)}</td><td>${club.members.length}</td></tr>`;
-  }
-  html += `</table><p>${clubCount} club(s), ${totalMembers} entries total.</p>`;
-  els.summary.innerHTML = html;
-
-  els.rawData.textContent = JSON.stringify(data, null, 2);
-}
-
-function renderEasySpeakResult(els: SourceEls, data: EasySpeakScrape) {
-  const clubCount = Object.keys(data).length;
-  const totalMembers = Object.values(data).reduce((sum, club) => sum + club.members.length, 0);
-
-  let html = `<table><tr><th>Club</th><th>Entries (member x path)</th></tr>`;
-  for (const club of Object.values(data)) {
-    html += `<tr><td>${escapeHtml(club.name)}</td><td>${club.members.length}</td></tr>`;
-  }
-  html += `</table><p>${clubCount} club(s), ${totalMembers} entries total.</p>`;
-  els.summary.innerHTML = html;
-
-  els.rawData.textContent = JSON.stringify(data, null, 2);
-}
-
 // ---------------------------------------------------------------------------
-// Compact status summary + branded-header subtitle — a quick-glance
-// replacement for reading the two per-source status lines individually.
-// Self-contained (re-reads storage itself) so any call site can refresh it
-// without threading state through: called once on popup open, and again
-// after each successful scrape.
+// Branded-header subtitle — popup-only (options/sync-data.ts has no
+// equivalent element), so it stays here rather than in
+// shared/sync-status-panel.ts.
 // ---------------------------------------------------------------------------
-
-async function renderStatusSummary(loading: { basecamp?: boolean; easyspeak?: boolean } = {}): Promise<void> {
-  const cached = await local.get(["basecampData", "easyspeakData"]);
-  const root = document.getElementById("statusSummary")!;
-
-  const rows = [
-    renderStatusRow("Basecamp", sourceStatusValue(!!loading.basecamp, !!cached.basecampData)),
-    renderStatusRow("EasySpeak", sourceStatusValue(!!loading.easyspeak, !!cached.easyspeakData)),
-  ];
-
-  if (cached.basecampData && cached.easyspeakData) {
-    const { matched, total } = await loadMatchSummary(cached.basecampData, cached.easyspeakData);
-    rows.push(renderStatusRow("Matches", { text: `${matched}/${total}`, tone: total > 0 && matched === total ? "success" : "pending" }));
-  } else {
-    rows.push(renderStatusRow("Matches", { text: "—", tone: null }));
-  }
-
-  root.innerHTML = rows.join("");
-  updatePopupSubtitle(cached.basecampData, cached.easyspeakData);
-}
-
-function sourceStatusValue(isLoading: boolean, hasData: boolean): { text: string; tone: "success" | "pending" | null } {
-  if (isLoading) return { text: "Extracting…", tone: "pending" };
-  if (hasData) return { text: "✓ Synced", tone: "success" };
-  return { text: "Not yet extracted", tone: null };
-}
-
-function renderStatusRow(label: string, value: { text: string; tone: "success" | "pending" | null }): string {
-  const toneClass = value.tone ? ` is-${value.tone}` : "";
-  return `
-    <div class="status-summary__row">
-      <span class="status-summary__label">${escapeHtml(label)}</span>
-      <span class="status-summary__value${toneClass}">${escapeHtml(value.text)}</span>
-    </div>
-  `;
-}
-
-// The actual "which members count as matched" rule (isMemberResolved) lives
-// in shared/sync/delta.ts, where it's pure and Vitest-testable — this is
-// just the storage/report-building glue around it.
-async function loadMatchSummary(basecampData: BasecampScrape, easyspeakData: EasySpeakScrape): Promise<MatchSummary> {
-  const resolution = await loadResolutionData();
-  const report = buildReport(basecampData, easyspeakData, {}, resolution);
-  return computeMatchSummary(report);
-}
 
 function updatePopupSubtitle(basecampData: BasecampScrape | null | undefined, easyspeakData: EasySpeakScrape | null | undefined) {
   const el = document.getElementById("popupSubtitle")!;

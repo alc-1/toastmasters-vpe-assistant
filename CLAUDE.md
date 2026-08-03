@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A Chrome extension (Manifest V3) for a Toastmasters VPE (Vice President Education) to consolidate
 member Pathways progress tracking, from two sources: **Basecamp Toastmasters** (a clean internal
 JSON API) and **EasySpeak** (no API — HTML pages that must be parsed; runs as three separate
-regional deployments — `tmclub.eu` (default), `toastmasterclub.org`, `easy-speak.org` — picked in
-Settings, see `shared/settings-store.ts` below). Both scrapers store their extraction locally.
+regional deployments — `tmclub.eu` (default), `toastmasterclub.org`, `easy-speak.org` — picked on
+Setup, see `shared/settings-store.ts` below). Both scrapers store their extraction locally.
 
 The extension is written in **TypeScript, built with Vite + `@crxjs/vite-plugin`**, under `src/`
 (see "Architecture" below for the full tree). This is a deliberate reversal of an earlier
@@ -26,7 +26,7 @@ what replaced it, and don't reintroduce the old plain-`<script>`/`importScripts`
 3. Open `chrome://extensions`, enable "Developer mode".
 4. "Load unpacked" → select this repo's `dist/` folder (or "Reload" the extension after rebuilding).
 5. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or your configured EasySpeak
-   server (`https://tmclub.eu/` by default — see Settings to change it; any tab, any time
+   server (`https://tmclub.eu/` by default — see Setup to change it; any tab, any time
    beforehand).
 6. Click the extension icon, then "Extract Basecamp data" and/or "Extract EasySpeak data" — no
    Basecamp tab needs to stay open (unless a login is required — see Architecture). EasySpeak
@@ -91,20 +91,24 @@ src/
 ├── popup/                 # manifest.json's action.default_popup
 │   ├── index.html
 │   └── index.ts
-├── options/                # three independent pages, NOT a merged options_page/dashboard —
+├── options/                # five independent pages, NOT a merged options_page/dashboard —
 │   │                        # each opened via chrome.tabs.create, exactly like popup does
-│   ├── report.html + report.ts       # read-only comparison/CSV-export view
-│   ├── members.html + members.ts     # interactive member-matching review workflow
-│   └── settings.html + settings.ts   # EasySpeak server / club / path lookup editors
+│   ├── report.html + report.ts       # read-only comparison/CSV-export view ("Club Progress")
+│   ├── members.html + members.ts     # interactive member-matching review workflow ("Member Review")
+│   ├── settings.html + settings.ts   # demo/mock mode + EasySpeak server picker ("Setup")
+│   ├── sync-data.html + sync-data.ts # sync status + Data Extraction card, backed by shared/sync-status-panel.ts ("Sync Data")
+│   └── club-review.html + club-review.ts  # club-name lookup + path-name lookup editors ("Club Review")
 ├── status/                 # background-initiated interstitial pages, no user entry point
 │   ├── basecamp-auth.html
 │   ├── easyspeak-done.html
 │   └── countdown.ts        # shared auto-close-in-5s behavior for both pages above
-└── shared/                 # no chrome.* dependency except storage.ts/resolution-store.ts/settings-store.ts
+└── shared/                 # no chrome.* dependency except storage.ts/resolution-store.ts/settings-store.ts/sync-status-panel.ts
     ├── types.ts             # the domain type catalog — read this first when touching data shapes
     ├── storage.ts           # the ONLY file allowed to call chrome.storage.* directly
     ├── pages.ts             # extension page URL constants (chrome.runtime.getURL wrapper)
     ├── send-message.ts      # typed chrome.runtime.sendMessage() client for popup/index.ts
+    ├── app-shell.ts         # shared header/nav bar (renderAppShell), rendered into #appShell on every options page
+    ├── sync-status-panel.ts # shared sync-status summary + Data Extraction logic, used by popup/index.ts and options/sync-data.ts
     ├── dom-utils.ts         # escapeHtml/escapeAttr/warningIconHtml
     ├── settings-store.ts    # EasySpeak server choice
     ├── resolution-store.ts  # the 6 persisted name-resolution keys
@@ -125,31 +129,56 @@ shared/types`, always acyclic. `background/icon-state.ts` conversely is delibera
 imported by any page (it owns a running `setInterval` for the icon spin animation; a second copy
 imported into a page would start its own independent interval fighting the background's own over
 `chrome.action.setIcon()`) — the popup only ever asks background for the current statuses via the
-`POPUP_OPENED` message.
+`POPUP_OPENED` message (`options/sync-data.ts`'s `init()` sends the identical message the same
+way, since it drives the same shared `shared/sync-status-panel.ts` rendering/status logic).
 
 Two scraper pipelines with different shapes, sharing one trigger flow from the popup: **popup →
 background service worker → source-specific scraper**.
 
-- **`popup/index.ts`** — UI layer only. Two buttons, each sending its own message
-  (`{type: "SCRAPE_BASECAMP"}` / `{type: "SCRAPE_EASYSPEAK"}`) to the background service worker via
-  `shared/send-message.ts`'s typed `sendMessage()`, sharing one `onScrapeClick` helper parameterized
-  by message type, storage keys, and a render function. On receiving a response, it also writes to
-  `chrome.storage.local` (via `shared/storage.ts`'s `local.set`: `basecampData`/`basecampScrapedAt`,
-  `easyspeakData`/`easyspeakScrapedAt`) and restores from there on next popup open — **but this
-  popup-side write cannot be the only copy** (see the `background/api/*.ts` bullets below). Loading
-  is communicated purely via the triggering button itself (`setButtonLoading`: disabled + relabeled
+- **`shared/sync-status-panel.ts`** — the shared logic behind the "Data Extraction" card + the
+  compact sync-status summary, used by both `popup/index.ts` and `options/sync-data.ts` (see that
+  page's bullet below) — the two pages render matching markup with matching element ids
+  (`scrapeBasecampBtn`/`statusBasecamp`/`summaryBasecamp`/`rawDataBasecamp` and the EasySpeak
+  equivalents, plus a shared `#statusSummary` root) and both call into this module instead of
+  duplicating the rendering/formatting/scrape-click code. Exports `bindSourceEls()` (looks up a
+  source's four elements by id), `onScrapeClick()` (sends `{type: "SCRAPE_BASECAMP"}` /
+  `{type: "SCRAPE_EASYSPEAK"}` to the background service worker via `shared/send-message.ts`'s
+  typed `sendMessage()`, parameterized by message type, storage keys, and a render function; takes
+  an optional `onDone` hook for page-specific post-scrape follow-up), `renderScrapeResult()`
+  (merges what used to be two near-identical `renderBasecampResult`/`renderEasySpeakResult`
+  functions — both only ever touched the shared `{name, members}` shape), and
+  `renderStatusSummary()` (renders into `#statusSummary`, returns the cached
+  `{basecampData, easyspeakData}` so each page can layer its own follow-up on top — e.g. the
+  popup's subtitle update — without this module needing to know about it). On a successful scrape,
+  `onScrapeClick()` writes to `chrome.storage.local` itself (via `shared/storage.ts`'s
+  `local.set`: `basecampData`/`basecampScrapedAt`, `easyspeakData`/`easyspeakScrapedAt`) — **this
+  write cannot be the only copy** (see the `background/api/*.ts` bullets below). Loading is
+  communicated purely via the triggering button itself (`setButtonLoading`: disabled + relabeled
   to "Basecamp data loading..." / "EasySpeak data loading..."), **not** the status line or the
   summary/raw-data panels — `onScrapeClick` never touches `els.status`/`els.summary`/`els.rawData`
   while a request is in flight, so "Last extraction: ..." and the previous result stay visible the
-  whole time; only a completed extraction or an error updates the status line. `init()` sends
-  `{type: "POPUP_OPENED"}` before anything else, both to let background acknowledge any finished
-  success/error status (see `background/icon-state.ts` below) and to learn whether either source is
-  currently `"loading"`, so it can apply the same disabled/relabeled button state even though this
-  popup instance didn't trigger the in-progress scrape itself (e.g. reopening the popup while
-  EasySpeak is still running in its own tab). Does not touch `chrome.tabs`, `chrome.action`, or
-  `chrome.storage.session` itself — all tab handling for EasySpeak lives in
-  `background/api/easyspeak.ts`, all icon/status handling lives in `background/icon-state.ts`, both
-  background-only.
+  whole time; only a completed extraction or an error updates the status line.
+- **`popup/index.ts`** — UI layer only, composed on top of `shared/sync-status-panel.ts`. `init()`
+  sends `{type: "POPUP_OPENED"}` before anything else, both to let background acknowledge any
+  finished success/error status (see `background/icon-state.ts` below) and to learn whether either
+  source is currently `"loading"`, so it can apply the same disabled/relabeled button state even
+  though this popup instance didn't trigger the in-progress scrape itself (e.g. reopening the
+  popup while EasySpeak is still running in its own tab). Restores cached data on open via
+  `renderScrapeResult()`, and passes an `onDone` hook into each `onScrapeClick()` call that
+  re-renders the status summary and updates `updateReportButton()`/`updatePopupSubtitle()` — both
+  of which stay popup-only (no such buttons/subtitle element on `options/sync-data.ts`). Does not
+  touch `chrome.tabs`, `chrome.action`, or `chrome.storage.session` itself — all tab handling for
+  EasySpeak lives in `background/api/easyspeak.ts`, all icon/status handling lives in
+  `background/icon-state.ts`, both background-only.
+- **`options/sync-data.html` + `options/sync-data.ts`** — a thin page wired up against
+  `shared/sync-status-panel.ts`: same Data Extraction card + sync-status summary markup as the
+  popup (same element ids), same underlying rendering/formatting/scrape-click logic, no duplicated
+  code. Unlike the popup it isn't torn down when `ensureEasySpeakTab()` steals tab/window focus,
+  since it's a regular tab, not an `action` popup — so a scrape triggered here survives exactly the
+  focus-loss event that kills the popup mid-scrape (see `background/api/easyspeak.ts` below). Has
+  its own `chrome.storage.onChanged` listener re-running `init()`, matching the other long-lived-
+  tab options pages' convention (the popup doesn't need this since it's re-created fresh on each
+  open). No report/review-matches buttons or Setup link — those stay popup-only.
 - **`background/index.ts`** — service worker entry point, imports `messaging.ts` and calls
   `registerMessageHandlers()`. Built by crxjs as a real ESM bundle (`"type": "module"` in the built
   manifest) — the old `importScripts()` classic-script loading pattern is gone; every dependency is
@@ -340,8 +369,8 @@ row. Basecamp's member objects are raw API progress records (minus stripped phot
 EasySpeak's are `{memberId, name, path, levels: [{level, needed, done}, ...]}`. This shared
 `Record<clubId, {...}>` shape is intentional — it's what the matching/delta computation below keys
 off of. (Note: `README.md`'s "Next steps"/"Known MVP limitations" still describe member-matching as
-unimplemented future work — that's stale; matching, persistence, and three review UIs already exist,
-see below. The README hasn't been updated to match; don't trust it over this file or the code.)
+unimplemented future work — that's stale; matching, persistence, and multiple review UIs already
+exist, see below. The README hasn't been updated to match; don't trust it over this file or the code.)
 
 `example/` holds real (anonymize before sharing) HTML fixtures for the two EasySpeak pages
 (`profile.php_mode=editprofile`, `memberchart.php_chart=10&c=359`) — the source of truth for the
@@ -369,7 +398,7 @@ re-derived (and possibly un-derived) from names again.
   clubs (`matchClubs`, in `conflicts.ts`: auto-matches only on an *exact* normalized-name match —
   `clubNameScore(...) === 1` — never a partial/fuzzy similarity guess; there's no "suggested club"
   review UI anywhere to correct a wrong fuzzy guess, unlike members, so a club short of exact must be
-  pinned via `clubLookup` in Settings), matches members within each matched club pair (`matchMembers`,
+  pinned via `clubLookup` in Club Review), matches members within each matched club pair (`matchMembers`,
   in `conflicts.ts`: exact-normalized-name short-circuit, else — when fuzzy matching is allowed for
   this call, see below — a `0.3*Jaccard + 0.7*Levenshtein-similarity` blend against
   `NAME_MATCH_THRESHOLD = 0.72`), and matches paths within each matched member (`matchPaths`, in
@@ -393,7 +422,7 @@ re-derived (and possibly un-derived) from names again.
   - `resolution.allowFuzzyMemberMatches` (default `true`) is **not** a persisted storage key — it's
     a hardcoded per-caller behavior switch. `options/members.ts` relies on the default (`true`):
     fuzzy suggestions are exactly what that view exists to surface and let a human confirm/reject.
-    `options/report.ts` explicitly passes `false`: the Comparison Report is meant to show only what's
+    `options/report.ts` explicitly passes `false`: Club Progress is meant to show only what's
     certain, so an unconfirmed fuzzy guess must never render there as if it were a fact. Setting it
     `false` simply drops fuzzy-confidence candidates from `matchMembers`'s candidate pool before
     `greedyAssign` runs — the pair falls through to the *same* leftover-handling code that already
@@ -421,8 +450,10 @@ re-derived (and possibly un-derived) from names again.
   truth for storage key names — **do not call `chrome.storage.*` directly from anywhere outside
   `shared/storage.ts`**). Unlike `shared/sync/*`, this file is legitimately `chrome.*`-dependent
   (pure storage I/O) so it isn't Vitest-testable — same as `background/api/basecamp.ts`/
-  `background/api/easyspeak.ts`. Used from the three options pages; never imported into
-  `background/`, since none of this needs the service worker. Every write is an upsert enforcing a
+  `background/api/easyspeak.ts`. Used from Club Review, Member Review, and Club Progress (plus
+  `shared/sync-status-panel.ts`'s `loadMatchSummary()`, shared by the popup and Sync Data, for the
+  Matches count); never imported into `background/`, since none of this needs the service worker.
+  Every write is an upsert enforcing a
   1:1 invariant where applicable (e.g. confirming a link first strips any prior record touching
   either id). The Members view can now unlink/unbind everything this file can create (see below) —
   there is intentionally still no "un-reject"/"un-exclude" UI action, mirroring how a rejected pair
@@ -446,7 +477,7 @@ re-derived (and possibly un-derived) from names again.
     "fix" it by renaming, that would silently orphan every existing user's rejected pairs.
   - `clubLookup: ClubLookupEntry[]` (`{basecampClubId, easyspeakClubId, basecampClubName,
     easyspeakClubName}`) — ID pins (not a name-alias table), forcing a 1:1 club match regardless of
-    name-similarity score. The two `*ClubName` fields are denormalized purely for the Settings
+    name-similarity score. The two `*ClubName` fields are denormalized purely for the Club Review
     page's display.
   - `pathLookup: PathLookup` (`Record<canonical path name, alias[]>`) — the user-editable form of
     what used to be only the hardcoded `PATH_ALIASES` table (`shared/sync/conflicts.ts`); seeded
@@ -469,8 +500,8 @@ re-derived (and possibly un-derived) from names again.
     entry canonicalization would otherwise produce. This is the "Force unbind" action in the Members
     view, letting the user then re-resolve the pair manually (bind to something else, or leave as
     orphan) instead of it snapping back together on every refresh.
-- **`options/report.html` + `options/report.ts`** — the comparison/CSV-export page (reached from the
-  popup's "Open comparison report" button as a full tab, not a popup window —
+- **`options/report.html` + `options/report.ts`** — the comparison/CSV-export page, titled "Club
+  Progress" (reached from the popup's "Open Club Progress" button as a full tab, not a popup window —
   `chrome.tabs.create({url: pageUrl(...)})`). Reads `basecampData`/`easyspeakData` straight from
   storage (no live scraping) plus resolution data via `loadResolutionData()` — loading resolution
   here is required, not optional, otherwise this page's CSV export and "Next Level Summary" would
@@ -479,17 +510,18 @@ re-derived (and possibly un-derived) from names again.
   `renderConflictWarning(report)` (`#conflictWarning`) shows a banner whenever any club has no
   counterpart at all in the other system, or any member is left `presence !== "both"` within a
   matched club pair (an unconfirmed fuzzy guess counts as unmatched here too, per
-  `allowFuzzyMemberMatches: false` above) — with links to Settings (club fixes) and Member matching
+  `allowFuzzyMemberMatches: false` above) — with links to Club Review (club fixes) and Member Review
   (member fixes). `renderClubTabs()` additionally prefixes a warning-sign icon (`warningIconHtml()`,
   `shared/dom-utils.ts` — shared with `options/members.ts`, see below; each page defines its own
   `.warning-icon`/`.conflict-warning` CSS) onto any club tab whose pair has no counterpart on the
   other side.
-- **`options/members.html` + `options/members.ts`** — the primary member-matching review workflow
-  (reached from the popup's "Review Matches" button, and cross-linked with Settings/Report). Same
-  storage-reads-only pattern as `report.ts`. `renderClubMatchWarning()` (`#conflictWarning`, called
-  from `refresh()`) mirrors `report.ts`'s conflict banner but with member-matching-specific advice:
-  whenever any club has no counterpart in the other system, it names the affected club(s) and points
-  at Settings, since a club with nothing to match against can't be member-matched properly — best
+- **`options/members.html` + `options/members.ts`** — the primary member-matching review workflow,
+  titled "Member Review" (reached from the popup's "Member Review" button, and cross-linked with
+  Club Review/Club Progress). Same storage-reads-only pattern as `report.ts`.
+  `renderClubMatchWarning()` (`#conflictWarning`, called from `refresh()`) mirrors `report.ts`'s
+  conflict banner but with member-matching-specific advice: whenever any club has no counterpart in
+  the other system, it names the affected club(s) and points at Club Review, since a club with
+  nothing to match against can't be member-matched properly — best
   fixed before spending time reviewing that club's members. `renderClubTabs()` also prefixes the
   same `warningIconHtml()` icon onto those clubs' tabs, same as `report.ts`. One spreadsheet-style
   table per club (club tabs reused from `report.ts`'s pattern), **Basecamp name first** (Basecamp
@@ -552,31 +584,50 @@ re-derived (and possibly un-derived) from names again.
   rebuild-and-reassign-`innerHTML` rendering style. A member with more than one simultaneous
   orphaned path pair renders one picker row per `basecamp-only` path (`<select>` over that member's
   `easyspeak-only` candidates) rather than assuming exactly one pair.
-- **`options/settings.html` + `options/settings.ts`** — EasySpeak server picker, club-name lookup,
-  and path-name lookup editors (small, low-cardinality, edited rarely — no live-recompute loop like
-  `members.ts`; each section just re-reads its own storage after a write). The EasySpeak server
-  section (first on the page — a foundational "which data source" choice, unlike the other two
-  sections which reconcile whatever data comes back) renders a `<select>` from
-  `EASYSPEAK_SERVERS` (`shared/settings-store.ts`) preselected via `getEasySpeakServer()`, with an
-  explicit "Save" button (matching this page's existing button-triggered-write convention rather
-  than auto-saving on `change`) that calls `setEasySpeakServer()`; a "Saved." confirmation
-  (`.save-status.visible`) is hidden again the moment the selection changes, so it can't linger
-  next to an unsaved new choice. Changing it does **not** clear any already-extracted
+- **`options/settings.html` + `options/settings.ts`** — titled "Setup". Just the demo/mock mode
+  toggle and the EasySpeak server picker (small, low-cardinality, edited rarely — no live-recompute
+  loop like `members.ts`; each section just re-reads its own storage after a write). The mock mode
+  card (`getMockMode()`/`setMockMode()`, `shared/settings-store.ts`) toggles whether "Extract
+  Basecamp data"/"Extract EasySpeak data" return built-in demo data instead of contacting the real
+  sites. The EasySpeak server section renders a `<select>` from `EASYSPEAK_SERVERS`
+  (`shared/settings-store.ts`) preselected via `getEasySpeakServer()`, with an explicit "Save"
+  button (matching this page's existing button-triggered-write convention rather than auto-saving
+  on `change`) that calls `setEasySpeakServer()`; a "Saved." confirmation (`.save-status.visible`)
+  is hidden again the moment the selection/checkbox changes, so it can't linger next to an unsaved
+  new choice. Changing the server does **not** clear any already-extracted
   `easyspeakData`/`easyspeakScrapedAt` — it only affects the URL the *next* "Extract EasySpeak
   data" run targets, same as any ordinary stale-data situation; the help text calls this out. Club
-  section's "add mapping" form is populated from `basecampData`/`easyspeakData`'s current club
-  lists (excluding already-pinned ones). Path section edits `pathLookup` directly; adding a new
-  canonical name lowercases it before saving, since `canonicalizePathName()` always lowercases the
-  raw path before consulting the lookup, so a mixed-case key would simply never match.
+  name lookup and path name lookup used to live on this page too — they moved to their own "Club
+  Review" page (see below) since they're a different concern (reconciling scraped data) from this
+  page's remaining "which source/mode" settings.
+- **`options/club-review.html` + `options/club-review.ts`** — titled "Club Review". Club-name
+  lookup and path-name lookup editors, split out of `options/settings.ts`. The club section is a
+  review table (every club from both sources, not just already-pinned ones), same shape/vocabulary
+  as `options/members.ts`'s member-matching table: a status badge per club pair (Exact/Suggested/
+  Linked manually/Unmatched) and Confirm/"Not this one"/Unlink actions, backed by `matchClubs()`
+  (`shared/sync/conflicts.ts`, `allowFuzzy: true` — unlike `buildReport()`'s own `matchClubs()`
+  call, this is the one place a fuzzy club-name suggestion is meant to be reviewed) and
+  `pinClub()`/`rejectClubPair()`/`removeClubPin()` (`shared/resolution-store.ts`); the "add mapping"
+  form is populated from `basecampData`/`easyspeakData`'s current club lists (excluding
+  already-pinned ones). The path section edits `pathLookup` directly via `setPathAliases()`/
+  `deletePathCanonical()`; adding a new canonical name lowercases it before saving, since
+  `canonicalizePathName()` always lowercases the raw path before consulting the lookup, so a
+  mixed-case key would simply never match.
 - **`shared/settings-store.ts`** — storage I/O for general extension settings, currently just the
   EasySpeak server choice (`easyspeakServer` key). Deliberately **not** folded into
   `shared/resolution-store.ts`, which is scoped specifically to member/club/path matching decisions —
   this is a different, unrelated concern. `EASYSPEAK_SERVERS` (id + display label for each of the
   three deployments) and `DEFAULT_EASYSPEAK_SERVER` (`"tmclub.eu"`) are the single source of truth
-  for both the Settings dropdown and `getEasySpeakServer()`'s fallback (used whenever the stored
+  for both the Setup dropdown and `getEasySpeakServer()`'s fallback (used whenever the stored
   value is absent or isn't one of the three known ids — defensive against a future removed/renamed
   entry). Used from both `options/settings.ts` (for the dropdown) *and* `background/api/easyspeak.ts`
   (because the actual URL construction that needs the chosen server happens in the service worker).
+- **`shared/app-shell.ts`** — the shared branded header + primary nav (`renderAppShell()`),
+  rendered via `innerHTML` into a `<div id="appShell">` placeholder on every options page (not the
+  popup, which has its own static header). `NAV_ITEMS` fixes both the set of pages and their
+  left-to-right display order: Setup, Sync Data, Club Review, Member Review, Club Progress — each
+  page passes its own `AppShellPage` key (`"settings"|"syncData"|"clubReview"|"members"|"report"`)
+  as `active` so its own nav link renders highlighted.
 - **`shared/dom-utils.ts`** — `escapeHtml()` and `escapeAttr()`, shared by all extension pages. **Use
   `escapeAttr`, not `escapeHtml`, for any untrusted text (scraped member/path names) written into an
   HTML attribute value** (e.g. an `<option value="...">`, a `data-*` attribute) — `escapeHtml`'s
@@ -606,7 +657,7 @@ before changing the config:
   that's the one file to update. `publicDir`/`build.outDir` are both set explicitly in
   `vite.config.ts` since their Vite defaults are relative to `root` (would otherwise become
   `src/public`/`src/dist`).
-- **`build.rollupOptions.input`** lists the five extra HTML pages (three `options/*.html`, two
+- **`build.rollupOptions.input`** lists the seven extra HTML pages (five `options/*.html`, two
   `status/*.html`) that aren't discoverable from `manifest.json` alone. `popup/index.html` is
   deliberately **not** listed there — crxjs picks it up automatically from `manifest.json`'s
   `action.default_popup`; double-listing it would be redundant, not just harmless, so don't add it.
