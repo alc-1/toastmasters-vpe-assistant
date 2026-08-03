@@ -11,9 +11,11 @@
  * pages' centered layout) — this file only carries tokens and classes that
  * are shared across multiple pages.
  *
- * Toastmasters brand system: Loyal Blue is the primary brand color, True
- * Maroon is the secondary/"info" accent, Cool Gray is reserved for subtle
- * brand-tinted borders, Happy Yellow is used only for the app title text.
+ * Toastmasters brand system: Loyal Blue is the primary brand color and also
+ * doubles as the "info" accent (badges/hovers that used to be True Maroon
+ * were switched to Loyal Blue — it clashed with the rest of the page), Cool
+ * Gray is reserved for subtle brand-tinted borders, Happy Yellow is used
+ * only for the app title text.
  * Component rules should reference the semantic --primary/--info aliases
  * below, not the physical --tm-* variables directly, so a future re-theme
  * only touches one place. Font stays the existing system sans-serif stack —
@@ -24,7 +26,6 @@
 
 :root {
   /* Toastmasters brand — physical hex values */
-  --tm-burgundy: #772432; /* True Maroon */
   --tm-navy: #004165; /* Loyal Blue */
   --tm-navy-hover: #003654;
   --tm-navy-active: #002e47;
@@ -50,8 +51,8 @@
   --warning-bg: #fef3e2;
   --danger: #c62828;
   --danger-bg: #fdecea;
-  --info: var(--tm-burgundy);
-  --info-bg: #f5e9ea;
+  --info: var(--tm-navy);
+  --info-bg: #e3ecf3;
   --disabled-bg: #aaaaaa;
 
   /* Surfaces (cards, page background, dividers) */
