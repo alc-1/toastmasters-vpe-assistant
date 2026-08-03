@@ -1,19 +1,37 @@
 // src/options/settings.ts
 //
-// DOM glue for the Setup page: the demo/mock mode toggle and the EasySpeak
-// server picker. Both are small, low-cardinality settings edited rarely —
-// no live-recompute loop like options/members.ts; each section just
-// re-reads its own storage after a write.
+// DOM glue for the Setup page: a two-option "how do you want to prepare your
+// club progress report" step (demo data vs. real club data), with the
+// EasySpeak region picker revealed only once "real data" is chosen. Backed
+// by the same shared/settings-store.ts mockMode/easyspeakServer values as
+// before — this file only changes presentation/flow, not the underlying
+// settings or extraction logic.
+//
+// Unlike the old explicit-Save-button version, every choice here writes
+// through immediately (selecting a card, or the region dropdown once
+// visible) — the bottom summary is the confirmation, and "Continue" just
+// moves on to the next step once a choice has been made.
 
 import { escapeAttr, escapeHtml } from "../shared/dom-utils";
-import { EASYSPEAK_SERVERS, getEasySpeakServer, getMockMode, setEasySpeakServer, setMockMode } from "../shared/settings-store";
+import { EASYSPEAK_SERVERS, getEasySpeakServer, setEasySpeakServer, setMockMode } from "../shared/settings-store";
+import { local } from "../shared/storage";
 import { renderAppShell } from "../shared/app-shell";
 import type { EasySpeakServerId } from "../shared/types";
 
+// null = no choice made yet (the Setup step's required no-default state).
+// Distinguished from mockMode's own `false` default by reading the raw
+// stored value below instead of settings-store.ts's getMockMode(), which
+// collapses "never set" and "explicitly off" into the same `false`.
+type DataSourceChoice = "demo" | "real" | null;
+
 init();
 
-// Keeps this tab in sync if a mock-mode/EasySpeak-server decision is edited
-// from another tab while this one stays open.
+document.getElementById("continueBtn")!.addEventListener("click", () => {
+  window.location.href = "sync-data.html";
+});
+
+// Keeps this tab in sync if the choice is edited from another tab while
+// this one stays open.
 chrome.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") init();
 });
@@ -21,90 +39,119 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 async function init() {
   document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "settings" });
 
-  await refreshMockMode();
-  await refreshEasySpeakServer();
+  const choice = await readChoice();
+  const region = await getEasySpeakServer();
+  render(choice, region);
+}
+
+async function readChoice(): Promise<DataSourceChoice> {
+  const rawMockMode = await local.value("mockMode");
+  if (rawMockMode === true) return "demo";
+  if (rawMockMode === false) return "real";
+  return null;
+}
+
+function render(choice: DataSourceChoice, region: EasySpeakServerId) {
+  renderOptionCards(choice);
+  renderRegionSection(choice, region);
+  renderSummary(choice, region);
+  renderContinueButton(choice);
 }
 
 // ---------------------------------------------------------------------------
-// Demo / mock mode
+// Option cards
 // ---------------------------------------------------------------------------
 
-async function refreshMockMode() {
-  const current = await getMockMode();
-  document.getElementById("mockModeRoot")!.innerHTML = renderMockModeSection(current);
-  attachMockModeHandlers();
+function renderOptionCards(choice: DataSourceChoice) {
+  document.getElementById("optionCardsRoot")!.innerHTML = `
+    <div class="option-cards">
+      <label class="option-card${choice === "demo" ? " selected" : ""}">
+        <input type="radio" name="dataSourceChoice" value="demo"${choice === "demo" ? " checked" : ""}>
+        <span class="option-card__body">
+          <span class="option-card__title">Try with demo data</span>
+          <span class="option-card__desc">Explore the tool using sample club information without connecting to your real data.</span>
+        </span>
+      </label>
+      <label class="option-card${choice === "real" ? " selected" : ""}">
+        <input type="radio" name="dataSourceChoice" value="real"${choice === "real" ? " checked" : ""}>
+        <span class="option-card__body">
+          <span class="option-card__title">Use my club data</span>
+          <span class="option-card__desc">Load your real member progress from Basecamp and EasySpeak.</span>
+        </span>
+      </label>
+    </div>
+  `;
+
+  document.querySelectorAll<HTMLInputElement>('input[name="dataSourceChoice"]').forEach((input) => {
+    input.addEventListener("change", () => onChooseDataSource(input.value as "demo" | "real"));
+  });
 }
 
-function renderMockModeSection(current: boolean): string {
-  return `
-    <div class="add-form">
-      <label><input type="checkbox" id="mockModeCheckbox"${current ? " checked" : ""}> Enable demo/mock mode</label>
-      <button class="btn btn-primary" data-action="save-mock-mode">Save</button>
-      <span class="save-status" id="mockModeStatus" aria-live="polite">Saved.</span>
+async function onChooseDataSource(choice: "demo" | "real") {
+  await setMockMode(choice === "demo");
+  const region = await getEasySpeakServer();
+  render(choice, region);
+}
+
+// ---------------------------------------------------------------------------
+// EasySpeak region — shown only when "Use my club data" is selected
+// ---------------------------------------------------------------------------
+
+function renderRegionSection(choice: DataSourceChoice, region: EasySpeakServerId) {
+  const root = document.getElementById("regionSectionRoot")!;
+  if (choice !== "real") {
+    root.innerHTML = "";
+    return;
+  }
+
+  const options = EASYSPEAK_SERVERS.map(
+    (s) => `<option value="${escapeAttr(s.id)}"${s.id === region ? " selected" : ""}>${escapeHtml(s.label)}</option>`
+  ).join("");
+
+  root.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span class="card-header__title">EasySpeak region</span></div>
+      <div class="card-body">
+        <p class="help-text">We'll use this to find your club member progress data.</p>
+        <select id="easyspeakRegionSelect">${options}</select>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("easyspeakRegionSelect")!.addEventListener("change", onChooseRegion);
+}
+
+async function onChooseRegion(event: Event) {
+  const select = event.target as HTMLSelectElement;
+  const region = select.value as EasySpeakServerId;
+  await setEasySpeakServer(region);
+  renderSummary("real", region);
+  renderContinueButton("real");
+}
+
+// ---------------------------------------------------------------------------
+// Summary + Continue
+// ---------------------------------------------------------------------------
+
+function renderSummary(choice: DataSourceChoice, region: EasySpeakServerId) {
+  const root = document.getElementById("summaryRoot")!;
+  if (choice === null) {
+    root.innerHTML = "";
+    return;
+  }
+
+  const regionLabel = EASYSPEAK_SERVERS.find((s) => s.id === region)?.label ?? region;
+  const items =
+    choice === "demo" ? ["Demo data selected"] : ["Real club data", `EasySpeak region: ${regionLabel}`];
+
+  root.innerHTML = `
+    <div class="setup-summary">
+      <div class="setup-summary__title">Your setup:</div>
+      ${items.map((item) => `<div class="setup-summary__item">✓ ${escapeHtml(item)}</div>`).join("")}
     </div>
   `;
 }
 
-function attachMockModeHandlers() {
-  const root = document.getElementById("mockModeRoot")!;
-  const saveBtn = root.querySelector<HTMLButtonElement>('[data-action="save-mock-mode"]');
-  if (saveBtn) saveBtn.addEventListener("click", onSaveMockMode);
-
-  // Hide the "Saved." confirmation again as soon as the checkbox changes,
-  // so it can't misleadingly linger next to an unsaved new choice.
-  const checkbox = document.getElementById("mockModeCheckbox");
-  if (checkbox) {
-    checkbox.addEventListener("change", () => {
-      document.getElementById("mockModeStatus")!.classList.remove("visible");
-    });
-  }
-}
-
-async function onSaveMockMode() {
-  const checkbox = document.getElementById("mockModeCheckbox") as HTMLInputElement;
-  await setMockMode(checkbox.checked);
-  document.getElementById("mockModeStatus")!.classList.add("visible");
-}
-
-// ---------------------------------------------------------------------------
-// EasySpeak server
-// ---------------------------------------------------------------------------
-
-async function refreshEasySpeakServer() {
-  const current = await getEasySpeakServer();
-  document.getElementById("easyspeakServerRoot")!.innerHTML = renderEasySpeakServerSection(current);
-  attachEasySpeakServerHandlers();
-}
-
-function renderEasySpeakServerSection(current: EasySpeakServerId): string {
-  const options = EASYSPEAK_SERVERS.map((s) => `<option value="${escapeAttr(s.id)}"${s.id === current ? " selected" : ""}>${escapeHtml(s.label)}</option>`).join("");
-
-  return `
-    <div class="add-form">
-      <label>EasySpeak server: <select id="easyspeakServerSelect">${options}</select></label>
-      <button class="btn btn-primary" data-action="save-easyspeak-server">Save</button>
-      <span class="save-status" id="easyspeakServerStatus" aria-live="polite">Saved.</span>
-    </div>
-  `;
-}
-
-function attachEasySpeakServerHandlers() {
-  const root = document.getElementById("easyspeakServerRoot")!;
-  const saveBtn = root.querySelector<HTMLButtonElement>('[data-action="save-easyspeak-server"]');
-  if (saveBtn) saveBtn.addEventListener("click", onSaveEasySpeakServer);
-
-  // Hide the "Saved." confirmation again as soon as the selection changes,
-  // so it can't misleadingly linger next to an unsaved new choice.
-  const select = document.getElementById("easyspeakServerSelect");
-  if (select) {
-    select.addEventListener("change", () => {
-      document.getElementById("easyspeakServerStatus")!.classList.remove("visible");
-    });
-  }
-}
-
-async function onSaveEasySpeakServer() {
-  const select = document.getElementById("easyspeakServerSelect") as HTMLSelectElement;
-  await setEasySpeakServer(select.value as EasySpeakServerId);
-  document.getElementById("easyspeakServerStatus")!.classList.add("visible");
+function renderContinueButton(choice: DataSourceChoice) {
+  (document.getElementById("continueBtn") as HTMLButtonElement).disabled = choice === null;
 }

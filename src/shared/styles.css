@@ -404,6 +404,80 @@ body {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Setup page: option cards (radio-selectable) + setup summary            */
+/* ---------------------------------------------------------------------- */
+
+.option-cards {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex: 1 1 260px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  cursor: pointer;
+}
+
+.option-card:hover {
+  border-color: var(--primary);
+}
+
+.option-card.selected {
+  border-color: var(--primary);
+  background: var(--info-bg);
+}
+
+.option-card input[type="radio"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.option-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.option-card__title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.option-card__desc {
+  font-size: var(--text-sm);
+  color: var(--gray-600);
+}
+
+.setup-summary {
+  background: var(--success-bg);
+  border: 1px solid #b7dfc0;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.setup-summary__title {
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 4px;
+}
+
+.setup-summary__item {
+  color: var(--success);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+/* ---------------------------------------------------------------------- */
 /* KPI row                                                                 */
 /* ---------------------------------------------------------------------- */
 

@@ -6,59 +6,27 @@
   <link rel="icon" type="image/png" href="../icons/icon-32.png">
   <link rel="stylesheet" href="../shared/styles.css">
   <style>
-    body {
-      max-width: 800px;
-    }
     h1 {
       font-size: var(--text-xl);
       margin: 0 0 4px;
     }
-    .add-form {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
-    .add-form select, .add-form input[type="text"] {
-      font-size: var(--text-sm);
-      padding: 4px 6px;
-    }
-    .save-status {
-      font-size: var(--text-sm);
-      color: var(--success);
-      display: none;
-    }
-    .save-status.visible {
-      display: inline;
+    .setup-intro {
+      color: var(--gray-600);
+      margin: 0 0 20px;
     }
   </style>
 </head>
-<body class="page--wide">
+<body class="page--narrow">
   <div id="appShell"></div>
   <h1>Setup</h1>
+  <p class="setup-intro">Choose how you want to prepare your club progress report.</p>
 
-  <div class="card">
-    <div class="card-header"><span class="card-header__title">Demo / mock mode</span></div>
-    <div class="card-body">
-      <p class="help-text">
-        When enabled, "Extract Basecamp data" and "Extract EasySpeak data" return built-in demo data
-        instead of contacting Basecamp/EasySpeak — no login, no tab opened. Useful for a demo. Any real data already extracted is left untouched until the next
-        extraction while this is on overwrites it.
-      </p>
-      <div id="mockModeRoot"></div>
-    </div>
-  </div>
+  <div id="optionCardsRoot"></div>
+  <div id="regionSectionRoot"></div>
+  <div id="summaryRoot"></div>
 
-  <div class="card">
-    <div class="card-header"><span class="card-header__title">EasySpeak server</span></div>
-    <div class="card-body">
-      <p class="help-text">
-        EasySpeak runs as separate regional deployments. Choose which one to load data from.<br>
-        This only affects future loadings, so run "Extract EasySpeak data" again after switching.
-      </p>
-      <div id="easyspeakServerRoot"></div>
-    </div>
+  <div class="setup-actions">
+    <button class="btn btn-primary" id="continueBtn" disabled>Continue</button>
   </div>
 
   <script type="module" src="./settings.ts"></script>
