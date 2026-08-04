@@ -621,6 +621,58 @@ body {
   cursor: not-allowed;
 }
 
+/* Mirrors .btn:disabled for the non-button <span> case used by a locked
+   step-footer Next button (see shared/app-shell.ts's renderStepFooter()) —
+   a <span> can't be a real disabled form control. */
+.btn[aria-disabled="true"] {
+  background: var(--disabled-bg);
+  color: white;
+  border-color: transparent;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Step footer — Next/Previous navigation between the five options pages  */
+/* ---------------------------------------------------------------------- */
+
+.step-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-5);
+}
+
+/* Bigger + "raised" versions of .btn-primary/.btn-secondary, scoped to this
+   footer only (not a change to .btn itself, which is used all over the rest
+   of the app) — same colors as everywhere else, just more tactile: a soft
+   drop shadow for volume, a hover lift, and a press-down on click. */
+.step-footer__btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-md);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.step-footer__btn:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
+  transform: translateY(-1px);
+}
+
+.step-footer__btn:active {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transform: translateY(0);
+}
+
+/* No lift/press affordance for the inert disabled span — pointer-events is
+   already none on it, but the shadow alone would still hint "clickable". */
+.step-footer__btn[aria-disabled="true"] {
+  box-shadow: none;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Tables                                                                  */
 /* ---------------------------------------------------------------------- */

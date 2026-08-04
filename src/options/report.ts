@@ -10,8 +10,8 @@ import { escapeHtml, warningIconHtml } from "../shared/dom-utils";
 import { local } from "../shared/storage";
 import { loadResolutionData } from "../shared/resolution-store";
 import { buildLevelSummary, buildReport, reportToRows, toCsv } from "../shared/sync/delta";
-import { renderAppShell } from "../shared/app-shell";
-import { computeStepperInfo } from "../shared/stepper-info";
+import { renderAppShell, renderStepFooter } from "../shared/app-shell";
+import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
 import type { ClubPairReport, LevelSummaryRow, MemberReport, PathReport, ReportResult } from "../shared/types";
 
 const downloadCsvBtn = document.getElementById("downloadCsvBtn") as HTMLButtonElement;
@@ -36,8 +36,10 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 });
 
 async function refresh() {
+  await markStepVisited("report");
   const stepperInfo = await computeStepperInfo();
   document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "report", info: stepperInfo });
+  document.getElementById("stepFooter")!.innerHTML = renderStepFooter("report", stepperInfo);
 
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 

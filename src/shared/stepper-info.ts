@@ -10,14 +10,40 @@ import { EASYSPEAK_SERVERS, getActiveProfile, getEasySpeakServer, getMockMode } 
 import { local } from "./storage";
 import { buildReport, computeMatchSummary, countMembersReadyForNextLevel } from "./sync/delta";
 import { formatDate } from "./sync-status-panel";
-import type { StepperInfo } from "./app-shell";
+import { NAV_ITEMS, type AppShellPage, type StepperInfo } from "./app-shell";
 import type { ReportResult } from "./types";
 
+/** Which steps the current profile has reached at least once — see
+ *  markStepVisited() below. Profile-scoped (shared/storage.ts), so switching
+ *  profiles (or re-entering the always-wiped Demo profile) naturally resets
+ *  this alongside that profile's own data. */
+export async function getVisitedSteps(): Promise<AppShellPage[]> {
+  return (await local.value("visitedSteps")) ?? [];
+}
+
+/** Called by every options page on load, marking the page itself visited —
+ *  this is what unlocks a step for free direct stepper navigation from then
+ *  on (see computeStepperInfo()'s `locked` computation below). Guarded
+ *  against a redundant write: every page re-runs its init() on
+ *  chrome.storage.onChanged, so writing unconditionally would re-trigger
+ *  itself every time. */
+export async function markStepVisited(step: AppShellPage): Promise<void> {
+  const visited = await getVisitedSteps();
+  if (visited.includes(step)) return;
+  await local.set({ visitedSteps: [...visited, step] });
+}
+
 export async function computeStepperInfo(): Promise<StepperInfo> {
-  const [activeProfile, cached] = await Promise.all([
+  const [activeProfile, cached, visited] = await Promise.all([
     getActiveProfile(),
     local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]),
+    getVisitedSteps(),
   ]);
+
+  // Index 0 (settings/Setup) is never locked — it's the entry point, reached
+  // without a prior Next click.
+  const isLocked = (key: AppShellPage): boolean =>
+    NAV_ITEMS.findIndex((item) => item.key === key) > 0 && !visited.includes(key);
 
   const setupInfo = activeProfile === null ? "Select your profile" : await formatSetupInfo();
   const basecampData = cached.basecampData ?? null;
@@ -54,10 +80,27 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
       info: syncDisabled ? undefined : formatOldestSync(cached.basecampScrapedAt, cached.easyspeakScrapedAt),
       disabled: syncDisabled,
       done: hasBothData,
+      locked: isLocked("syncData"),
     },
-    clubReview: { info: clubReviewDisabled ? undefined : reportInfo?.clubs, disabled: clubReviewDisabled, done: clubReviewDone },
-    members: { info: membersDisabled ? undefined : reportInfo?.members, disabled: membersDisabled, done: membersDone, warning: membersPending },
-    report: { info: reportDisabled ? undefined : reportInfo?.nextLevel, disabled: reportDisabled, done: membersDone },
+    clubReview: {
+      info: clubReviewDisabled ? undefined : reportInfo?.clubs,
+      disabled: clubReviewDisabled,
+      done: clubReviewDone,
+      locked: isLocked("clubReview"),
+    },
+    members: {
+      info: membersDisabled ? undefined : reportInfo?.members,
+      disabled: membersDisabled,
+      done: membersDone,
+      warning: membersPending,
+      locked: isLocked("members"),
+    },
+    report: {
+      info: reportDisabled ? undefined : reportInfo?.nextLevel,
+      disabled: reportDisabled,
+      done: membersDone,
+      locked: isLocked("report"),
+    },
   };
 }
 

@@ -21,6 +21,7 @@
 // call site below (`local.get`/`value`/`set`/`remove`) keeps its existing,
 // unqualified key names; only the *real* underlying storage key changes.
 
+import type { AppShellPage } from "./app-shell";
 import type {
   BasecampScrape,
   ClubLookupEntry,
@@ -66,6 +67,11 @@ export interface LocalSchema {
   memberPathOverrides: MemberPathOverride[];
   memberPathExclusions: MemberPathExclusion[];
   memberPathOrphans: MemberPathOrphan[];
+  // Which of the five options-page stepper steps this profile has reached at
+  // least once — see shared/stepper-info.ts's markStepVisited()/getVisitedSteps().
+  // Drives the "locked until reached via Next" gating in shared/app-shell.ts,
+  // separately from this same StepMeta's prerequisite-based `disabled`.
+  visitedSteps: AppShellPage[];
 }
 
 export interface SessionSchema {
@@ -89,6 +95,7 @@ const PROFILE_SCOPED_KEYS = [
   "memberPathOverrides",
   "memberPathExclusions",
   "memberPathOrphans",
+  "visitedSteps",
 ] as const satisfies readonly (keyof LocalSchema)[];
 
 type ProfileScopedKey = (typeof PROFILE_SCOPED_KEYS)[number];

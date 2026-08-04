@@ -15,8 +15,8 @@
 
 import { escapeAttr, escapeHtml } from "../shared/dom-utils";
 import { EASYSPEAK_SERVERS, getActiveProfile, getLastEasySpeakRegion, setActiveProfile } from "../shared/settings-store";
-import { renderAppShell } from "../shared/app-shell";
-import { computeStepperInfo } from "../shared/stepper-info";
+import { renderAppShell, renderStepFooter } from "../shared/app-shell";
+import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
 import type { EasySpeakServerId } from "../shared/types";
 
 // null = no choice made yet (the Setup step's required no-default state).
@@ -27,10 +27,6 @@ type DataSourceChoice = "demo" | "real" | null;
 
 init();
 
-document.getElementById("continueBtn")!.addEventListener("click", () => {
-  window.location.href = "sync-data.html";
-});
-
 // Keeps this tab in sync if the choice is edited from another tab while
 // this one stays open.
 chrome.storage.onChanged.addListener((_changes, area) => {
@@ -38,8 +34,10 @@ chrome.storage.onChanged.addListener((_changes, area) => {
 });
 
 async function init() {
+  await markStepVisited("settings");
   const stepperInfo = await computeStepperInfo();
   document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "settings", info: stepperInfo });
+  document.getElementById("stepFooter")!.innerHTML = renderStepFooter("settings", stepperInfo);
 
   const profile = await getActiveProfile();
   const choice: DataSourceChoice = profile === null ? null : profile === "demo" ? "demo" : "real";
@@ -51,7 +49,6 @@ function render(choice: DataSourceChoice, region: EasySpeakServerId) {
   renderOptionCards(choice);
   renderRegionSection(choice, region);
   renderSummary(choice, region);
-  renderContinueButton(choice);
 }
 
 // ---------------------------------------------------------------------------
@@ -122,11 +119,10 @@ async function onChooseRegion(event: Event) {
   const region = select.value as EasySpeakServerId;
   await setActiveProfile(region);
   renderSummary("real", region);
-  renderContinueButton("real");
 }
 
 // ---------------------------------------------------------------------------
-// Summary + Continue
+// Summary
 // ---------------------------------------------------------------------------
 
 function renderSummary(choice: DataSourceChoice, region: EasySpeakServerId) {
@@ -146,8 +142,4 @@ function renderSummary(choice: DataSourceChoice, region: EasySpeakServerId) {
       ${items.map((item) => `<div class="setup-summary__item">✓ ${escapeHtml(item)}</div>`).join("")}
     </div>
   `;
-}
-
-function renderContinueButton(choice: DataSourceChoice) {
-  (document.getElementById("continueBtn") as HTMLButtonElement).disabled = choice === null;
 }

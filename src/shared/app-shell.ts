@@ -37,12 +37,15 @@ export type AppShellPage = "report" | "members" | "settings" | "syncData" | "clu
 // are relative to an options page's own directory (e.g. "settings.html"),
 // which is meaningless from the popup; the popup resolves navigation itself
 // via shared/pages.ts's PAGES + chrome.tabs.create instead of these hrefs.
-export const NAV_ITEMS: { key: AppShellPage; label: string; href: string }[] = [
+export const NAV_ITEMS: { key: AppShellPage; label: string; href: string; nextCta?: string }[] = [
   { key: "settings", label: "Setup", href: "settings.html" },
   { key: "syncData", label: "Sync Data", href: "sync-data.html" },
   { key: "clubReview", label: "Club Review", href: "club-review.html" },
   { key: "members", label: "Member Review", href: "members.html" },
-  { key: "report", label: "Club Progress", href: "report.html" },
+  // nextCta overrides the generic "Continue to X" label used by
+  // renderStepFooter() below — "View" reads better than "Continue to" for
+  // the destination page itself.
+  { key: "report", label: "Club Progress", href: "report.html", nextCta: "View Club Progress" },
 ];
 
 const GOAL_SUBTITLE =
@@ -62,12 +65,19 @@ const GOAL_SUBTITLE =
  *  Member Review's pending-match count) — its circle shows a warning icon
  *  instead of the step number; takes precedence over `done` (the two are
  *  never true together in practice, since a pending count is what keeps
- *  `done` false in the first place). */
+ *  `done` false in the first place). `locked` is orthogonal to `disabled`:
+ *  it marks a step the current profile has never reached yet (see
+ *  shared/stepper-info.ts's markStepVisited()/getVisitedSteps()) — rendered
+ *  identically to `disabled` (inert, non-navigable), but tracked separately
+ *  because renderStepFooter()'s Next button below must keep reading the
+ *  *un-mixed* `disabled` (prerequisite-only) to stay clickable on a step
+ *  that's `locked` by definition the first time it's reached. */
 export interface StepMeta {
   info?: string;
   disabled?: boolean;
   done?: boolean;
   warning?: boolean;
+  locked?: boolean;
 }
 export type StepperInfo = Partial<Record<AppShellPage, StepMeta>>;
 
@@ -105,9 +115,10 @@ export function renderAppShell({ active, info }: AppShellOptions): string {
         <span class="app-stepper__label">${item.label}</span>
         ${infoText ? `<span class="app-stepper__info">${escapeHtml(infoText)}</span>` : ""}
       `;
-    // The active step always stays a live link even if flagged disabled —
-    // you're already on that page, graying it out here would be confusing.
-    if (meta?.disabled && !isActive) {
+    // The active step always stays a live link even if flagged disabled/
+    // locked — you're already on that page, graying it out here would be
+    // confusing.
+    if ((meta?.disabled || meta?.locked) && !isActive) {
       return `<span class="app-stepper__step disabled" aria-disabled="true">${body}</span>`;
     }
     return `<a href="${item.href}" class="app-stepper__step${isActive ? " active" : ""}"${isActive ? ' aria-current="page"' : ""}>${body}</a>`;
@@ -125,6 +136,39 @@ export function renderAppShell({ active, info }: AppShellOptions): string {
     </header>
     <nav class="app-stepper" aria-label="Primary">${stepsHtml}</nav>
   `;
+}
+
+/**
+ * The Next/Previous navigation footer shared by all five options pages —
+ * renders into a page's own `<div id="stepFooter">` placeholder, right
+ * after that page calls renderAppShell() with the same `info`. Previous
+ * (when it exists) is always a live link — the prior step was necessarily
+ * already visited to get here. Next (when it exists) reads only `disabled`
+ * (never `locked`) off the upcoming step's StepMeta: `locked` is *expected*
+ * to be true for a step reached for the first time via this very button —
+ * see StepMeta's doc comment above.
+ */
+export function renderStepFooter(active: AppShellPage, info?: StepperInfo): string {
+  const index = NAV_ITEMS.findIndex((item) => item.key === active);
+  const prevItem = NAV_ITEMS[index - 1];
+  const nextItem = NAV_ITEMS[index + 1];
+
+  const prevHtml = prevItem
+    ? `<a href="${prevItem.href}" class="btn btn-secondary step-footer__btn">&larr; Back to ${escapeHtml(prevItem.label)}</a>`
+    : "<span></span>"; // flex spacer, keeps Next right-aligned on the first page
+
+  let nextHtml = "";
+  if (nextItem) {
+    const label = nextItem.nextCta ?? `Continue to ${nextItem.label}`;
+    const nextDisabled = !!info?.[nextItem.key]?.disabled;
+    // Arrow mirrors Previous's leading "&larr;" — trailing here since Next
+    // points the opposite direction, both on the outer edge of their button.
+    nextHtml = nextDisabled
+      ? `<span class="btn btn-primary step-footer__btn" aria-disabled="true">${escapeHtml(label)} &rarr;</span>`
+      : `<a href="${nextItem.href}" class="btn btn-primary step-footer__btn">${escapeHtml(label)} &rarr;</a>`;
+  }
+
+  return `<div class="step-footer">${prevHtml}${nextHtml}</div>`;
 }
 
 /**
@@ -150,9 +194,10 @@ export function renderVerticalStepper(info: StepperInfo): string {
           <span class="app-stepper__info">${escapeHtml(infoText)}</span>
         </span>
       `;
-    // No data-page-key on a disabled step, so the popup's delegated click
-    // handler (which only matches "[data-page-key]") simply never fires for it.
-    if (meta?.disabled) {
+    // No data-page-key on a disabled/locked step, so the popup's delegated
+    // click handler (which only matches "[data-page-key]") simply never
+    // fires for it.
+    if (meta?.disabled || meta?.locked) {
       return `<span class="app-stepper__step disabled" aria-disabled="true">${body}</span>`;
     }
     return `<a href="#" class="app-stepper__step" data-page-key="${item.key}">${body}</a>`;
