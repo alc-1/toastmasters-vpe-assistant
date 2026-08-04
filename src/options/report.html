@@ -13,47 +13,37 @@
       font-size: var(--text-xl);
       margin: 0 0 4px;
     }
-    details.member {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-2);
-      padding: var(--space-2) var(--space-3);
-    }
-    details.member summary {
-      cursor: pointer;
-      font-size: var(--text-base);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .member-name {
-      font-weight: 600;
-    }
     .no-active-path {
       font-size: var(--text-xs);
       color: var(--gray-600);
       font-style: italic;
       margin: 4px 0;
     }
-    .path-block {
-      margin: 10px 0;
-    }
-    .path-title {
+    .detail-paths {
       font-size: var(--text-sm);
-      font-weight: 600;
-      margin-bottom: 4px;
+      margin-bottom: 12px;
     }
-    .path-presence {
-      font-weight: 400;
+    .detail-paths-label {
       color: var(--gray-600);
-      text-transform: none;
-      letter-spacing: normal;
+      margin-right: 4px;
     }
     .non-pathway-note {
       font-size: var(--text-sm);
       color: var(--gray-600);
       font-style: italic;
+    }
+    table.summary tr[data-row-key] {
+      cursor: pointer;
+    }
+    table.summary tr.detail-row {
+      background: var(--info-bg);
+    }
+    table.summary tr.detail-row td {
+      border-left: 3px solid var(--tm-silver);
+    }
+    table.levels {
+      background: var(--surface);
+      margin: 16px 0;
     }
     table.levels tr.pending {
       background: var(--warning-bg);
@@ -105,15 +95,15 @@
   <div id="appShell"></div>
   <h1>Club Progress</h1>
   <div class="meta" id="reportMeta"></div>
-  <div id="conflictWarning" aria-live="polite"></div>
-  <div id="kpiRoot" class="kpi-grid"></div>
-  <button id="downloadCsvBtn" class="btn btn-primary">Download CSV</button>
 
   <div id="clubTabs" class="tabs"></div>
+  <div id="conflictWarning" aria-live="polite"></div>
+  <div id="kpiRoot" class="kpi-grid"></div>
 
   <h2 class="section-header section-header--first">Next Level Summary</h2>
   <p class="help-text">
     One row is displayed per member per path. Click a column header to sort (click again to reverse).
+    Click a row to reveal its level-by-level detail.
   </p>
   <p class="help-text">
     "To Next Lvl (Basecamp)"  : Amount of speeches missing to complete the current level.<br>
@@ -121,14 +111,6 @@
     "To Next Lvl (Real)"      : Amount of speeches to do to complete the current level, considering what's unreported at this point in time.
   </p>
   <div id="summaryTableRoot"></div>
-
-  <h2 class="section-header">Member List</h2>
-  <p class="help-text">
-    Members show as unmatched here whenever their match is only a computer-suggested guess rather
-    than an exact name match — confirm suggested matches on the <a href="members.html">Member
-    Review</a> page to have them count here too.
-  </p>
-  <div id="reportRoot"></div>
 
   <div id="stepFooter"></div>
 

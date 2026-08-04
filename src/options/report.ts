@@ -6,26 +6,13 @@
 // result. Kept separate from shared/sync/* so the pure matching/diff logic
 // stays chrome.*-free and independently testable.
 
-import { escapeHtml, warningIconHtml } from "../shared/dom-utils";
+import { escapeAttr, escapeHtml, warningIconHtml } from "../shared/dom-utils";
 import { local } from "../shared/storage";
 import { loadResolutionData } from "../shared/resolution-store";
-import { buildLevelSummary, buildReport, reportToRows, toCsv } from "../shared/sync/delta";
+import { buildLevelSummary, buildReport, isMemberReadyForNextLevel, memberKey, needsAction } from "../shared/sync/delta";
 import { renderAppShell, renderStepFooter } from "../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
-import type { ClubPairReport, LevelSummaryRow, MemberReport, PathReport, ReportResult } from "../shared/types";
-
-const downloadCsvBtn = document.getElementById("downloadCsvBtn") as HTMLButtonElement;
-downloadCsvBtn.disabled = true;
-
-// Set once, at module load, rather than inside refresh() — refresh() can run
-// more than once per page load (see the chrome.storage.onChanged listener
-// below), and re-attaching this listener on every call would stack a new
-// one each time instead of replacing it, since downloadCsvBtn is a
-// module-level element whose innerHTML is never replaced by rendering.
-let currentReport: ReportResult | null = null;
-downloadCsvBtn.addEventListener("click", () => {
-  if (currentReport) downloadCsv(currentReport);
-});
+import type { ClubPairReport, LevelSummaryRow, MemberReport, PathReport } from "../shared/types";
 
 refresh();
 
@@ -44,24 +31,20 @@ async function refresh() {
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 
   if (!cached.basecampData || !cached.easyspeakData) {
-    currentReport = null;
-    downloadCsvBtn.disabled = true;
     document.getElementById("conflictWarning")!.innerHTML = "";
     document.getElementById("kpiRoot")!.innerHTML = "";
     document.getElementById("clubTabs")!.innerHTML = "";
-    document.getElementById("summaryTableRoot")!.innerHTML = "";
-    document.getElementById("reportRoot")!.innerHTML =
+    document.getElementById("summaryTableRoot")!.innerHTML =
       '<p class="empty-state">Both Basecamp and EasySpeak data are needed to build this report. ' +
       "Click the extension's toolbar icon and run both extractions first.</p>";
     return;
   }
 
-  document.getElementById("reportMeta")!.textContent =
-    `Basecamp last extracted: ${formatDate(cached.basecampScrapedAt)} — ` + `EasySpeak last extracted: ${formatDate(cached.easyspeakScrapedAt)}`;
+  document.getElementById("reportMeta")!.textContent = formatReportMeta(cached.basecampScrapedAt, cached.easyspeakScrapedAt);
 
   // Loading persisted resolution decisions here (not just in members.ts) is
-  // required, not optional — otherwise this page's CSV export and Level
-  // Summary would silently diverge from what the Member Review view shows.
+  // required, not optional — otherwise this page's Level Summary would
+  // silently diverge from what the Member Review view shows.
   const resolution = await loadResolutionData();
   const report = buildReport(
     cached.basecampData,
@@ -74,15 +57,9 @@ async function refresh() {
     { ...resolution, allowFuzzyMemberMatches: false }
   );
 
-  currentReport = report;
-  downloadCsvBtn.disabled = false;
-
-  renderConflictWarning(report);
-  renderKpiRow(report);
-
   // Zipped by index: buildLevelSummary(report) produces one group per
   // report.clubPairs entry, in the same order, so a tab can drive both the
-  // summary table and the member-list detail for the same club together.
+  // summary table and the per-club stats line for the same club together.
   const summaryGroups = buildLevelSummary(report);
   const clubSections = report.clubPairs.map((clubPair, index) => ({
     clubKey: summaryGroups[index].clubKey,
@@ -95,108 +72,105 @@ async function refresh() {
 }
 
 // ---------------------------------------------------------------------------
-// Conflict warning banner: flags clubs with no counterpart at all in the
-// other system, and members left unmatched within a matched club pair (an
-// unconfirmed fuzzy guess counts as unmatched here too, since this page
-// excludes those — see the allowFuzzyMemberMatches: false call above).
+// Conflict warning banner: contextualized to whichever club tab is active —
+// flags that club's pair having no counterpart at all in the other system,
+// and/or members left unmatched within it (an unconfirmed fuzzy guess
+// counts as unmatched here too, since this page excludes those — see the
+// allowFuzzyMemberMatches: false call above).
 // ---------------------------------------------------------------------------
 
-function renderConflictWarning(report: ReportResult) {
+function renderConflictWarning(clubPair: ClubPairReport | null) {
   const root = document.getElementById("conflictWarning")!;
-
-  const unmatchedClubCount = report.clubPairs.filter((c) => !c.basecampClubId || !c.easyspeakClubId).length;
-  // An orphan-resolved member (matchConfidence "confirmed" with no real
-  // counterpart) has already been reviewed and dismissed, so it's excluded
-  // here the same way a "both"-presence member is.
-  const unmatchedMemberCount = report.clubPairs.reduce(
-    (sum, c) => sum + c.members.filter((m) => m.presence !== "both" && m.matchConfidence !== "confirmed").length,
-    0
-  );
-
-  if (unmatchedClubCount === 0 && unmatchedMemberCount === 0) {
+  if (!clubPair) {
     root.innerHTML = "";
     return;
   }
 
-  const parts: string[] = [];
-  if (unmatchedClubCount > 0) parts.push(`${unmatchedClubCount} club${unmatchedClubCount === 1 ? "" : "s"}`);
-  if (unmatchedMemberCount > 0) parts.push(`${unmatchedMemberCount} member${unmatchedMemberCount === 1 ? "" : "s"}`);
+  const unmatchedClub = !clubPair.basecampClubId || !clubPair.easyspeakClubId;
+  // An orphan-resolved member (matchConfidence "confirmed" with no real
+  // counterpart) has already been reviewed and dismissed, so it's excluded
+  // here the same way a "both"-presence member is.
+  const unmatchedMemberCount = clubPair.members.filter((m) => m.presence !== "both" && m.matchConfidence !== "confirmed").length;
 
-  const fixLinks = [
-    unmatchedClubCount > 0 ? '<a href="club-review.html">Fix club matches in Club Review</a>' : "",
-    unmatchedMemberCount > 0 ? '<a href="members.html">Fix member matches in Member Review</a>' : "",
-  ].filter(Boolean);
+  if (!unmatchedClub && unmatchedMemberCount === 0) {
+    root.innerHTML = "";
+    return;
+  }
+
+  const messages: string[] = [];
+  if (unmatchedClub) {
+    const missingSide = clubPair.basecampClubId ? "EasySpeak" : "Basecamp";
+    messages.push(`This club has no counterpart in ${missingSide}. <a href="club-review.html">Fix in Club Review</a>`);
+  }
+  if (unmatchedMemberCount > 0) {
+    messages.push(
+      `${unmatchedMemberCount} member${unmatchedMemberCount === 1 ? "" : "s"} without a match between Basecamp and EasySpeak. ` +
+        '<a href="members.html">Fix in Member Review</a>'
+    );
+  }
 
   root.innerHTML = `
     <div class="conflict-warning">
       ${warningIconHtml("Conflicts found")}
-      ${parts.join(" and ")} without a match between Basecamp and EasySpeak.
-      ${fixLinks.join(" · ")}
+      ${messages.join(" · ")}
     </div>
   `;
 }
 
 // ---------------------------------------------------------------------------
-// KPI row: a global (all-clubs) at-a-glance summary, shown above the club
-// tabs so a VPE sees the overall picture before drilling into one club —
-// every figure here is a plain aggregation over the same ReportResult the
-// rest of the page already renders from, not a new calculation.
+// KPI row: contextualized to whichever club tab is active, shown just above
+// "Next Level Summary" — a VPE reviewing one club shouldn't see another
+// club's numbers competing for attention.
 // ---------------------------------------------------------------------------
 
 interface ReportKpis {
   members: number;
   paths: number;
-  needsReview: number;
-  missingMatches: number;
+  readyToLevelUp: number;
 }
 
-function computeKpis(report: ReportResult): ReportKpis {
-  let members = 0;
+function computeKpis(clubPair: ClubPairReport): ReportKpis {
   let paths = 0;
-  let needsReview = 0;
-  let missingMatches = 0;
+  let readyToLevelUp = 0;
 
-  for (const club of report.clubPairs) {
-    members += club.members.length;
-    for (const member of club.members) {
-      paths += member.paths.filter((p) => !p.nonPathway).length;
-      if (member.matchConfidence === "fuzzy") needsReview += 1;
-      // Excludes orphan-resolved members (matchConfidence "confirmed" with no
-      // real counterpart) — a reviewed-and-dismissed member isn't "missing".
-      if (member.presence !== "both" && member.matchConfidence !== "confirmed") missingMatches += 1;
-    }
+  for (const member of clubPair.members) {
+    paths += member.paths.filter((p) => !p.nonPathway).length;
+    if (isMemberReadyForNextLevel(member)) readyToLevelUp += 1;
   }
 
-  return { members, paths, needsReview, missingMatches };
+  return { members: clubPair.members.length, paths, readyToLevelUp };
 }
 
-function renderKpiRow(report: ReportResult) {
+function renderKpiRow(clubPair: ClubPairReport | null) {
   const root = document.getElementById("kpiRoot")!;
-  const kpis = computeKpis(report);
+  if (!clubPair) {
+    root.innerHTML = "";
+    return;
+  }
 
-  const cards: { label: string; value: number; modifier?: "warning" | "danger" }[] = [
+  const kpis = computeKpis(clubPair);
+
+  const cards: { label: string; value: number }[] = [
     { label: "Members", value: kpis.members },
     { label: "Paths", value: kpis.paths },
-    { label: "Needs Review", value: kpis.needsReview, modifier: "warning" },
-    { label: "Missing Matches", value: kpis.missingMatches, modifier: "danger" },
+    { label: "Ready to Level Up", value: kpis.readyToLevelUp },
   ];
 
   root.innerHTML = cards
-    .map((c) => {
-      const valueClass = c.modifier && c.value > 0 ? ` is-${c.modifier}` : "";
-      return `
+    .map(
+      (c) => `
         <div class="kpi-card">
-          <div class="kpi-card__value${valueClass}">${c.value}</div>
+          <div class="kpi-card__value">${c.value}</div>
           <div class="kpi-card__label">${escapeHtml(c.label)}</div>
         </div>
-      `;
-    })
+      `
+    )
     .join("");
 }
 
 // ---------------------------------------------------------------------------
-// Club tabs: each tab drives both the "Next Level Summary" table and the
-// "Member List" detail view for the same club together.
+// Club tabs: each tab drives the per-club stats line and the "Next Level
+// Summary" table for the same club together.
 // ---------------------------------------------------------------------------
 
 interface SummaryColumn {
@@ -226,15 +200,31 @@ let activeClubKey: string | null = null;
 let summaryRows: LevelSummaryRow[] = [];
 let summarySort: { key: keyof LevelSummaryRow; direction: "asc" | "desc" } = { key: "realMissing", direction: "asc" };
 
+// The active club's members, keyed by memberKey() — lets a Next Level
+// Summary row's expanded detail look up its member/path without threading
+// the whole MemberReport/PathReport through every sorted row.
+let activeMembers: Map<string, MemberReport> = new Map();
+
+// Composite `${memberKey}::${pathKey}` key of the currently-expanded row, if
+// any — at most one at a time (see the click handler in renderSummaryTable()
+// below) — cleared whenever the active club changes so switching tabs always
+// starts collapsed (see renderClubTabs()'s tab-button click handler below).
+// The detail <tr> is only ever rendered into the DOM for this one row, not
+// toggled via a "collapsed" class on an always-present sibling — that keeps
+// every other row's position in the tbody stable, which .table tbody
+// tr:nth-child(2n) (shared/styles.css) relies on for zebra striping.
+let expandedRowKey: string | null = null;
+
 function renderClubTabs(sections: ClubSection[]) {
   clubSections = sections;
+  expandedRowKey = null;
   const tabsRoot = document.getElementById("clubTabs")!;
 
   if (sections.length === 0) {
     document.getElementById("conflictWarning")!.innerHTML = "";
+    document.getElementById("kpiRoot")!.innerHTML = "";
     tabsRoot.innerHTML = "";
-    document.getElementById("summaryTableRoot")!.innerHTML = "";
-    document.getElementById("reportRoot")!.innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
+    document.getElementById("summaryTableRoot")!.innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
     return;
   }
 
@@ -243,13 +233,18 @@ function renderClubTabs(sections: ClubSection[]) {
     .map((s) => {
       const unmatched = !s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId;
       const warningIcon = unmatched ? warningIconHtml("No match found between Basecamp and EasySpeak for this club") : "";
-      return `<button class="tab-btn" data-club-key="${s.clubKey}">${warningIcon}${escapeHtml(s.clubName ?? "(unnamed club)")}</button>`;
+      // Only badge a club that actually needs attention — a fully-resolved
+      // club showing a "0" badge would just be visual noise.
+      const missingCount = s.clubPair.members.filter(needsAction).length;
+      const countBadge = missingCount > 0 ? `<span class="tab-count">${missingCount}</span>` : "";
+      return `<button class="tab-btn" data-club-key="${s.clubKey}">${warningIcon}${escapeHtml(s.clubName ?? "(unnamed club)")}${countBadge}</button>`;
     })
     .join("");
 
   tabsRoot.querySelectorAll<HTMLButtonElement>(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       activeClubKey = btn.dataset.clubKey ?? null;
+      expandedRowKey = null;
       updateActiveTab();
       renderActiveClub();
     });
@@ -269,9 +264,20 @@ function updateActiveTab() {
 // clubs shouldn't reset how the VPE has the list sorted.
 function renderActiveClub() {
   const section = clubSections.find((s) => s.clubKey === activeClubKey);
+  const clubPair = section ? section.clubPair : null;
+  activeMembers = new Map((clubPair?.members ?? []).map((m) => [memberKey(m), m]));
+  renderConflictWarning(clubPair);
+  renderKpiRow(clubPair);
   renderSummaryTable(section ? section.summaryRows : []);
-  document.getElementById("reportRoot")!.innerHTML = section ? renderClubDetail(section.clubPair) : "";
 }
+
+// ---------------------------------------------------------------------------
+// Next Level Summary: one row per member+path, each clickable to reveal an
+// inline detail row (member badges + the level-by-level diff table) beneath
+// it — at most one row is expanded at a time; opening another one collapses
+// whichever was previously open, so the page never scrolls into a wall of
+// stacked detail tables.
+// ---------------------------------------------------------------------------
 
 function renderSummaryTable(rows: LevelSummaryRow[]) {
   summaryRows = rows;
@@ -295,6 +301,17 @@ function renderSummaryTable(rows: LevelSummaryRow[]) {
     });
   });
 
+  // Delegated once on the (freshly-created) tbody rather than per-row, so a
+  // full renderSummaryBody() re-render (sort, re-render after toggling)
+  // never needs to re-attach anything.
+  root.querySelector("tbody")!.addEventListener("click", (event) => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>("tr[data-row-key]");
+    if (!row) return;
+    const key = row.dataset.rowKey!;
+    expandedRowKey = expandedRowKey === key ? null : key;
+    renderSummaryBody();
+  });
+
   updateSummaryHeaders();
   renderSummaryBody();
 }
@@ -311,7 +328,20 @@ function updateSummaryHeaders() {
 function renderSummaryBody() {
   const tbody = document.querySelector("table.summary tbody")!;
   const sorted = [...summaryRows].sort((a, b) => compareSummaryRows(a, b, summarySort.key, summarySort.direction));
-  tbody.innerHTML = sorted.map(renderSummaryRow).join("");
+  tbody.innerHTML = sorted
+    .map((row) => {
+      const key = rowKey(row);
+      // The detail <tr> is only emitted for the expanded row — every other
+      // row has no sibling <tr> at all, so .table tbody tr:nth-child(2n)'s
+      // plain odd/even striping (shared/styles.css) lines up with the
+      // visible rows instead of counting hidden detail rows too.
+      return key === expandedRowKey ? renderSummaryRow(row, key) + renderDetailRow(row) : renderSummaryRow(row, key);
+    })
+    .join("");
+}
+
+function rowKey(row: LevelSummaryRow): string {
+  return `${row.memberKey}::${row.pathKey}`;
 }
 
 // Nulls (e.g. "Not in Basecamp"/"Completed" rows with no speech counts to
@@ -328,12 +358,15 @@ function compareSummaryRows(a: LevelSummaryRow, b: LevelSummaryRow, key: keyof L
   return direction === "asc" ? cmp : -cmp;
 }
 
-function renderSummaryRow(row: LevelSummaryRow) {
+function renderSummaryRow(row: LevelSummaryRow, key: string) {
   const muted = row.currentLevelLabel === "Completed" || row.currentLevelLabel === "Not in Basecamp";
+  // Only the exceptions (Basecamp-only / EasySpeak-only) are actionable —
+  // a "both"-presence path renders no badge at all.
+  const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span>`;
   return `
-    <tr class="${muted ? "muted-row" : ""}">
+    <tr class="${muted ? "muted-row" : ""}" data-row-key="${escapeAttr(key)}">
       <td>${escapeHtml(row.memberName)}</td>
-      <td>${escapeHtml(row.pathName)} <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span></td>
+      <td>${escapeHtml(row.pathName)}${pathBadge}</td>
       <td>${escapeHtml(row.currentLevelLabel)}</td>
       <td class="numeric">${row.theoreticalMissing ?? "—"}</td>
       <td class="numeric">${row.unreportedInBasecamp ?? "—"}</td>
@@ -342,108 +375,68 @@ function renderSummaryRow(row: LevelSummaryRow) {
   `;
 }
 
-function downloadCsv(report: ReportResult) {
-  const csv = toCsv(reportToRows(report));
-  // Leading BOM so Excel detects UTF-8 (member/path names carry accents).
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `toastmasters-report-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+function renderDetailRow(row: LevelSummaryRow): string {
+  return `
+    <tr class="detail-row">
+      <td colspan="${SUMMARY_COLUMNS.length}">${renderRowDetail(row)}</td>
+    </tr>
+  `;
 }
 
-function renderClubDetail(clubPair: ClubPairReport) {
-  const { basecampClubName, easyspeakClubName, matchScore, clubMatchForced, members } = clubPair;
+function renderRowDetail(row: LevelSummaryRow): string {
+  const member = activeMembers.get(row.memberKey);
+  if (!member) return "";
+  const path = member.paths.find((p) => p.canonicalKey === row.pathKey);
+  if (!path) return "";
 
-  let matchNote: string;
-  if (basecampClubName && easyspeakClubName) {
-    const scoreText = clubMatchForced ? "pinned in Setup" : `match ${Math.round((matchScore ?? 0) * 100)}%`;
-    matchNote = `${escapeHtml(basecampClubName)} / ${escapeHtml(easyspeakClubName)} — ${scoreText}`;
-  } else if (basecampClubName) {
-    matchNote = `${escapeHtml(basecampClubName)} (no EasySpeak counterpart found)`;
-  } else {
-    matchNote = `${escapeHtml(easyspeakClubName ?? "")} (no Basecamp counterpart found)`;
+  // Presence (Basecamp-only / EasySpeak-only) is already flagged on the
+  // summary row itself (see pathBadge in renderSummaryRow) — no need to
+  // repeat it as a badge here too.
+  const noActivePathNote = member.easyspeakNoActivePath ? '<div class="no-active-path">No active EasySpeak path.</div>' : "";
+  const pathsHtml = renderMemberPathsList(member, path.canonicalKey);
+
+  if (path.nonPathway) {
+    return `${pathsHtml}${noActivePathNote}<div class="non-pathway-note">Non-Pathways activity, not compared.</div>`;
   }
 
-  const both = members.filter((m) => m.presence === "both").length;
-  const fuzzy = members.filter((m) => m.matchConfidence === "fuzzy").length;
-  const bcOnly = members.filter((m) => m.presence === "basecamp-only").length;
-  const esOnly = members.filter((m) => m.presence === "easyspeak-only").length;
-
-  // members[] comes out in match-assignment order (matched pairs first,
-  // then leftovers) — sort alphabetically for a predictable, scannable list.
-  const sortedMembers = [...members].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-
   return `
-    <div class="club-summary">
-      ${matchNote} · ${members.length} member(s) — ${both} in both (${fuzzy} fuzzy match${fuzzy === 1 ? "" : "es"}),
-      ${bcOnly} Basecamp-only, ${esOnly} EasySpeak-only
-    </div>
-    ${sortedMembers.map(renderMember).join("")}
+    ${pathsHtml}
+    ${noActivePathNote}
+    <table class="table levels">
+      <tr>
+        <th>Level</th>
+        <th>EasySpeak (done/needed)</th>
+        <th>Basecamp (completed/total)</th>
+        <th>Approved</th>
+        <th>Missing (ES)</th>
+        <th>Missing (BC)</th>
+        <th>Discrepancy</th>
+        <th>Pending validation</th>
+      </tr>
+      ${path.levels.map(renderLevelRow).join("")}
+      ${renderPathCompletionRow(path.pathCompletion)}
+    </table>
   `;
 }
 
-function renderMember(member: MemberReport) {
-  const presenceBadge = `<span class="badge badge-${member.presence}">${presenceLabel(member.presence)}</span>`;
-  const scoreTitle = member.matchScore != null ? ` title="match score: ${member.matchScore.toFixed(2)}"` : "";
-  const confidenceBadge = member.matchConfidence ? `<span class="badge badge-${member.matchConfidence}"${scoreTitle}>${member.matchConfidence}</span>` : "";
-
-  const noActivePathNote = member.easyspeakNoActivePath ? '<div class="no-active-path">No active EasySpeak path.</div>' : "";
-
-  const pathsHtml = member.paths.map(renderPath).join("");
-
-  return `
-    <details class="member">
-      <summary>
-        <span class="member-name">${escapeHtml(member.name)}</span>
-        ${presenceBadge}
-        ${confidenceBadge}
-      </summary>
-      ${noActivePathNote}
-      ${pathsHtml || '<div class="non-pathway-note">No paths found.</div>'}
-    </details>
-  `;
+// Lists every path this member has, so the level table below is read in the
+// context of everything they're working on — not just the row that was
+// clicked. The path this detail is currently showing is highlighted.
+function renderMemberPathsList(member: MemberReport, activePathKey: string): string {
+  if (member.paths.length === 0) return "";
+  const items = member.paths
+    .map((p) => {
+      const label = escapeHtml(p.displayName);
+      return p.canonicalKey === activePathKey ? `<strong>${label}</strong>` : label;
+    })
+    .join(", ");
+  return `<div class="detail-paths"><span class="detail-paths-label">Paths:</span> ${items}</div>`;
 }
 
 function presenceLabel(presence: string): string {
   if (presence === "both") return "In both";
   if (presence === "basecamp-only") return "Basecamp only";
   return "EasySpeak only";
-}
-
-function renderPath(path: PathReport) {
-  const presenceNote = path.presence === "both" ? "" : ` (${presenceLabel(path.presence)})`;
-
-  if (path.nonPathway) {
-    return `
-      <div class="path-block">
-        <div class="path-title">${escapeHtml(path.displayName)}<span class="path-presence">${presenceNote}</span></div>
-        <div class="non-pathway-note">Non-Pathways activity, not compared.</div>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="path-block">
-      <div class="path-title">${escapeHtml(path.displayName)}<span class="path-presence">${presenceNote}</span></div>
-      <table class="table levels">
-        <tr>
-          <th>Level</th>
-          <th>EasySpeak (done/needed)</th>
-          <th>Basecamp (completed/total)</th>
-          <th>Approved</th>
-          <th>Missing (ES)</th>
-          <th>Missing (BC)</th>
-          <th>Discrepancy</th>
-          <th>Pending validation</th>
-        </tr>
-        ${path.levels.map(renderLevelRow).join("")}
-        ${renderPathCompletionRow(path.pathCompletion)}
-      </table>
-    </div>
-  `;
 }
 
 function renderLevelRow(level: PathReport["levels"][number]) {
@@ -486,6 +479,15 @@ function renderPathCompletionRow(pathCompletion: PathReport["pathCompletion"]) {
   `;
 }
 
-function formatDate(timestamp: number | undefined): string {
-  return timestamp ? new Date(timestamp).toLocaleString("en-US") : "never";
+// Date-only (no time-of-day) — the exact second either extraction ran isn't
+// meaningful to a VPE, just which day the report's data came from.
+function formatReportMeta(basecampScrapedAt: number | undefined, easyspeakScrapedAt: number | undefined): string {
+  if (!basecampScrapedAt || !easyspeakScrapedAt) return "Report generated with incomplete data — both sources need to be extracted first.";
+
+  const basecampDate = new Date(basecampScrapedAt).toLocaleDateString("en-US");
+  const easyspeakDate = new Date(easyspeakScrapedAt).toLocaleDateString("en-US");
+
+  return basecampDate === easyspeakDate
+    ? `Report generated with data extracted from Basecamp & EasySpeak the ${basecampDate}`
+    : `Report generated with data extracted from Basecamp the ${basecampDate} & EasySpeak the ${easyspeakDate}`;
 }

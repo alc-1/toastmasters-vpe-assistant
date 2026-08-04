@@ -4,8 +4,7 @@
 // one entry per person, hands them to shared/sync/conflicts.ts to decide
 // which records pair up, then works out what each pair's differences mean
 // (missing speeches, discrepancies, pending-validation flags, "next level"
-// summaries, CSV export). No chrome.* dependency — same reasoning as
-// conflicts.ts.
+// summaries). No chrome.* dependency — same reasoning as conflicts.ts.
 
 import {
   matchClubs,
@@ -187,6 +186,37 @@ export function computeMatchSummary(report: ReportResult): MatchSummary {
   return { matched, total };
 }
 
+/**
+ * Stable per-member key for correlating a MemberReport across re-renders/
+ * re-sorts (e.g. Member Review's row lookups, Club Progress's Next Level
+ * Summary row-to-detail mapping) — a member always has at least one of the
+ * two ids, so the composite stays unique even for a one-sided (unmatched)
+ * member.
+ */
+export function memberKey(member: { basecampUserId: number | string | null; easyspeakMemberId: number | string | null }): string {
+  return `${member.basecampUserId ?? "x"}::${member.easyspeakMemberId ?? "x"}`;
+}
+
+/**
+ * Tags describing what, if anything, still needs a human decision for this
+ * member — not mutually exclusive (see Member Review's "Path issues"/
+ * "Linked manually" chips, which both read off this same classification).
+ */
+export function classifyMember(member: MemberReport): string[] {
+  const tags: string[] = [];
+  if (member.matchConfidence === "fuzzy") tags.push("suggested");
+  if (member.presence !== "both" && member.matchConfidence !== "confirmed") tags.push("unmatched");
+  if (member.hasOrphanedPaths) tags.push("path-issues");
+  if (member.matchConfidence === "confirmed" || hasPathOverride(member) || hasPathOrphan(member)) tags.push("resolved-manually");
+  return tags;
+}
+
+/** A member with an unresolved suggestion, an unmatched side, or a path issue — the set both Member Review's "To do" filter and Club Progress's per-club tab badge count. */
+export function needsAction(member: MemberReport): boolean {
+  const tags = classifyMember(member);
+  return tags.includes("suggested") || tags.includes("unmatched") || tags.includes("path-issues");
+}
+
 // ---------------------------------------------------------------------------
 // Club pair assembly
 // ---------------------------------------------------------------------------
@@ -265,130 +295,6 @@ function buildClubPairReport(
 }
 
 // ---------------------------------------------------------------------------
-// CSV export: flattens a ReportResult into one row per level (long format),
-// so every fact is independently sortable/filterable in a spreadsheet —
-// the HTML view's collapsible-cards-per-member shape can't do that.
-// ---------------------------------------------------------------------------
-
-const CSV_HEADERS = [
-  "Basecamp Club",
-  "EasySpeak Club",
-  "Club Match %",
-  "Member Name",
-  "Basecamp User Id",
-  "EasySpeak Member Id",
-  "Member Presence",
-  "Match Confidence",
-  "Match Score",
-  "Path",
-  "Path Presence",
-  "Non-Pathway",
-  "Level",
-  "EasySpeak Done",
-  "EasySpeak Needed",
-  "Basecamp Completed",
-  "Basecamp Total",
-  "Basecamp Approved",
-  "Missing (EasySpeak)",
-  "Missing (Basecamp)",
-  "Discrepancy",
-  "Pending Validation",
-  "Notes",
-];
-
-// Placeholder for every column between "Match Score" and "Notes" (Path
-// through Pending Validation) when a row has no path/level data at all.
-const CSV_EMPTY_PATH_FIELDS = new Array(CSV_HEADERS.length - 9 - 1).fill("");
-
-// Placeholder for every column between "Non-Pathway" and "Notes" (Level
-// through Pending Validation) when a path row has no level data (nonPathway).
-const CSV_EMPTY_LEVEL_FIELDS = new Array(CSV_HEADERS.length - 12 - 1).fill("");
-
-export type CsvRow = (string | number)[];
-
-export function reportToRows(report: ReportResult): CsvRow[] {
-  const rows: CsvRow[] = [CSV_HEADERS];
-
-  for (const club of report.clubPairs) {
-    for (const member of club.members) {
-      const memberBase: CsvRow = [
-        club.basecampClubName ?? "",
-        club.easyspeakClubName ?? "",
-        club.matchScore != null ? Math.round(club.matchScore * 100) : "",
-        member.name,
-        member.basecampUserId ?? "",
-        member.easyspeakMemberId ?? "",
-        member.presence,
-        member.matchConfidence ?? "",
-        member.matchScore != null ? Number(member.matchScore.toFixed(2)) : "",
-      ];
-
-      if (member.paths.length === 0) {
-        rows.push([...memberBase, ...CSV_EMPTY_PATH_FIELDS, member.easyspeakNoActivePath ? "No active EasySpeak path" : "No paths found"]);
-        continue;
-      }
-
-      for (const path of member.paths) {
-        const pathBase: CsvRow = [...memberBase, path.displayName, path.presence, path.nonPathway ? "Yes" : "No"];
-
-        if (path.nonPathway) {
-          rows.push([...pathBase, ...CSV_EMPTY_LEVEL_FIELDS, "Non-Pathways activity, not compared"]);
-          continue;
-        }
-
-        for (const level of path.levels) {
-          rows.push([
-            ...pathBase,
-            level.level,
-            level.easyspeak?.done ?? "",
-            level.easyspeak?.needed ?? "",
-            level.basecamp?.completed ?? "",
-            level.basecamp?.total ?? "",
-            level.basecamp ? (level.basecamp.approved ? "Yes" : "No") : "",
-            level.easyspeakMissing ?? "",
-            level.basecampMissing ?? "",
-            level.discrepancy ?? "",
-            level.pendingValidation ? "Yes" : "No",
-            "",
-          ]);
-        }
-
-        if (path.pathCompletion) {
-          rows.push([
-            ...pathBase,
-            "Path Completion",
-            "",
-            "",
-            path.pathCompletion.completed,
-            path.pathCompletion.total,
-            "",
-            "",
-            path.pathCompletion.missing,
-            "",
-            "",
-            "Basecamp-only, no EasySpeak equivalent",
-          ]);
-        }
-      }
-
-      if (member.easyspeakNoActivePath) {
-        rows.push([...memberBase, ...CSV_EMPTY_PATH_FIELDS, "No active EasySpeak path"]);
-      }
-    }
-  }
-
-  return rows;
-}
-
-export function toCsv(rows: CsvRow[]): string {
-  const escapeField = (value: string | number) => {
-    const str = value == null ? "" : String(value);
-    return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
-  };
-  return rows.map((row) => row.map(escapeField).join(",")).join("\r\n");
-}
-
-// ---------------------------------------------------------------------------
 // "Next level" summary: one row per member+path (skipping non-Pathways
 // paths, which have no Basecamp level structure), with the 4 metrics a VPE
 // actually wants to sort/scan by, instead of having to read a full
@@ -429,7 +335,7 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
     };
   }
 
-  const currentLevelLabel = currentLevel === 0 ? "Not started" : `Level ${currentLevel}`;
+  const currentLevelLabel = `Level ${currentLevel}`;
 
   if (currentLevel === 5) {
     // Level 5 approved but Path Completion itself isn't done yet — Path
@@ -475,6 +381,8 @@ export function buildLevelSummary(report: ReportResult): LevelSummaryGroup[] {
       for (const path of member.paths) {
         if (path.nonPathway) continue;
         rows.push({
+          memberKey: memberKey(member),
+          pathKey: path.canonicalKey,
           memberName: member.name,
           memberPresence: member.presence,
           matchConfidence: member.matchConfidence,
@@ -493,19 +401,29 @@ export function buildLevelSummary(report: ReportResult): LevelSummaryGroup[] {
 }
 
 /**
- * Distinct members with at least one Pathways path exactly one level (or
- * Path Completion) away from being reported complete in Basecamp — nothing
- * outstanding once EasySpeak-reported-but-not-yet-approved work is accounted
- * for (realMissing === 0). Backs the popup's vertical-stepper "Club
- * Progress" step: the count a VPE actually wants at a glance, without
+ * A member with at least one Pathways path exactly one level (or Path
+ * Completion) away from being reported complete in Basecamp — nothing
+ * outstanding once EasySpeak-reported-but-not-yet-approved work is
+ * accounted for (realMissing === 0). Exported (not just used internally by
+ * countMembersReadyForNextLevel below) so Club Progress's per-club KPI card
+ * can reuse the exact same definition scoped to one club's members instead
+ * of the whole report.
+ */
+export function isMemberReadyForNextLevel(member: MemberReport): boolean {
+  return member.paths.some((path) => !path.nonPathway && computeLevelSummary(path).realMissing === 0);
+}
+
+/**
+ * Distinct members (across every club) ready for their next level — see
+ * isMemberReadyForNextLevel() above. Backs the popup's vertical-stepper
+ * "Club Progress" step: the count a VPE actually wants at a glance, without
  * opening the full Next Level Summary table.
  */
 export function countMembersReadyForNextLevel(report: ReportResult): number {
   let count = 0;
   for (const club of report.clubPairs) {
     for (const member of club.members) {
-      const ready = member.paths.some((path) => !path.nonPathway && computeLevelSummary(path).realMissing === 0);
-      if (ready) count += 1;
+      if (isMemberReadyForNextLevel(member)) count += 1;
     }
   }
   return count;

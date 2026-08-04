@@ -548,7 +548,7 @@ body {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
   margin-bottom: var(--space-5);
 }
@@ -565,14 +565,6 @@ body {
   font-weight: 700;
   color: var(--gray-900);
   line-height: 1.2;
-}
-
-.kpi-card__value.is-warning {
-  color: var(--warning-text);
-}
-
-.kpi-card__value.is-danger {
-  color: var(--danger);
 }
 
 .kpi-card__label {
@@ -681,6 +673,12 @@ body {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
+  /* Gives odd rows a guaranteed white base so the nth-child(2n) zebra
+     stripe below actually contrasts, even on pages (Member Review, Club
+     Progress) where the table sits directly on the page body — whose
+     background is itself --surface-alt, the same gray as an even row,
+     which otherwise made the striping invisible outside a white .card. */
+  background: var(--surface);
 }
 
 .table th,
@@ -698,7 +696,7 @@ body {
   z-index: 1;
 }
 
-.table tbody tr:nth-child(even) {
+.table tbody tr:nth-child(2n) {
   background: var(--surface-alt);
 }
 

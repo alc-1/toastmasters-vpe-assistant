@@ -169,6 +169,11 @@ export interface LevelSummaryCore {
 }
 
 export interface LevelSummaryRow extends LevelSummaryCore {
+  // Composite keys (see memberKey() / PathReport.canonicalKey in
+  // shared/sync/delta.ts) letting the UI trace a row back to its source
+  // MemberReport/PathReport after the table has been sorted.
+  memberKey: string;
+  pathKey: string;
   memberName: string;
   memberPresence: Presence;
   matchConfidence: MatchConfidence;

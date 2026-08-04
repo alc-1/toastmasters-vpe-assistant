@@ -56,7 +56,7 @@ not the console — check `popup/index.ts`'s status line first when debugging a 
   via `jsdom` against `test-data/easyspeak/profile.html`/`memberchart.html`.
 - `tests/report.test.ts` exercises the matching/diff pipeline split across `shared/sync/conflicts.ts`
   and `shared/sync/delta.ts` (`buildReport`, `matchClubs`, `matchMembers`, `nameScore`,
-  `canonicalizePathName`, `matchPaths`, `hasOrphanedPaths`, `diffLevel`, `toCsv`, etc.) against
+  `canonicalizePathName`, `matchPaths`, `hasOrphanedPaths`, `diffLevel`, `buildLevelSummary`, etc.) against
   `test-data/report/*.sample.json`, plus inline-literal cases for pure functions like
   `normalizeName`/`levenshtein`.
 - `tests/dom-utils.test.ts` covers `shared/dom-utils.ts`'s `escapeHtml`/`escapeAttr`/`warningIconHtml`.
@@ -93,7 +93,7 @@ src/
 │   └── index.ts
 ├── options/                # five independent pages, NOT a merged options_page/dashboard —
 │   │                        # each opened via chrome.tabs.create, exactly like popup does
-│   ├── report.html + report.ts       # read-only comparison/CSV-export view ("Club Progress")
+│   ├── report.html + report.ts       # read-only comparison view ("Club Progress")
 │   ├── members.html + members.ts     # interactive member-matching review workflow ("Member Review")
 │   ├── settings.html + settings.ts   # demo/mock mode + EasySpeak server picker ("Setup")
 │   ├── sync-data.html + sync-data.ts # sync status + Data Extraction card, backed by shared/sync-status-panel.ts ("Sync Data")
@@ -114,7 +114,7 @@ src/
     ├── resolution-store.ts  # the 6 persisted name-resolution keys
     ├── sync/
     │   ├── conflicts.ts      # name/path/member matching + override logic
-    │   └── delta.ts          # buildReport orchestrator, diffing, CSV/summary — imports conflicts.ts
+    │   └── delta.ts          # buildReport orchestrator, diffing, level summary — imports conflicts.ts
     ├── parsers/
     │   └── easyspeak-parser.ts   # pure DOM parsing, imported by content/easyspeak-parser.iife.ts
     └── mock/
@@ -384,7 +384,7 @@ corrects a match, that decision must survive future re-scrapes rather than being
 re-derived (and possibly un-derived) from names again.
 
 - **`shared/sync/conflicts.ts`** — name/path/member matching + override logic, zero `chrome.*`
-  dependency. **`shared/sync/delta.ts`** — the diff/summary/CSV half plus the `buildReport`
+  dependency. **`shared/sync/delta.ts`** — the diff/summary half plus the `buildReport`
   orchestrator, which imports matching functions from `conflicts.ts` (never the reverse — see the
   layering rule at the top of this section). These two files used to be one (`lib/report.js`); the
   split follows the actual call graph, not just a topic split — `matchPaths()` (conflicts.ts) calls
@@ -425,8 +425,9 @@ re-derived (and possibly un-derived) from names again.
     `false` simply drops fuzzy-confidence candidates from `matchMembers`'s candidate pool before
     `greedyAssign` runs — the pair falls through to the *same* leftover-handling code that already
     produces separate `basecamp-only`/`easyspeak-only` entries for anyone unassigned, so no separate
-    "strict" rendering path exists anywhere downstream (CSV export, Level Summary, Member List cards
-    in `options/report.ts` all automatically reflect it for free). A `memberLinks`-confirmed pair
+    "strict" rendering path exists anywhere downstream (the Next Level Summary table and its
+    per-row detail in `options/report.ts` all automatically reflect it for free). A
+    `memberLinks`-confirmed pair
     (even one originally confirmed from a fuzzy suggestion) is unaffected by this flag either way,
     since confirmed links are seeded as `preAssigned` before candidate scoring ever runs.
   - `matchConfidence` on a member row is `"confirmed"|"exact"|"fuzzy"|null` (`MatchConfidence` in
@@ -437,7 +438,7 @@ re-derived (and possibly un-derived) from names again.
     changing matching precedence at all (both sources are just `"confirmed"` for assignment purposes).
     Member rows also carry `basecampName`/`easyspeakName` (the two raw per-source names, even when
     matched — needed for the Members view's side-by-side columns; `name` stays as the pre-existing
-    single display name for the CSV/report view). `hasOrphanedPaths(member)` (in `delta.ts`) — both a
+    single display name for the report view). `hasOrphanedPaths(member)` (in `delta.ts`) — both a
     `basecamp-only` and an `easyspeak-only` non-`nonPathway` path present on the same (necessarily
     `presence: "both"`) member — is the exact definition backing the Members view's "Path issues"
     filter.
@@ -498,21 +499,65 @@ re-derived (and possibly un-derived) from names again.
     entry canonicalization would otherwise produce. This is the "Force unbind" action in the Members
     view, letting the user then re-resolve the pair manually (bind to something else, or leave as
     orphan) instead of it snapping back together on every refresh.
-- **`options/report.html` + `options/report.ts`** — the comparison/CSV-export page, titled "Club
-  Progress" (reached from the popup's "Open Club Progress" button as a full tab, not a popup window —
+- **`options/report.html` + `options/report.ts`** — the comparison page, titled "Club Progress"
+  (reached from the popup's "Open Club Progress" button as a full tab, not a popup window —
   `chrome.tabs.create({url: pageUrl(...)})`). Reads `basecampData`/`easyspeakData` straight from
   storage (no live scraping) plus resolution data via `loadResolutionData()` — loading resolution
-  here is required, not optional, otherwise this page's CSV export and "Next Level Summary" would
-  silently diverge from what the Members view shows for the same data. Renders club tabs, a sortable
-  per-member-path summary table, and per-member `<details>` cards with level-by-level diff tables.
-  `renderConflictWarning(report)` (`#conflictWarning`) shows a banner whenever any club has no
-  counterpart at all in the other system, or any member is left `presence !== "both"` within a
-  matched club pair (an unconfirmed fuzzy guess counts as unmatched here too, per
-  `allowFuzzyMemberMatches: false` above) — with links to Club Review (club fixes) and Member Review
-  (member fixes). `renderClubTabs()` additionally prefixes a warning-sign icon (`warningIconHtml()`,
-  `shared/dom-utils.ts` — shared with `options/members.ts`, see below; each page defines its own
-  `.warning-icon`/`.conflict-warning` CSS) onto any club tab whose pair has no counterpart on the
-  other side.
+  here is required, not optional, otherwise this page's "Next Level Summary" would silently diverge
+  from what the Members view shows for the same data. `#reportMeta` (`formatReportMeta()`) is a
+  single literal sentence rather than two raw timestamps — date-only (no time-of-day, which isn't
+  meaningful to a VPE): `"Report generated with data extracted from Basecamp & EasySpeak the
+  M/D/YYYY"` when both sources were extracted the same day, or `"...Basecamp the M/D/YYYY &
+  EasySpeak the M/D/YYYY"` when they weren't. Renders club tabs, then — all of it scoped to
+  whichever club tab is active, not global — a conflict warning banner, a KPI row, and a single
+  sortable per-member-path "Next Level Summary" table with expandable per-row detail; there is no
+  separate member list/CSV export anymore (see below), and no standalone club-stats line either —
+  the per-club member breakdown it used to spell out in prose is redundant with the KPI row's
+  Members card and the table itself.
+
+  Both club-scoped blocks below are re-rendered by `renderActiveClub()` on every tab switch, in DOM
+  order: `renderConflictWarning(clubPair)` (`#conflictWarning`) — a banner (only rendered when
+  there's something to flag) noting the active club pair has no counterpart at all in the other
+  system, and/or naming how many of its members are left `presence !== "both"` (an unconfirmed
+  fuzzy guess counts as unmatched here too, per `allowFuzzyMemberMatches: false` above), with links
+  to Club Review/Member Review respectively; `renderKpiRow(clubPair)` (`#kpiRoot`) — exactly 3
+  cards for the active club only: Members, Paths, and Ready to Level Up
+  (`isMemberReadyForNextLevel()`, `shared/sync/delta.ts` — also the building block
+  `countMembersReadyForNextLevel()` reduces over for its own *global* count, still used as-is by
+  the popup's stepper info; the per-club KPI card and the popup's stepper number are deliberately
+  different scopes of the same per-member predicate). Both are positioned directly above the "Next
+  Level Summary" heading — deliberately club-scoped rather than global, so reviewing one club's tab
+  never shows another club's numbers. `renderClubTabs()` separately prefixes a warning-sign icon
+  (`warningIconHtml()`, `shared/dom-utils.ts` — shared with
+  `options/members.ts`, see below; each page defines its own `.warning-icon`/`.conflict-warning`
+  CSS) onto any club tab whose pair has no counterpart on the other side, and appends a
+  `.tab-count` badge (same convention as `options/members.ts`'s own tab badges) showing that club's
+  `needsAction()` count (`shared/sync/delta.ts` — fuzzy suggestion, unmatched, or a path issue),
+  shown only when > 0 — this tab-level badge/icon is a fast at-a-glance signal across *all* clubs,
+  complementary to (not replaced by) the active club's own detailed banner. Neither the tab badge
+  nor any presence badge in the table/detail renders for `presence === "both"` — only the
+  Basecamp-only/EasySpeak-only exceptions are shown, since those are the only ones actionable.
+
+  "Next Level Summary" (`renderSummaryTable()`/`renderSummaryBody()`) is the page's only
+  member-facing table — the old separate "Member List" of per-member `<details>` cards is gone,
+  folded into this table as expandable detail rows instead. Each row carries a
+  `` `${memberKey}::${pathKey}` `` composite key (`data-row-key`, built from `memberKey()` and
+  `PathReport.canonicalKey` — both from `shared/sync/delta.ts`/`shared/types.ts`'s
+  `LevelSummaryRow.memberKey`/`.pathKey`, added specifically so a row survives being re-sorted
+  without losing its link back to the source `MemberReport`/`PathReport`) and is followed by an
+  always-rendered `<tr class="detail-row">` sibling, hidden via a `.collapsed` class exactly like
+  `options/members.ts`'s own path-review detail rows. A single delegated `click` listener on
+  `tbody` (attached once, in `renderSummaryTable()`) resolves the clicked row via
+  `closest("tr[data-row-key]")`, toggles its key in the module-level `expandedRowKeys: Set<string>`,
+  and flips the sibling's `.collapsed` class directly — no full re-render needed for the toggle
+  itself. Several rows can stay expanded at once. `expandedRowKeys` is cleared whenever the active
+  club changes (both on a tab click and on a full `renderClubTabs()` rebuild), so switching clubs
+  always starts collapsed. `renderRowDetail()` looks the row's member up in a module-level
+  `activeMembers: Map<string, MemberReport>` (rebuilt in `renderActiveClub()` from the active
+  club's `members[]`, keyed by `memberKey()`), finds the specific `PathReport` by `canonicalKey`,
+  and renders the member's presence/confidence badges plus the same level-by-level diff table
+  (`renderLevelRow()`/`renderPathCompletionRow()`, unchanged) the old member cards used to show —
+  reused, not reimplemented.
 - **`options/members.html` + `options/members.ts`** — the primary member-matching review workflow,
   titled "Member Review" (reached from the popup's "Member Review" button, and cross-linked with
   Club Review/Club Progress). Same storage-reads-only pattern as `report.ts`.
@@ -528,7 +573,10 @@ re-derived (and possibly un-derived) from names again.
   default view and means Suggested ∪ Unmatched ∪ Path issues) and a fixed sort (action-needed rows
   first, alphabetical by **Basecamp name** — `sortName()`, falling back to the EasySpeak name only
   when a member has no Basecamp counterpart — within each group, even inside "All").
-  `classifyMember()` (`members.ts`) tags are **not mutually exclusive**: a member can carry more than
+  `classifyMember()` (`shared/sync/delta.ts` — exported from there, alongside `memberKey()` and
+  `needsAction()`, specifically so `options/report.ts`'s club-tab badges and this page's own tab
+  badges/filter chips agree on what "needs attention" means for the same club) tags are **not
+  mutually exclusive**: a member can carry more than
   one at once (e.g. a manually-confirmed link that still has an unresolved path issue shows under
   both "Path issues" and "Linked manually", so each chip stays an accurate view of everything that
   needs — or already got — a fix, rather than the two being an either/or classification).

@@ -27,7 +27,7 @@ import {
   unmarkMemberOrphan,
   unmarkPathOrphan,
 } from "../shared/resolution-store";
-import { buildReport, hasPathOrphan, hasPathOverride } from "../shared/sync/delta";
+import { buildReport, classifyMember, memberKey, needsAction } from "../shared/sync/delta";
 import { renderAppShell, renderStepFooter } from "../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
 import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport } from "../shared/types";
@@ -212,25 +212,6 @@ function renderFilterChips(members: MemberReport[]) {
 // fix). There's no tag at all for a plain automatic match with nothing to
 // flag; "All" is how you see those.
 //
-// A one-sided member marked as an orphan (matchConfidence === "confirmed"
-// with no real counterpart — see markMemberOrphan()) is deliberately
-// excluded from "unmatched" here: it's been reviewed and resolved, not left
-// outstanding, which is what lets needsAction() below (and everything built
-// on it — the "To do" count, club-tab badges) actually reach zero.
-function classifyMember(member: MemberReport): string[] {
-  const tags: string[] = [];
-  if (member.matchConfidence === "fuzzy") tags.push("suggested");
-  if (member.presence !== "both" && member.matchConfidence !== "confirmed") tags.push("unmatched");
-  if (member.hasOrphanedPaths) tags.push("path-issues");
-  if (member.matchConfidence === "confirmed" || hasPathOverride(member) || hasPathOrphan(member)) tags.push("resolved-manually");
-  return tags;
-}
-
-function needsAction(member: MemberReport): boolean {
-  const tags = classifyMember(member);
-  return tags.includes("suggested") || tags.includes("unmatched") || tags.includes("path-issues");
-}
-
 function matchesFilter(member: MemberReport, filterKey: string): boolean {
   if (filterKey === "all") return true;
   if (filterKey === "todo") return needsAction(member);
@@ -264,10 +245,6 @@ function compareMembers(a: MemberReport, b: MemberReport): number {
   const bRank = sortRank(b);
   if (aRank !== bRank) return aRank - bRank;
   return sortName(b).localeCompare(sortName(a), undefined, { sensitivity: "base" });
-}
-
-function memberKey(member: MemberReport): string {
-  return `${member.basecampUserId ?? "x"}::${member.easyspeakMemberId ?? "x"}`;
 }
 
 function findMemberByKey(key: string): MemberReport | null {
@@ -409,9 +386,15 @@ function renderMemberRows(member: MemberReport, pools: { easyspeakOnly: Candidat
 
   if (!hasReviewablePaths(member)) return mainRow;
 
-  const expanded = expandedMemberKeys.has(key);
+  // Only emit the detail <tr> when actually expanded (renderActiveClub()
+  // does a full re-render on every toggle, see onTogglePaths()) — an
+  // always-present-but-hidden sibling row would throw off .table tbody
+  // tr:nth-child(2n)'s zebra striping (shared/styles.css) for every row
+  // after it.
+  if (!expandedMemberKeys.has(key)) return mainRow;
+
   const detailRow = `
-    <tr class="detail-row${expanded ? "" : " collapsed"}">
+    <tr class="detail-row">
       <td colspan="5">${renderPathBindDetail(member)}</td>
     </tr>
   `;

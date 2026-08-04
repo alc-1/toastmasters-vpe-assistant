@@ -9,7 +9,6 @@ import { loadResolutionData } from "./resolution-store";
 import { EASYSPEAK_SERVERS, getActiveProfile, getEasySpeakServer, getMockMode } from "./settings-store";
 import { local } from "./storage";
 import { buildReport, computeMatchSummary, countMembersReadyForNextLevel } from "./sync/delta";
-import { formatDate } from "./sync-status-panel";
 import { NAV_ITEMS, type AppShellPage, type StepperInfo } from "./app-shell";
 import type { ReportResult } from "./types";
 
@@ -113,7 +112,21 @@ async function formatSetupInfo(): Promise<string> {
 
 function formatOldestSync(basecampScrapedAt?: number, easyspeakScrapedAt?: number): string {
   if (typeof basecampScrapedAt !== "number" || typeof easyspeakScrapedAt !== "number") return "Start the data retrieval";
-  return `Oldest: ${formatDate(Math.min(basecampScrapedAt, easyspeakScrapedAt))}`;
+  return `Updated ${formatRelativeTime(Math.min(basecampScrapedAt, easyspeakScrapedAt))}`;
+}
+
+// Granularity intentionally caps at weeks — a sync this stale is a "go
+// re-extract" situation regardless of whether it's 3 weeks or 3 months old.
+function formatRelativeTime(timestamp: number): string {
+  const diffMinutes = Math.floor((Date.now() - timestamp) / 60_000);
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  const diffWeeks = Math.floor(diffDays / 7);
+  return `${diffWeeks} week${diffWeeks === 1 ? "" : "s"} ago`;
 }
 
 interface ReportStepInfo {

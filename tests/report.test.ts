@@ -21,8 +21,6 @@ import {
   hasPathOrphan,
   hasPathOverride,
   isMemberResolved,
-  reportToRows,
-  toCsv,
 } from "../src/shared/sync/delta";
 import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport, PathReport } from "../src/shared/types";
 
@@ -164,11 +162,6 @@ describe("matchPaths", () => {
   });
 });
 
-describe("toCsv", () => {
-  it("quotes fields containing commas/quotes and doubles embedded quotes", () => {
-    expect(toCsv([["a", "b,c", 'd"e']])).toBe('a,"b,c","d""e"');
-  });
-});
 
 // ---------------------------------------------------------------------------
 // matchClubs / matchMembers with persisted-resolution overrides
@@ -392,13 +385,6 @@ describe("buildReport (synthetic fixtures)", () => {
     expect(hasPathOrphan(helena)).toBe(true);
     const orphanPath = helena.paths.find((p: PathReport) => p.orphaned)!;
     expect(orphanPath.presence).toBe("basecamp-only");
-  });
-
-  it("round-trips through reportToRows/toCsv without throwing, header row intact", () => {
-    const rows = reportToRows(report);
-    expect(rows[0][0]).toBe("Basecamp Club");
-    const csv = toCsv(rows);
-    expect(csv.split("\r\n")).toHaveLength(rows.length);
   });
 
   it("computes a level summary reflecting Basecamp-approved progress", () => {
