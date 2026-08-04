@@ -283,6 +283,15 @@ export interface EasySpeakServer {
   region: string;
 }
 
+/**
+ * Which "workspace" is active — Demo data, or one of the three EasySpeak
+ * regional deployments (see shared/settings-store.ts's EASYSPEAK_SERVERS).
+ * Selects which profile-scoped bucket shared/storage.ts's `local` reads/
+ * writes (see PROFILE_SCOPED_KEYS there) — switching this never erases
+ * another profile's data.
+ */
+export type ProfileId = "demo" | EasySpeakServerId;
+
 export type SourceKey = "basecamp" | "easyspeak";
 export type SourceStatus = "idle" | "loading" | "success" | "error";
 export type IconStatuses = Record<SourceKey, SourceStatus>;

@@ -16,7 +16,7 @@
 // EasySpeak flow can steal focus and tear the popup down.
 
 import { escapeHtml } from "./dom-utils";
-import { local, type LocalSchema } from "./storage";
+import { local } from "./storage";
 import { sendMessage } from "./send-message";
 import { loadResolutionData } from "./resolution-store";
 import { buildReport, computeMatchSummary, type MatchSummary } from "./sync/delta";
@@ -82,14 +82,20 @@ export function renderScrapeResult(els: SourceEls, data: BasecampScrape | EasySp
 interface ScrapeClickOptions<T> {
   els: SourceEls;
   message: ScrapeRequest;
-  dataKey: "basecampData" | "easyspeakData";
-  scrapedAtKey: "basecampScrapedAt" | "easyspeakScrapedAt";
   loadingLabel: string;
   render: (els: SourceEls, data: T) => void;
   onDone?: () => void | Promise<void>;
 }
 
-export async function onScrapeClick<T>({ els, message, dataKey, scrapedAtKey, loadingLabel, render, onDone }: ScrapeClickOptions<T>) {
+// Deliberately does NOT write basecampData/easyspeakData/*ScrapedAt itself —
+// background/api/basecamp.ts and background/api/easyspeak.ts already persist
+// the result (via local.setForProfile(), captured against the profile the
+// scrape was actually run for) before responding. A second, ambient
+// local.set() here would be not just redundant but actively racy: if the
+// user switches the active profile in another tab while a scrape is still
+// running, an ambient write at response time would land in whichever
+// profile is active *now*, not the one the scrape ran for.
+export async function onScrapeClick<T>({ els, message, loadingLabel, render, onDone }: ScrapeClickOptions<T>) {
   setButtonLoading(els, true, loadingLabel);
   // Deliberately not touching els.status/els.summary/els.rawData here —
   // keep showing the last extraction time and data until fresh data
@@ -108,10 +114,7 @@ export async function onScrapeClick<T>({ els, message, dataKey, scrapedAtKey, lo
       return;
     }
 
-    const scrapedAt = Date.now();
-    await local.set({ [dataKey]: response.data, [scrapedAtKey]: scrapedAt } as Partial<LocalSchema>);
-
-    setStatus(els, `Extraction complete: ${formatDate(scrapedAt)}`);
+    setStatus(els, `Extraction complete: ${formatDate(Date.now())}`);
     render(els, response.data as T);
 
     if (onDone) await onDone();

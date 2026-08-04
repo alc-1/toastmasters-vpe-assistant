@@ -1,8 +1,9 @@
 // src/shared/mock/mockData.ts
 //
-// Fixture data for mock/demo mode (shared/settings-store.ts's
-// getMockMode()/setMockMode(), toggled from the Settings page). When mock
-// mode is on, api/basecamp.ts and api/easyspeak.ts return the fixtures below
+// Fixture data for mock/demo mode (shared/settings-store.ts's getMockMode(),
+// true when the active profile is "demo" — see setActiveProfile(), called
+// from the Setup page). When mock mode is on, api/basecamp.ts and
+// api/easyspeak.ts return the fixtures below
 // instead of contacting the real network/tab-navigation flows — useful both
 // as a Chrome Web Store review workaround (a reviewer can't log into either
 // system) and as an onboarding demo. Everything downstream (popup, the

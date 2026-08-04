@@ -13,12 +13,14 @@
 // itself auto-closes the tab a few seconds later (cancellable) — see
 // status/countdown.ts, shared with EasySpeak's equivalent confirmation page.
 //
-// Mock mode (shared/settings-store.ts's getMockMode()) is checked first,
-// before any of the above — see the top of scrapeAllClubs().
+// The active profile (shared/settings-store.ts's resolveActiveProfile()) is
+// captured first, before any of the above — see the top of scrapeAllClubs().
+// A "demo" profile short-circuits into mock data; any other profile writes
+// its result into that same profile's storage bucket (shared/storage.ts).
 
 import { local } from "../../shared/storage";
 import { pageUrl } from "../../shared/pages";
-import { getMockMode } from "../../shared/settings-store";
+import { resolveActiveProfile } from "../../shared/settings-store";
 import { MOCK_BASECAMP_DATA } from "../../shared/mock/mockData";
 import type { BasecampMember, BasecampScrape } from "../../shared/types";
 
@@ -50,10 +52,16 @@ interface BasecampProgressPage {
  * for each club.
  */
 export async function scrapeAllClubs(): Promise<BasecampScrape> {
-  if (await getMockMode()) {
+  // Captured once, up front: writes below use this exact profile via
+  // local.setForProfile() rather than re-resolving the ambient active one,
+  // so a profile switch in another tab mid-scrape can't redirect this
+  // scrape's result into the wrong profile's bucket.
+  const profileId = await resolveActiveProfile();
+
+  if (profileId === "demo") {
     // Mirrors the real path's storage write below, so popup/index.ts and
     // every options page behave identically regardless of data origin.
-    await local.set({ basecampData: MOCK_BASECAMP_DATA, basecampScrapedAt: Date.now() });
+    await local.setForProfile(profileId, { basecampData: MOCK_BASECAMP_DATA, basecampScrapedAt: Date.now() });
     return MOCK_BASECAMP_DATA;
   }
 
@@ -82,7 +90,7 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
   // mid-scrape), the result would otherwise be lost even though the scrape
   // itself succeeded. popup/index.ts's init() reads from storage on open, so
   // this is picked up regardless of whether the popup survives.
-  await local.set({ basecampData: result, basecampScrapedAt: Date.now() });
+  await local.setForProfile(profileId, { basecampData: result, basecampScrapedAt: Date.now() });
 
   return result;
 }

@@ -1,8 +1,9 @@
 // src/background/api/easyspeak.ts
 //
 // EasySpeak scraping logic, against whichever regional server is configured
-// via shared/settings-store.ts's getEasySpeakServer() (tmclub.eu by default
-// — see EASYSPEAK_SERVERS there for the other two). Unlike Basecamp,
+// via the active profile (shared/settings-store.ts's resolveActiveProfile();
+// tmclub.eu by default — see EASYSPEAK_SERVERS there for the other two).
+// Unlike Basecamp,
 // EasySpeak has no JSON API AND sits behind Cloudflare, which blocks
 // programmatic fetch()/XHR requests outright (Cloudflare distinguishes a
 // real page navigation from a fetch() via the Sec-Fetch-Mode/Sec-Fetch-Dest
@@ -27,13 +28,17 @@
 // popup/index.ts's init() already reads from storage on open and will pick
 // it up next time it's opened.
 //
-// Mock mode (shared/settings-store.ts's getMockMode()) is checked first,
-// before ensureEasySpeakTab() — see the top of scrapeAllEasySpeakClubs().
-// No tab is ever created/focused while mock mode is on.
+// The active profile (shared/settings-store.ts's resolveActiveProfile()) is
+// captured first, before ensureEasySpeakTab() — see the top of
+// scrapeAllEasySpeakClubs(). A "demo" profile short-circuits into mock data
+// and no tab is ever created/focused; any other profile *is* the EasySpeak
+// server id to scrape, and the result is written into that same profile's
+// storage bucket (shared/storage.ts) regardless of whether the user switches
+// the active profile elsewhere while this (multi-minute) scrape is running.
 
 import { local } from "../../shared/storage";
 import { pageUrl } from "../../shared/pages";
-import { getEasySpeakServer, getMockMode } from "../../shared/settings-store";
+import { resolveActiveProfile } from "../../shared/settings-store";
 import { MOCK_EASYSPEAK_DATA } from "../../shared/mock/mockData";
 import type { EasySpeakScrape, MemberchartParseResult, ProfileParseResult } from "../../shared/types";
 
@@ -61,15 +66,20 @@ const LOGIN_TIMEOUT_MESSAGE = "EasySpeak requires you to log in. Switch to the E
  * navigates through and parses each such club's Pathways member chart.
  */
 export async function scrapeAllEasySpeakClubs(): Promise<EasySpeakScrape> {
-  if (await getMockMode()) {
+  // Captured once, up front: writes below use this exact profile via
+  // local.setForProfile() rather than re-resolving the ambient active one —
+  // see the file header comment for why.
+  const profileId = await resolveActiveProfile();
+
+  if (profileId === "demo") {
     // Mirrors the real path's storage write below, so popup/index.ts and
     // every options page behave identically regardless of data origin.
-    await local.set({ easyspeakData: MOCK_EASYSPEAK_DATA, easyspeakScrapedAt: Date.now() });
+    await local.setForProfile(profileId, { easyspeakData: MOCK_EASYSPEAK_DATA, easyspeakScrapedAt: Date.now() });
     return MOCK_EASYSPEAK_DATA;
   }
 
-  const server = await getEasySpeakServer();
-  const root = `https://${server}`;
+  // Not "demo", so the profile id *is* the EasySpeak server id.
+  const root = `https://${profileId}`;
   const tabId = await ensureEasySpeakTab();
 
   const { clubs } = (await loadAndParse(tabId, `${root}/profile.php?mode=editprofile#tab_ti`, "parseProfileLinks")) as ProfileParseResult;
@@ -90,7 +100,7 @@ export async function scrapeAllEasySpeakClubs(): Promise<EasySpeakScrape> {
   // Persist directly — see the note at the top of this file for why this
   // can't be left to the popup to do. Written before the confirmation-page
   // redirect below so the data is saved even if that navigation fails.
-  await local.set({ easyspeakData: result, easyspeakScrapedAt: Date.now() });
+  await local.setForProfile(profileId, { easyspeakData: result, easyspeakScrapedAt: Date.now() });
 
   // On any error above (Cloudflare stuck, login timeout, parse failure),
   // this line is never reached, and the tab is left open as-is so the user

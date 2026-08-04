@@ -3,9 +3,10 @@
 // DOM glue for the Setup page: a two-option "how do you want to prepare your
 // club progress report" step (demo data vs. real club data), with the
 // EasySpeak region picker revealed only once "real data" is chosen. Backed
-// by the same shared/settings-store.ts mockMode/easyspeakServer values as
-// before — this file only changes presentation/flow, not the underlying
-// settings or extraction logic.
+// by shared/settings-store.ts's activeProfile (Demo, or one of the three
+// EasySpeak regions) — picking a card/region here is exactly "switch
+// profile," and each profile keeps its own extracted data and review
+// decisions (see shared/storage.ts) rather than one overwriting another.
 //
 // Unlike the old explicit-Save-button version, every choice here writes
 // through immediately (selecting a card, or the region dropdown once
@@ -13,16 +14,15 @@
 // moves on to the next step once a choice has been made.
 
 import { escapeAttr, escapeHtml } from "../shared/dom-utils";
-import { EASYSPEAK_SERVERS, getEasySpeakServer, setEasySpeakServer, setMockMode } from "../shared/settings-store";
-import { local } from "../shared/storage";
+import { EASYSPEAK_SERVERS, getActiveProfile, getLastEasySpeakRegion, setActiveProfile } from "../shared/settings-store";
 import { renderAppShell } from "../shared/app-shell";
 import { computeStepperInfo } from "../shared/stepper-info";
 import type { EasySpeakServerId } from "../shared/types";
 
 // null = no choice made yet (the Setup step's required no-default state).
-// Distinguished from mockMode's own `false` default by reading the raw
-// stored value below instead of settings-store.ts's getMockMode(), which
-// collapses "never set" and "explicitly off" into the same `false`.
+// Distinguished from getActiveProfile()'s `"demo"`/region results by reading
+// its raw `null` case directly rather than resolveActiveProfile()'s
+// defaulted result, which collapses "never chosen" into a region.
 type DataSourceChoice = "demo" | "real" | null;
 
 init();
@@ -41,16 +41,10 @@ async function init() {
   const stepperInfo = await computeStepperInfo();
   document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "settings", info: stepperInfo });
 
-  const choice = await readChoice();
-  const region = await getEasySpeakServer();
+  const profile = await getActiveProfile();
+  const choice: DataSourceChoice = profile === null ? null : profile === "demo" ? "demo" : "real";
+  const region = profile && profile !== "demo" ? profile : await getLastEasySpeakRegion();
   render(choice, region);
-}
-
-async function readChoice(): Promise<DataSourceChoice> {
-  const rawMockMode = await local.value("mockMode");
-  if (rawMockMode === true) return "demo";
-  if (rawMockMode === false) return "real";
-  return null;
 }
 
 function render(choice: DataSourceChoice, region: EasySpeakServerId) {
@@ -90,8 +84,8 @@ function renderOptionCards(choice: DataSourceChoice) {
 }
 
 async function onChooseDataSource(choice: "demo" | "real") {
-  await setMockMode(choice === "demo");
-  const region = await getEasySpeakServer();
+  const region = await getLastEasySpeakRegion();
+  await setActiveProfile(choice === "demo" ? "demo" : region);
   render(choice, region);
 }
 
@@ -126,7 +120,7 @@ function renderRegionSection(choice: DataSourceChoice, region: EasySpeakServerId
 async function onChooseRegion(event: Event) {
   const select = event.target as HTMLSelectElement;
   const region = select.value as EasySpeakServerId;
-  await setEasySpeakServer(region);
+  await setActiveProfile(region);
   renderSummary("real", region);
   renderContinueButton("real");
 }

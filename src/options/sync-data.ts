@@ -36,8 +36,6 @@ basecampEls.btn.addEventListener("click", () =>
   onScrapeClick<BasecampScrape>({
     els: basecampEls,
     message: { type: "SCRAPE_BASECAMP" },
-    dataKey: "basecampData",
-    scrapedAtKey: "basecampScrapedAt",
     loadingLabel: "Basecamp data loading...",
     render: renderScrapeResult,
     onDone: async () => {
@@ -50,8 +48,6 @@ easyspeakEls.btn.addEventListener("click", () =>
   onScrapeClick<EasySpeakScrape>({
     els: easyspeakEls,
     message: { type: "SCRAPE_EASYSPEAK" },
-    dataKey: "easyspeakData",
-    scrapedAtKey: "easyspeakScrapedAt",
     loadingLabel: "EasySpeak data loading...",
     render: renderScrapeResult,
     onDone: async () => {
