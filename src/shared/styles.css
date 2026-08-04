@@ -551,9 +551,9 @@ body {
 }
 
 .region-card input[type="radio"] {
-  position: absolute;
-  opacity: 0;
   pointer-events: none;
+  grid-column: 1;
+  justify-self: start;
 }
 
 .region-card__image {
@@ -564,11 +564,28 @@ body {
 }
 
 .region-card__label {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   padding: var(--space-2) var(--space-3);
+  text-align: center;
+}
+
+.region-card__text {
+  display: flex;
+  flex-direction: column;
+}
+
+.region-card__region {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--gray-900);
-  text-align: center;
+}
+
+.region-card__url {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--gray-600);
 }
 
 .setup-summary {

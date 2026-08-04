@@ -106,9 +106,14 @@ function renderRegionSection(choice: DataSourceChoice, region: EasySpeakServerId
   const cards = EASYSPEAK_SERVERS.map(
     (s) => `
       <label class="region-card${s.id === region ? " selected" : ""}">
-        <input type="radio" name="easyspeakRegion" value="${escapeAttr(s.id)}"${s.id === region ? " checked" : ""}>
         <img class="region-card__image" src="${escapeAttr(REGION_IMAGES[s.id])}" alt="" />
-        <span class="region-card__label">${escapeHtml(s.label)}</span>
+        <span class="region-card__label">
+          <input type="radio" name="easyspeakRegion" value="${escapeAttr(s.id)}"${s.id === region ? " checked" : ""}>
+          <span class="region-card__text">
+            <span class="region-card__region">${escapeHtml(s.region)}</span>
+            <span class="region-card__url">${escapeHtml(s.id)}</span>
+          </span>
+        </span>
       </label>
     `
   ).join("");
