@@ -522,6 +522,55 @@ body {
   color: var(--gray-600);
 }
 
+.region-cards {
+  display: flex;
+  justify-content: space-evenly;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.region-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 180px;
+  max-width: 220px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.region-card:hover {
+  border-color: var(--primary);
+}
+
+.region-card.selected {
+  border-color: var(--primary);
+  background: var(--info-bg);
+}
+
+.region-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.region-card__image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+.region-card__label {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--gray-900);
+  text-align: center;
+}
+
 .setup-summary {
   background: var(--success-bg);
   border: 1px solid #b7dfc0;

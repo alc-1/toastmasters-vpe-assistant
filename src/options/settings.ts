@@ -90,6 +90,12 @@ async function onChooseDataSource(choice: "demo" | "real") {
 // EasySpeak region — shown only when "Use my club data" is selected
 // ---------------------------------------------------------------------------
 
+const REGION_IMAGES: Record<EasySpeakServerId, string> = {
+  "tmclub.eu": "../images/continental_europe.png",
+  "toastmasterclub.org": "../images/uk_and_ireland.png",
+  "easy-speak.org": "../images/rest_of_the_world.png",
+};
+
 function renderRegionSection(choice: DataSourceChoice, region: EasySpeakServerId) {
   const root = document.getElementById("regionSectionRoot")!;
   if (choice !== "real") {
@@ -97,8 +103,14 @@ function renderRegionSection(choice: DataSourceChoice, region: EasySpeakServerId
     return;
   }
 
-  const options = EASYSPEAK_SERVERS.map(
-    (s) => `<option value="${escapeAttr(s.id)}"${s.id === region ? " selected" : ""}>${escapeHtml(s.label)}</option>`
+  const cards = EASYSPEAK_SERVERS.map(
+    (s) => `
+      <label class="region-card${s.id === region ? " selected" : ""}">
+        <input type="radio" name="easyspeakRegion" value="${escapeAttr(s.id)}"${s.id === region ? " checked" : ""}>
+        <img class="region-card__image" src="${escapeAttr(REGION_IMAGES[s.id])}" alt="" />
+        <span class="region-card__label">${escapeHtml(s.label)}</span>
+      </label>
+    `
   ).join("");
 
   root.innerHTML = `
@@ -106,18 +118,19 @@ function renderRegionSection(choice: DataSourceChoice, region: EasySpeakServerId
       <div class="card-header"><span class="card-header__title">EasySpeak region</span></div>
       <div class="card-body">
         <p class="help-text">We'll use this to find your club member progress data.</p>
-        <select id="easyspeakRegionSelect">${options}</select>
+        <div class="region-cards">${cards}</div>
       </div>
     </div>
   `;
 
-  document.getElementById("easyspeakRegionSelect")!.addEventListener("change", onChooseRegion);
+  document.querySelectorAll<HTMLInputElement>('input[name="easyspeakRegion"]').forEach((input) => {
+    input.addEventListener("change", () => onChooseRegion(input.value as EasySpeakServerId));
+  });
 }
 
-async function onChooseRegion(event: Event) {
-  const select = event.target as HTMLSelectElement;
-  const region = select.value as EasySpeakServerId;
+async function onChooseRegion(region: EasySpeakServerId) {
   await setActiveProfile(region);
+  renderRegionSection("real", region);
   renderSummary("real", region);
 }
 
