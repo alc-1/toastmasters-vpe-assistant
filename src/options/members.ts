@@ -38,12 +38,9 @@ interface FilterDef {
 }
 
 const FILTERS: FilterDef[] = [
-  { key: "all", label: "All" },
   { key: "todo", label: "To do" },
-  { key: "suggested", label: "Suggested" },
-  { key: "unmatched", label: "Unmatched" },
-  { key: "path-issues", label: "Path issues" },
   { key: "resolved-manually", label: "Resolved manually" },
+  { key: "all", label: "All" },
 ];
 
 let basecampData: BasecampScrape | null = null;
@@ -247,13 +244,26 @@ function sortName(member: MemberReport): string {
   return member.basecampName ?? member.easyspeakName ?? member.name ?? "(unnamed)";
 }
 
-// Action-needed rows first (even within "All"); clean/linked members sink
-// to the bottom, alphabetical by Basecamp name within each group.
+// Ranks a member by how urgent/easy its outstanding action is, cheapest
+// first: a suggestion just needs a Confirm click, an unmatched member needs
+// a manual search, and an unmatched path needs the most involved review —
+// everything already resolved (or with nothing to flag) sinks to the
+// bottom. Mirrors classifyMember()'s own tag precedence.
+function sortRank(member: MemberReport): number {
+  if (member.matchConfidence === "fuzzy") return 0;
+  if (member.presence !== "both" && member.matchConfidence !== "confirmed") return 1;
+  if (member.hasOrphanedPaths) return 2;
+  return 3;
+}
+
+// Each rank group above is sorted independently, by Basecamp name
+// descending (falling back to the EasySpeak name for an easyspeak-only
+// member — see sortName()).
 function compareMembers(a: MemberReport, b: MemberReport): number {
-  const aRank = needsAction(a) ? 0 : 1;
-  const bRank = needsAction(b) ? 0 : 1;
+  const aRank = sortRank(a);
+  const bRank = sortRank(b);
   if (aRank !== bRank) return aRank - bRank;
-  return sortName(a).localeCompare(sortName(b), undefined, { sensitivity: "base" });
+  return sortName(b).localeCompare(sortName(a), undefined, { sensitivity: "base" });
 }
 
 function memberKey(member: MemberReport): string {
