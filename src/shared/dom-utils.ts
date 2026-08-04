@@ -35,3 +35,16 @@ export function warningIconHtml(title: string): string {
     </span>
   `;
 }
+
+// Used by the Club Progress stepper step, which always shows this instead of
+// its step number/checkmark regardless of state — see shared/app-shell.ts.
+// stroke="currentColor" (not a fixed fill, unlike warningIconHtml above) so
+// it inherits whatever color its container already sets (e.g. the stepper
+// circle's active/completed color) instead of needing its own CSS override.
+export function documentIconHtml(title: string): string {
+  return `
+    <span class="document-icon" title="${escapeAttr(title)}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+    </span>
+  `;
+}

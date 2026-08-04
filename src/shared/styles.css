@@ -294,6 +294,61 @@ body {
   font-weight: 600;
 }
 
+.app-stepper__step.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Completed step — its own requirement is fully satisfied (profile picked,
+   data extracted, review queue empty). Lower specificity than the ".active"
+   circle rule above on purpose, so the current page's own circle still wins
+   its primary-filled look even when also complete. */
+.app-stepper__circle.completed {
+  background: var(--success-bg);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+/* Warning step — something needs attention (currently Member Review's
+   pending-match count). Same lower-specificity-than-".active" reasoning as
+   ".completed" above. */
+.app-stepper__circle.warning {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Both icons replace the plain step number inside a 32px circle — shrunk
+   down from their own default size (warning-icon's 24px, sized for banners
+   elsewhere) and stripped of the margin those callers use to sit next to
+   adjacent text, since here the icon is the circle's only content. */
+.app-stepper__circle .warning-icon,
+.app-stepper__circle .document-icon {
+  margin-right: 0;
+}
+
+.app-stepper__circle .warning-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The active circle's own background/color rule (higher specificity than
+   ".warning" above) already turns it solid primary-blue, but the icon's fill
+   is a separate property that rule never touches — without this it would
+   stay --danger-red on top of that blue fill instead of matching it. */
+.app-stepper__step.active .app-stepper__circle .warning-icon svg {
+  fill: #ffffff;
+}
+
+.document-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.document-icon svg {
+  display: block;
+}
+
 .app-stepper__step:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 4px;
