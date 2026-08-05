@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Radius token carried over from the extension's own src/shared/styles.css
+ * design system, referenced via arbitrary-value classes like
+ * rounded-[var(--radius-md)] so it isn't duplicated as a literal "8px" in
+ * every component.
+ */
+:root {
+  --radius-md: 8px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: theme("fontFamily.sans");
+  color: theme("colors.navy.950");
+  background: theme("colors.surface.DEFAULT");
+}
+
+:focus-visible {
+  outline: 2px solid theme("colors.navy.700");
+  outline-offset: 2px;
+}
