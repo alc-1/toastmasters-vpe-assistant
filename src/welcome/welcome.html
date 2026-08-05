@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Toastmasters VPE Assistant — Welcome</title>
+  <link rel="icon" type="image/png" href="../icons/default/32.png">
+  <link rel="stylesheet" href="../shared/styles.css">
+  <style>
+    .welcome-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-6) var(--space-5);
+      margin-top: var(--space-5);
+    }
+
+    .welcome-intro {
+      font-size: var(--text-md);
+      color: var(--gray-700);
+      margin: 0 0 var(--space-5);
+      line-height: 1.5;
+    }
+
+    .pin-guide {
+      display: flex;
+      gap: var(--space-5);
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: var(--space-5);
+    }
+
+    .pin-guide__mockup {
+      flex: 0 0 240px;
+    }
+
+    .pin-guide__steps {
+      flex: 1 1 260px;
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .pin-guide__steps li {
+      margin-bottom: var(--space-3);
+      color: var(--gray-900);
+    }
+
+    .pin-guide__steps li:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Browser-toolbar mockup — decorative only, just enough resemblance to
+       point at the real puzzle-piece icon Chrome uses for unpinned
+       extensions. */
+    .toolbar-mock {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface-alt);
+      padding: var(--space-2) var(--space-3);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .toolbar-mock__address {
+      flex: 1;
+      height: 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-pill);
+    }
+
+    .toolbar-mock__avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--tm-silver);
+      flex: 0 0 auto;
+    }
+
+    .toolbar-mock__icon {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: var(--radius-sm);
+      background: var(--info-bg);
+      color: var(--primary);
+      flex: 0 0 auto;
+    }
+
+    .callout-badge {
+      position: absolute;
+      top: -7px;
+      right: -7px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      font-size: var(--text-xs);
+      font-weight: 700;
+      line-height: 16px;
+      text-align: center;
+    }
+
+    .dropdown-mock {
+      margin-top: var(--space-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      padding: var(--space-2);
+    }
+
+    .dropdown-mock__row {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2);
+      border-radius: var(--radius-sm);
+      background: var(--surface-alt);
+      font-size: var(--text-sm);
+    }
+
+    .dropdown-mock__logo {
+      width: 18px;
+      height: 18px;
+      border-radius: var(--radius-sm);
+      flex: 0 0 auto;
+    }
+
+    .dropdown-mock__name {
+      flex: 1;
+      color: var(--gray-900);
+    }
+
+    .dropdown-mock__pin {
+      position: relative;
+      display: flex;
+      color: var(--primary);
+      flex: 0 0 auto;
+    }
+
+    .welcome-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+  </style>
+</head>
+<body class="page--narrow">
+  <header class="app-header">
+    <div class="app-header__brand">
+      <img class="app-header__logo" src="../icons/default/48.png" width="48" height="48" alt="" />
+      <div class="app-header__text">
+        <div class="app-header__title">Toastmasters VPE Assistant</div>
+        <div class="app-header__subtitle">Get a clear view of your club's progress by bringing EasySpeak and Basecamp data together in one place.</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="welcome-card">
+    <h1>You're all set — the extension is installed</h1>
+    <p class="welcome-intro">
+      Toastmasters VPE Assistant now lives in your browser toolbar. Chrome
+      hides newly installed extensions behind the puzzle-piece icon by
+      default — pin it so it's one click away whenever you need it.
+    </p>
+
+    <div class="pin-guide">
+      <div class="pin-guide__mockup" id="pinMockup"></div>
+      <ol class="pin-guide__steps">
+        <li>Click the puzzle-piece icon in the toolbar, next to the address bar.</li>
+        <li>Find "Toastmasters VPE Assistant" in the list.</li>
+        <li>Click its pin icon to keep it visible in the toolbar.</li>
+      </ol>
+    </div>
+
+    <div class="welcome-actions">
+      <button id="getStartedBtn" class="btn btn-primary">Get started</button>
+    </div>
+  </div>
+
+  <script type="module" src="./welcome.ts"></script>
+</body>
+</html>

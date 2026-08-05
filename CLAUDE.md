@@ -106,6 +106,9 @@ src/
 │   ├── basecamp-auth.html
 │   ├── easyspeak-done.html
 │   └── countdown.ts        # shared auto-close-in-5s behavior for both pages above
+├── welcome/                 # first-run-only tab, opened by background/index.ts's onInstalled
+│   ├── welcome.html
+│   └── welcome.ts
 └── shared/                 # no chrome.* dependency except storage.ts/resolution-store.ts/settings-store.ts/sync-status-panel.ts
     ├── types.ts             # the domain type catalog — read this first when touching data shapes
     ├── storage.ts           # the ONLY file allowed to call chrome.storage.* directly
@@ -186,7 +189,15 @@ background service worker → source-specific scraper**.
 - **`background/index.ts`** — service worker entry point, imports `messaging.ts` and calls
   `registerMessageHandlers()`. Built by crxjs as a real ESM bundle (`"type": "module"` in the built
   manifest) — the old `importScripts()` classic-script loading pattern is gone; every dependency is
-  a plain `import`.
+  a plain `import`. Also registers `chrome.runtime.onInstalled`: on `details.reason === "install"`
+  only (never `"update"`, so an existing user reloading/upgrading the extension never sees this
+  again) it opens `welcome/welcome.html` in a new tab via `pageUrl(PAGES.welcome)` — Chrome doesn't
+  pin a freshly installed extension's toolbar icon by default, so this page exists purely to point
+  a first-time user at the puzzle-piece menu and prompt them to pin it, then hands off to Setup via
+  its own "Get started" button (`location.href = pageUrl(PAGES.settings)`, navigating that same tab
+  rather than opening a second one). `welcome/welcome.ts` has no `chrome.storage`/resolution-store
+  dependency at all — it's a static walkthrough, not part of the stepper flow those five options
+  pages share (no `app-shell.ts` nav on it), so it isn't wired into `NAV_ITEMS`.
 - **`background/messaging.ts`** — the `onMessage` listener: `SCRAPE_BASECAMP`/`SCRAPE_EASYSPEAK`
   both go through a shared `runScrape(source, scrapeFn, sendResponse)` helper that brackets the call
   with `setSourceStatus(source, "loading"/"success"/"error")` (see below) before `sendResponse({ok:

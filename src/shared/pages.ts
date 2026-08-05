@@ -18,6 +18,7 @@ export const PAGES = {
   clubReview: "options/club-review.html",
   basecampAuth: "status/basecamp-auth.html",
   easyspeakDone: "status/easyspeak-done.html",
+  welcome: "welcome/welcome.html",
 } as const;
 
 export type PagePath = (typeof PAGES)[keyof typeof PAGES];

@@ -16,14 +16,26 @@
 // keep updating the icon whether or not the popup that triggered it is
 // still open.
 //
+// onInstalled also opens welcome/welcome.html in a new tab, but only on a
+// fresh install (reason === "install", never "update" — an existing user
+// reloading/upgrading the extension shouldn't see the first-run pin-me
+// walkthrough again every time). Chrome doesn't pin a newly installed
+// extension's toolbar icon by default, so without this the icon is invisible
+// behind the puzzle-piece menu and there's nothing prompting the user to fix
+// that.
+//
 // Future home for: scheduling (chrome.alarms) periodic scraping,
 // centralizing EasySpeak + Basecamp storage, computing the delta once both
 // sources are wired up.
 
 import { registerMessageHandlers } from "./messaging";
+import { PAGES, pageUrl } from "../shared/pages";
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   console.log("[Toastmasters VPE Assistant] Extension installed.");
+  if (details.reason === "install") {
+    chrome.tabs.create({ url: pageUrl(PAGES.welcome) });
+  }
 });
 
 registerMessageHandlers();

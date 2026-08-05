@@ -34,6 +34,7 @@ export default defineConfig({
         clubReview: r("src/options/club-review.html"),
         basecampAuth: r("src/status/basecamp-auth.html"),
         easyspeakDone: r("src/status/easyspeak-done.html"),
+        welcome: r("src/welcome/welcome.html"),
       },
     },
   },
