@@ -85,17 +85,33 @@ export type StepperInfo = Partial<Record<AppShellPage, StepMeta>>;
 // instead of its number/checkmark/warning, regardless of state — it's the
 // destination page, not something with its own pass/fail condition the way
 // the other four steps have.
+//
+// A `locked` step (never visited yet — see shared/stepper-info.ts's
+// getVisitedSteps()) always shows its plain step number, even if `warning`/
+// `done` would otherwise apply: those reflect review state the user hasn't
+// seen yet, and surfacing them before the user has ever reached the step
+// would change what the step displays before they got there themselves.
 function circleGlyph(item: (typeof NAV_ITEMS)[number], index: number, meta: StepMeta | undefined): string {
   if (item.key === "report") return documentIconHtml("Club Progress");
+  if (meta?.locked) return String(index + 1);
   if (meta?.warning) return warningIconHtml("Pending reviews");
   if (meta?.done) return "&#10003;";
   return String(index + 1);
 }
 
 function circleClass(meta: StepMeta | undefined): string {
+  if (meta?.locked) return "";
   if (meta?.warning) return " warning";
   if (meta?.done) return " completed";
   return "";
+}
+
+// A locked (never-visited) step shows no info line either, for the same
+// reason circleGlyph()/circleClass() suppress warning/done above — the
+// count/status it'd report reflects state the user hasn't navigated to yet.
+function visibleInfo(meta: StepMeta | undefined): string | undefined {
+  if (meta?.locked) return undefined;
+  return meta?.info;
 }
 
 export interface AppShellOptions {
@@ -109,7 +125,7 @@ export function renderAppShell({ active, info }: AppShellOptions): string {
   const stepsHtml = NAV_ITEMS.map((item, index) => {
     const isActive = item.key === active;
     const meta = info?.[item.key];
-    const infoText = meta?.info;
+    const infoText = visibleInfo(meta);
     const body = `
         <span class="app-stepper__circle${circleClass(meta)}">${circleGlyph(item, index, meta)}</span>
         <span class="app-stepper__label">${item.label}</span>
@@ -183,7 +199,7 @@ export function renderStepFooter(active: AppShellPage, info?: StepperInfo): stri
 export function renderVerticalStepper(info: StepperInfo): string {
   const stepsHtml = NAV_ITEMS.map((item, index) => {
     const meta = info[item.key];
-    const infoText = meta?.info ?? "";
+    const infoText = visibleInfo(meta) ?? "";
     const body = `
         <span class="app-stepper__rail">
           <span class="app-stepper__circle${circleClass(meta)}">${circleGlyph(item, index, meta)}</span>
