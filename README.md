@@ -9,7 +9,29 @@ and paths across both, and reports where the two disagree.
 
 Written in TypeScript, built with Vite + `@crxjs/vite-plugin`.
 
-## Installation (developer mode)
+Project site (install instructions, feedback link):
+https://alc-1.github.io/toastmasters-vpe-assistant/
+
+## Installation
+
+Not on the Chrome Web Store — install from the latest release zip:
+
+1. Download the zip from the
+   [latest release](https://github.com/alc-1/toastmasters-vpe-assistant/releases/latest)
+   and unzip it.
+2. Open `chrome://extensions`, enable "Developer mode".
+3. "Load unpacked" → select the unzipped folder.
+
+To update, download the new release's zip, unzip it over the old folder (or
+to a new location), then click "Reload" on the extension in
+`chrome://extensions`.
+
+## Feedback / bugs
+
+Found a bug or have an idea? Please
+[open an issue](https://github.com/alc-1/toastmasters-vpe-assistant/issues/new/choose).
+
+## Development setup
 
 1. `npm install`
 2. `npm run build` — type-checks and bundles into `dist/` (gitignored,
@@ -175,6 +197,11 @@ re-derive — or un-derive — it from names alone.
 See `CLAUDE.md` for a full architectural deep-dive (module-by-module
 responsibilities, storage schema, build-tooling decisions).
 
+`.github/workflows/ci.yml` runs typecheck/test/build on every push/PR to
+`main`. Releases are cut manually via `.github/workflows/release.yml`
+(Actions tab → "Release" → "Run workflow"), which bumps the version, tags it,
+and attaches a `dist/` zip to a new GitHub Release.
+
 ## Known limitations
 
 - No automatic/scheduled refresh — extraction is manual, triggered from the
@@ -190,3 +217,7 @@ responsibilities, storage schema, build-tooling decisions).
   switch to the tab and solve it, rather than hanging indefinitely
 - If EasySpeak ends up on its login page and you don't log in within 5
   minutes, the scrape fails with a message asking you to log in and retry
+
+## License
+
+MIT — see [LICENSE](LICENSE).

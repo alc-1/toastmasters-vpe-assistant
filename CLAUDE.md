@@ -48,6 +48,10 @@ what replaced it, and don't reintroduce the old plain-`<script>`/`importScripts`
 Background worker errors surface via the response returned to the popup (`{ ok: false, error }`),
 not the console — check `popup/index.ts`'s status line first when debugging a failed scrape.
 
+`.github/workflows/ci.yml` runs `typecheck`/`test`/`build` on every push/PR to `main` — a green run
+there is not a substitute for the manual walkthrough above, which is the only thing that exercises
+the real `chrome.*` flows.
+
 `npm run typecheck` (`tsc --noEmit`, no `vite build`) is the fast way to check types alone.
 
 `npm test` (Vitest) runs the real automated suite in `tests/`, against fixtures in `test-data/`:
@@ -710,6 +714,10 @@ before changing the config:
 - The built service worker is a real ESM bundle, loaded via a thin generated
   `dist/service-worker-loader.js` that crxjs writes (visible in the build output) — this is normal,
   not a build error; the real background code is the hashed chunk it imports.
+- Versioned release zips (what `dist/` becomes for end users, since there's no Chrome Web Store
+  listing) are cut via `.github/workflows/release.yml`, triggered manually from the Actions tab —
+  it bumps `package.json`/`manifest.json` together, tags the commit, and attaches the zip to a
+  GitHub Release.
 - `npm run dev` (`vite`) is useful for iterating on options/popup page markup with faster feedback,
   but MV3 background/`chrome.scripting` behavior (the EasySpeak flow especially) should always get a
   real `npm run build` + "Reload" in `chrome://extensions` before you trust it — crxjs's dev-mode
