@@ -20,25 +20,29 @@ const SIZES = [16, 32, 48, 128] as const;
 const LOADING_FRAME_COUNT = 8;
 const LOADING_FRAME_INTERVAL_MS = 150;
 
-function iconPathSet(basename: string): Record<number, string> {
+function iconPathSet(folder: string): Record<number, string> {
   const path: Record<number, string> = {};
   for (const size of SIZES) {
-    path[size] = `icons/icon-${basename}-${size}.png`;
+    path[size] = `icons/${folder}/${size}.png`;
   }
   return path;
 }
 
-// icon-16.png etc. (no suffix) is the idle set — kept separate from the
-// "icon-<state>-<size>.png" pattern used by the other three states since
-// it's also manifest.json's static icons/default_icon.
+// idle uses the "default" folder — kept separate from the "loading"/"success"/"error"
+// folders used by the other three states since it's also manifest.json's static
+// icons/default_icon.
 const STATIC_ICON_PATHS: Record<"idle" | "success" | "error", Record<number, string>> = {
-  idle: { 16: "icons/icon-16.png", 32: "icons/icon-32.png", 48: "icons/icon-48.png", 128: "icons/icon-128.png" },
+  idle: iconPathSet("default"),
   success: iconPathSet("success"),
   error: iconPathSet("error"),
 };
 
 function loadingFramePath(frame: number): Record<number, string> {
-  return iconPathSet(`loading-${frame}`);
+  const path: Record<number, string> = {};
+  for (const size of SIZES) {
+    path[size] = `icons/loading/${frame}-${size}.png`;
+  }
+  return path;
 }
 
 let animationTimer: ReturnType<typeof setInterval> | null = null;

@@ -206,7 +206,7 @@ background service worker → source-specific scraper**.
   `runScrape()` around each scrape. `acknowledgeIconStatuses()` is called on `POPUP_OPENED`: reverts
   any `success`/`error` source back to `idle` (opening the popup = "seen it") but leaves `loading`
   alone. The loading icon is a real 8-frame animation
-  (`public/icons/icon-loading-{0..7}-{16,32,48,128}.png`, 150ms/frame — `public/` is copied verbatim
+  (`public/icons/loading/{0..7}-{16,32,48,128}.png`, 150ms/frame — `public/` is copied verbatim
   into `dist/icons/` by Vite, so these paths are unchanged from before the migration); the interval
   only runs while the combined state is `loading` and is stopped the moment it isn't.
 - **`background/api/basecamp.ts`** — all Basecamp scraping logic. Data fetching itself needs no tab:
@@ -752,6 +752,7 @@ before changing the config:
 - `public/icons/*.png` were generated once via a scratchpad-only Node script (hand-written SVGs
   rasterized with `sharp`) — that tool isn't part of the repo and never will be; if the icon designs
   need to change, regenerate the PNGs the same throwaway way rather than adding an image-processing
-  dependency to the project itself. The naming convention (`icon-<size>.png`,
-  `icon-<success|error>-<size>.png`, `icon-loading-<0-7>-<size>.png` for sizes 16/32/48/128) is read
-  by `background/icon-state.ts` at runtime and must be preserved exactly if these ever change.
+  dependency to the project itself. Icons are organized one subfolder per state — `default/`,
+  `error/`, `success/` (each `<size>.png` for sizes 16/32/48/128), and `loading/` (`<frame>-<size>.png`
+  for frames 0-7) — read by `background/icon-state.ts` at runtime; this folder layout and naming must
+  be preserved exactly if these ever change.

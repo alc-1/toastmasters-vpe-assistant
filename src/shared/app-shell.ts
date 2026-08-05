@@ -143,7 +143,7 @@ export function renderAppShell({ active, info }: AppShellOptions): string {
   return `
     <header class="app-header">
       <div class="app-header__brand">
-        <img class="app-header__logo" src="../icons/icon-48.png" width="48" height="48" alt="" />
+        <img class="app-header__logo" src="../icons/default/48.png" width="48" height="48" alt="" />
         <div class="app-header__text">
           <div class="app-header__title">Toastmasters VPE Assistant</div>
           <div class="app-header__subtitle">${GOAL_SUBTITLE}</div>
