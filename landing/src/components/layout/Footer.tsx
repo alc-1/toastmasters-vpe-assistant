@@ -7,6 +7,9 @@ export default function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
           <p>Toastmasters VPE Assistant — an independent, unofficial community project.</p>
           <div className="flex items-center gap-6">
+            <a href="./privacy.html" className="hover:text-white transition-colors">
+              Privacy Policy
+            </a>
             <a
               href="https://github.com/alc-1/toastmasters-vpe-assistant"
               className="hover:text-white transition-colors"
