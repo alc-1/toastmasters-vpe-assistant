@@ -5,24 +5,17 @@
 <link rel="icon" href="icon-128.png" />
 <style>
   :root {
-    --bg: #f7f8fa;
+    /* Toastmasters brand palette: Loyal Blue + Happy Yellow */
+    --bg: #004165;
+    --title-color: #f2df74;
+    --tagline-color: #cfe3ee;
     --card-bg: #ffffff;
     --text: #1c2430;
     --muted: #5b6675;
     --border: #e2e6ec;
-    --accent: #0b3d63;
-    --accent-2: #c0392b;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #14181f;
-      --card-bg: #1c222c;
-      --text: #eef1f5;
-      --muted: #a2acba;
-      --border: #2b3340;
-      --accent: #6fb3e0;
-      --accent-2: #e07a6f;
-    }
+    --accent: #004165;
+    --button-bg: #f2df74;
+    --button-text: #004165;
   }
   * { box-sizing: border-box; }
   body {
@@ -48,11 +41,12 @@
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
   h1 {
+    color: var(--title-color);
     font-size: 1.9rem;
     margin: 1rem 0 0.4rem;
   }
   .tagline {
-    color: var(--muted);
+    color: var(--tagline-color);
     font-size: 1.05rem;
     max-width: 32rem;
     margin: 0 auto;
@@ -68,13 +62,13 @@
     font-size: 1.15rem;
     margin-top: 0;
   }
-  ol { padding-left: 1.25rem; }
+  ol, ul { padding-left: 1.25rem; }
   li { margin-bottom: 0.4rem; }
   a { color: var(--accent); }
   a.button {
     display: inline-block;
-    background: var(--accent);
-    color: #fff;
+    background: var(--button-bg);
+    color: var(--button-text);
     text-decoration: none;
     padding: 0.65rem 1.3rem;
     border-radius: 8px;
@@ -90,11 +84,22 @@
   }
   footer {
     text-align: center;
-    color: var(--muted);
+    color: var(--tagline-color);
     font-size: 0.9rem;
     margin-top: 2.5rem;
   }
-  footer a { color: var(--muted); }
+  footer a { color: var(--title-color); }
+  .copy-btn {
+    font: inherit;
+    font-size: 0.9em;
+    background: var(--border);
+    color: var(--text);
+    border: none;
+    border-radius: 4px;
+    padding: 0.1rem 0.5rem;
+    cursor: pointer;
+  }
+  .copy-btn:hover { opacity: 0.85; }
 </style>
 
 <div class="wrap">
@@ -120,6 +125,25 @@
   </section>
 
   <section>
+    <h2>Requirements</h2>
+    <ul>
+      <li>
+        A computer — this is a browser extension, so it won't work on a phone
+        or tablet.
+      </li>
+      <li>
+        A Chromium-based browser: Google Chrome, Microsoft Edge, Brave,
+        Opera, Vivaldi, or Arc.
+      </li>
+      <li>
+        Officer access at a Toastmasters club — the extension only pulls data
+        for clubs where you're an officer in Basecamp/EasySpeak; a regular
+        member account won't have enough access.
+      </li>
+    </ul>
+  </section>
+
+  <section>
     <h2>Install</h2>
     <p>
       Not on the Chrome Web Store yet — install it manually from the latest
@@ -130,7 +154,12 @@
         <a class="button" href="https://github.com/alc-1/toastmasters-vpe-assistant/releases/latest">Download the latest release</a>
         and unzip it.
       </li>
-      <li>Open <code>chrome://extensions</code> in Chrome.</li>
+      <li>
+        Open <code>chrome://extensions</code> in Chrome — Chrome doesn't allow
+        web pages to link directly to it, but you can
+        <button type="button" class="copy-btn" data-copy="chrome://extensions" onclick="copyText(this)">copy the address</button>
+        and paste it into the address bar.
+      </li>
       <li>Enable <strong>Developer mode</strong> (top right).</li>
       <li>Click <strong>Load unpacked</strong> and select the unzipped folder.</li>
     </ol>
@@ -150,3 +179,14 @@
     &middot; MIT License
   </footer>
 </div>
+
+<script>
+  function copyText(button) {
+    const text = button.dataset.copy;
+    navigator.clipboard.writeText(text).then(() => {
+      const original = button.textContent;
+      button.textContent = "copied!";
+      setTimeout(() => { button.textContent = original; }, 1500);
+    });
+  }
+</script>
