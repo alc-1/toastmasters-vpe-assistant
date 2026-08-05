@@ -206,9 +206,15 @@ background service worker → source-specific scraper**.
   `runScrape()` around each scrape. `acknowledgeIconStatuses()` is called on `POPUP_OPENED`: reverts
   any `success`/`error` source back to `idle` (opening the popup = "seen it") but leaves `loading`
   alone. The loading icon is a real 8-frame animation
-  (`public/icons/loading/{0..7}-{16,32,48,128}.png`, 150ms/frame — `public/` is copied verbatim
-  into `dist/icons/` by Vite, so these paths are unchanged from before the migration); the interval
-  only runs while the combined state is `loading` and is stopped the moment it isn't.
+  (`public/icons/loading/{0..7}-{16,32}.png`, 150ms/frame — `public/` is copied verbatim into
+  `dist/icons/` by Vite, so these paths are unchanged from before the migration); the interval
+  only runs while the combined state is `loading` and is stopped the moment it isn't. `loading`,
+  `success`, and `error` only ship 16/32px art (`ACTION_SIZES` in `icon-state.ts`) — those three
+  states only ever reach the browser via `chrome.action.setIcon()` on the toolbar button, which
+  never renders above 32px, unlike `idle`'s `default` folder, which still needs the full
+  16/32/48/128 set (`IDLE_SIZES`) since it doubles as manifest.json's static `icons`/
+  `action.default_icon` — required at those larger sizes for the `chrome://extensions` page and
+  Chrome Web Store packaging regardless of what the toolbar itself shows.
 - **`background/api/basecamp.ts`** — all Basecamp scraping logic. Data fetching itself needs no tab:
   `fetch(..., { credentials: "include" })` runs directly from the privileged service worker context,
   and because `manifest.json`'s `host_permissions` covers the Basecamp hosts, the browser's existing
