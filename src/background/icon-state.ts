@@ -16,20 +16,13 @@ import { session } from "../shared/storage";
 import type { IconStatuses, SourceKey, SourceStatus } from "../shared/types";
 
 const SOURCES: SourceKey[] = ["basecamp", "easyspeak"];
-// idle mirrors manifest.json's static icons/action.default_icon, which needs the full
-// size set regardless of what the toolbar itself renders (48/128 are required for the
-// chrome://extensions page and Chrome Web Store packaging, not just the toolbar button).
-const IDLE_SIZES = [16, 32, 48, 128] as const;
-// loading/success/error only ever appear via chrome.action.setIcon() on the toolbar
-// button, which never renders anything above 32px — so there's no 48/128 art to
-// maintain for these three states.
-const ACTION_SIZES = [16, 32] as const;
+const SIZES = [16, 32, 48, 128] as const;
 const LOADING_FRAME_COUNT = 8;
 const LOADING_FRAME_INTERVAL_MS = 150;
 
-function iconPathSet(folder: string, sizes: readonly number[]): Record<number, string> {
+function iconPathSet(folder: string): Record<number, string> {
   const path: Record<number, string> = {};
-  for (const size of sizes) {
+  for (const size of SIZES) {
     path[size] = `icons/${folder}/${size}.png`;
   }
   return path;
@@ -39,14 +32,14 @@ function iconPathSet(folder: string, sizes: readonly number[]): Record<number, s
 // folders used by the other three states since it's also manifest.json's static
 // icons/default_icon.
 const STATIC_ICON_PATHS: Record<"idle" | "success" | "error", Record<number, string>> = {
-  idle: iconPathSet("default", IDLE_SIZES),
-  success: iconPathSet("success", ACTION_SIZES),
-  error: iconPathSet("error", ACTION_SIZES),
+  idle: iconPathSet("default"),
+  success: iconPathSet("success"),
+  error: iconPathSet("error"),
 };
 
 function loadingFramePath(frame: number): Record<number, string> {
   const path: Record<number, string> = {};
-  for (const size of ACTION_SIZES) {
+  for (const size of SIZES) {
     path[size] = `icons/loading/${frame}-${size}.png`;
   }
   return path;
