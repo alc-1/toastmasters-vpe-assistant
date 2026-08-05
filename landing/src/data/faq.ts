@@ -32,6 +32,11 @@ export const faqItems: FaqItem[] = [
   {
     question: "Which EasySpeak deployments are supported?",
     answer:
-      "All three regional EasySpeak servers: tmclub.eu (default), toastmasterclub.org, and easy-speak.org. You choose yours during setup.",
+      "All three regional EasySpeak servers: tmclub.eu, toastmasterclub.org, and easy-speak.org. You choose yours during setup.",
   },
+  {
+    question: "Who made this?",
+    answer:
+      "This was created by Alvaro Costa, a fellow Toastmaster at Lausanne International Toastmasters Club. Like many VPEs, he wanted to spend less time reconciling spreadsheets and systems, and more time helping members progress on their Pathways journey."
+  }
 ];
