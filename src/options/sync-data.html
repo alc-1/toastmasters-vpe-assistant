@@ -6,13 +6,6 @@
   <link rel="icon" type="image/png" href="../icons/icon-32.png">
   <link rel="stylesheet" href="../shared/styles.css">
   <style>
-    body {
-      max-width: 800px;
-    }
-    h1 {
-      font-size: var(--text-xl);
-      margin: 0 0 4px;
-    }
     details {
       margin-top: 8px;
       font-size: var(--text-sm);
@@ -20,12 +13,6 @@
     details summary {
       cursor: pointer;
       color: var(--gray-600);
-    }
-    .status {
-      margin-top: 8px;
-      font-size: var(--text-sm);
-      color: var(--gray-600);
-      white-space: pre-wrap;
     }
     .summary {
       margin-top: 8px;
@@ -47,39 +34,57 @@
       padding: 6px;
       font-size: 10px;
     }
-    .action-gap {
-      margin-top: 8px;
-    }
   </style>
 </head>
 <body class="page--wide">
   <div id="appShell"></div>
-  <h1>Sync Data</h1>
 
-  <div id="statusSummary" class="status-summary"></div>
+  <div class="page-intro">
+    <h1>Sync Data</h1>
+    <p class="page-intro__desc">Import your club data from Basecamp and EasySpeak before continuing to the review steps.</p>
+  </div>
 
-  <div class="card">
-    <div class="card-header"><span class="card-header__title">Data Extraction</span></div>
-    <div class="card-body">
-      <button id="scrapeBasecampBtn" class="btn btn-primary">Extract Basecamp data</button>
-      <div id="statusBasecamp" class="status" aria-live="polite">Click the button to extract your Basecamp data (you must be logged into Basecamp Toastmasters in this browser).</div>
-      <details>
-        <summary>Basecamp details</summary>
-        <div id="summaryBasecamp" class="summary"></div>
-        <pre id="rawDataBasecamp"></pre>
-      </details>
+  <div class="sync-cards">
+    <div class="card sync-card">
+      <div class="card-header sync-card__header">
+        <span class="sync-card__title">Basecamp</span>
+        <span id="badgeBasecamp" class="badge badge-danger">Not Imported</span>
+      </div>
+      <div class="card-body sync-card__body">
+        <p id="statusBasecamp" class="sync-card__status-text help-text" aria-live="polite"></p>
+        <div id="metaBasecamp" class="sync-card__result"></div>
+        <button id="scrapeBasecampBtn" class="btn btn-primary sync-card__action">Import Basecamp Data</button>
+        <details id="detailsBasecamp" class="sync-card__details" hidden>
+          <summary>View details</summary>
+          <div id="summaryBasecamp" class="summary"></div>
+          <pre id="rawDataBasecamp"></pre>
+        </details>
+      </div>
+    </div>
 
-      <button id="scrapeEasySpeakBtn" class="btn btn-primary action-gap">Extract EasySpeak data</button>
-      <div id="statusEasySpeak" class="status" aria-live="polite">Click the button to extract your EasySpeak data (you must be logged into EasySpeak in this browser). This opens (and switches to) an EasySpeak tab — it closes itself once scraping finishes.</div>
-      <details>
-        <summary>EasySpeak details</summary>
-        <div id="summaryEasySpeak" class="summary"></div>
-        <pre id="rawDataEasySpeak"></pre>
-      </details>
+    <div class="card sync-card">
+      <div class="card-header sync-card__header">
+        <span class="sync-card__title">EasySpeak</span>
+        <span id="badgeEasySpeak" class="badge badge-danger">Not Imported</span>
+      </div>
+      <div class="card-body sync-card__body">
+        <p id="statusEasySpeak" class="sync-card__status-text help-text" aria-live="polite"></p>
+        <div id="metaEasySpeak" class="sync-card__result"></div>
+        <button id="scrapeEasySpeakBtn" class="btn btn-primary sync-card__action">Import EasySpeak Data</button>
+        <p class="help-text">Opens a new EasySpeak tab during import.</p>
+        <details id="detailsEasySpeak" class="sync-card__details" hidden>
+          <summary>View details</summary>
+          <div id="summaryEasySpeak" class="summary"></div>
+          <pre id="rawDataEasySpeak"></pre>
+        </details>
+      </div>
     </div>
   </div>
 
+  <div id="completionSummary" class="setup-summary" hidden></div>
+
   <div id="stepFooter"></div>
+  <p id="continueHelper" class="help-text sync-continue-helper"></p>
 
   <script type="module" src="./sync-data.ts"></script>
 </body>

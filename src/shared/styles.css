@@ -608,6 +608,141 @@ body {
   font-size: var(--text-sm);
 }
 
+/* Stacks .setup-summary__item lines one per row (e.g. Sync Data's
+   completion summary: one stat per line reads as a stronger, more
+   scannable structure than a run-on horizontal row). */
+.setup-summary__stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+/* Sync Data's completion summary title — puts the checkmark at the panel's
+   right edge instead of leading the text, additive to .setup-summary__title
+   (used bare, without this class, by Setup's own "Your setup:" heading). */
+.sync-summary-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sync-summary-check {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.setup-summary__footer {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: var(--gray-900);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Sync Data: page intro + per-source status cards                        */
+/* ---------------------------------------------------------------------- */
+
+.page-intro {
+  margin-bottom: var(--space-5);
+}
+
+.page-intro h1 {
+  font-size: var(--text-xl);
+  margin: 0 0 4px;
+}
+
+.page-intro__desc {
+  font-size: var(--text-md);
+  color: var(--gray-700);
+  margin: 0;
+}
+
+.sync-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 720px) {
+  .sync-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sync-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sync-card__title {
+  font-weight: 600;
+}
+
+/* Empty unless onScrapeClick has a transient loading/error/complete message
+   to show — no reserved height, so it takes no space until it has content. */
+.sync-card__status-text {
+  margin: 0;
+}
+
+/* Three-line imported-state result (see options/sync-data.ts's
+   renderSourceCard): status line, member count, imported-at time — one
+   fact per line rather than a single run-on sentence. */
+.sync-card__result {
+  font-size: var(--text-sm);
+  color: var(--gray-700);
+  margin: 0 0 var(--space-2);
+}
+
+.sync-card__result div {
+  margin-bottom: 2px;
+}
+
+.sync-card__result-status {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.sync-card__action {
+  width: 100%;
+}
+
+.sync-card__details {
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.sync-card__details summary {
+  cursor: pointer;
+  color: var(--gray-600);
+}
+
+/* De-emphasized "Re-import data" action shown once a source already has
+   data — a plain text-style link rather than a full button, so it doesn't
+   compete with the page's primary Continue action. */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: var(--text-sm);
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-btn:hover:not(:disabled) {
+  color: var(--primary-hover);
+}
+
+.link-btn:disabled {
+  color: var(--gray-600);
+  text-decoration: none;
+  cursor: not-allowed;
+}
+
 /* ---------------------------------------------------------------------- */
 /* KPI row                                                                 */
 /* ---------------------------------------------------------------------- */
@@ -731,6 +866,14 @@ body {
   box-shadow: none;
 }
 
+/* Sync Data's "why is Continue disabled" hint — right-aligned so it sits
+   directly below the Continue button, which is itself right-aligned by
+   .step-footer's justify-content: space-between. */
+.sync-continue-helper {
+  text-align: right;
+  margin: var(--space-2) 0 0;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Tables                                                                  */
 /* ---------------------------------------------------------------------- */
@@ -815,6 +958,29 @@ body {
 .badge-path-issue {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+/* Generic status tones — additive to the 4 Member Review-specific pairs
+   above, for contexts (like Sync Data's status cards) that aren't part of
+   that specific vocabulary. */
+.badge-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.badge-pending {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.badge-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.badge-muted {
+  background: var(--surface-alt);
+  color: var(--gray-600);
 }
 
 /* Kept under their existing names (not renamed to something generic like

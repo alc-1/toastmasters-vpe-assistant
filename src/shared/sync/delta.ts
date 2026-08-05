@@ -72,7 +72,7 @@ export function buildReport(
 // Per-club member grouping (one row per member x path -> one entry per person)
 // ---------------------------------------------------------------------------
 
-function groupBasecampMembers(members: BasecampMember[]): BasecampPerson[] {
+export function groupBasecampMembers(members: BasecampMember[]): BasecampPerson[] {
   const byUserId = new Map<number, BasecampPerson>();
   for (const member of members) {
     const userId = member.user.id;
@@ -87,7 +87,7 @@ function groupBasecampMembers(members: BasecampMember[]): BasecampPerson[] {
   return Array.from(byUserId.values());
 }
 
-function groupEasySpeakMembers(members: EasySpeakMemberRow[]): EasySpeakPerson[] {
+export function groupEasySpeakMembers(members: EasySpeakMemberRow[]): EasySpeakPerson[] {
   const byMemberId = new Map<string, EasySpeakPerson>();
   for (const member of members) {
     const memberId = member.memberId ?? "";
@@ -106,6 +106,19 @@ function groupEasySpeakMembers(members: EasySpeakMemberRow[]): EasySpeakPerson[]
     if (!person.name) person.name = `EasySpeak member ${person.memberId}`;
   }
   return Array.from(byMemberId.values());
+}
+
+/** Distinct-member (not member×path row) count across every club in a raw
+ *  Basecamp scrape — used by the Sync Data cards/completion summary, which
+ *  need a per-source count before the other source (and thus buildReport())
+ *  is available. */
+export function countBasecampMembers(data: BasecampScrape): number {
+  return Object.values(data).reduce((sum, club) => sum + groupBasecampMembers(club.members).length, 0);
+}
+
+/** EasySpeak counterpart to countBasecampMembers() above. */
+export function countEasySpeakMembers(data: EasySpeakScrape): number {
+  return Object.values(data).reduce((sum, club) => sum + groupEasySpeakMembers(club.members).length, 0);
 }
 
 // ---------------------------------------------------------------------------

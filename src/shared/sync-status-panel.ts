@@ -175,8 +175,11 @@ function renderStatusRow(label: string, value: { text: string; tone: "success" |
 
 // The actual "which members count as matched" rule (isMemberResolved) lives
 // in shared/sync/delta.ts, where it's pure and Vitest-testable — this is
-// just the storage/report-building glue around it.
-async function loadMatchSummary(basecampData: BasecampScrape, easyspeakData: EasySpeakScrape): Promise<MatchSummary> {
+// just the storage/report-building glue around it. Exported so the Sync Data
+// page's Member Matching card + completion summary can reuse it directly
+// instead of re-wiring loadResolutionData()/buildReport()/computeMatchSummary()
+// themselves.
+export async function loadMatchSummary(basecampData: BasecampScrape, easyspeakData: EasySpeakScrape): Promise<MatchSummary> {
   const resolution = await loadResolutionData();
   const report = buildReport(basecampData, easyspeakData, {}, resolution);
   return computeMatchSummary(report);

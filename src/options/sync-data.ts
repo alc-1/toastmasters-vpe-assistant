@@ -1,9 +1,10 @@
 // src/options/sync-data.ts
 //
-// Thin page wired up against shared/sync-status-panel.ts: same markup/ids as
-// the popup's Data Extraction card + sync-status summary, same underlying
-// rendering/formatting/scrape-click logic — see that module for why it's
-// shared rather than duplicated.
+// Step 2 of the wizard: a Basecamp card and an EasySpeak card, plus a
+// completion summary once both imports are in. Reuses
+// shared/sync-status-panel.ts's bindSourceEls/onScrapeClick/renderScrapeResult
+// for the actual scrape trigger + response handling (unchanged) — this file
+// only owns the card/badge/summary presentation layered on top of it.
 
 import { local } from "../shared/storage";
 import { sendMessage } from "../shared/send-message";
@@ -11,57 +12,72 @@ import { renderAppShell, renderStepFooter } from "../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
 import {
   bindSourceEls,
-  formatDate,
+  loadMatchSummary,
   onScrapeClick,
   renderScrapeResult,
-  renderStatusSummary,
-  setButtonLoading,
-  setStatus,
   type SourceEls,
 } from "../shared/sync-status-panel";
+import { countBasecampMembers, countEasySpeakMembers } from "../shared/sync/delta";
 import type { BasecampScrape, EasySpeakScrape } from "../shared/types";
+
+type BadgeTone = "danger" | "pending" | "success";
+
+const BADGE_LABEL: Record<BadgeTone, string> = {
+  danger: "Not Imported",
+  pending: "Importing",
+  success: "Imported",
+};
 
 const basecampEls: SourceEls = bindSourceEls({ btn: "scrapeBasecampBtn", status: "statusBasecamp", summary: "summaryBasecamp", rawData: "rawDataBasecamp" });
 const easyspeakEls: SourceEls = bindSourceEls({ btn: "scrapeEasySpeakBtn", status: "statusEasySpeak", summary: "summaryEasySpeak", rawData: "rawDataEasySpeak" });
 
-// Attached once, at module load, rather than inside init() — init() can run
-// more than once per page load (see the chrome.storage.onChanged listener
-// below), and re-attaching these listeners on every call would stack a new
-// one each time instead of replacing it, since basecampEls.btn/
-// easyspeakEls.btn are module-level elements whose innerHTML is never
-// replaced by rendering. A single click previously fired the handler once
-// per accumulated listener, each sending its own SCRAPE_EASYSPEAK/
-// SCRAPE_BASECAMP message and opening its own EasySpeak tab.
-basecampEls.btn.addEventListener("click", () =>
-  onScrapeClick<BasecampScrape>({
+const badgeBasecamp = document.getElementById("badgeBasecamp")!;
+const metaBasecamp = document.getElementById("metaBasecamp")!;
+const detailsBasecamp = document.getElementById("detailsBasecamp") as HTMLDetailsElement;
+const badgeEasySpeak = document.getElementById("badgeEasySpeak")!;
+const metaEasySpeak = document.getElementById("metaEasySpeak")!;
+const detailsEasySpeak = document.getElementById("detailsEasySpeak") as HTMLDetailsElement;
+const completionSummary = document.getElementById("completionSummary")!;
+const continueHelper = document.getElementById("continueHelper")!;
+
+// Set once an Import/Re-import button is actually clicked on this page load
+// — the completion summary below is gated on this (not just on both sources
+// having data), so simply revisiting the page with already-imported data
+// doesn't show it again; a fresh page load always starts false.
+let importActionOccurred = false;
+
+// Attached once, at module load — see the identical reasoning in the header
+// comment this replaced: init()/refresh() can re-run on every
+// chrome.storage.onChanged event, and basecampEls.btn/easyspeakEls.btn are
+// never replaced by rendering, so re-attaching here would stack listeners.
+basecampEls.btn.addEventListener("click", async () => {
+  setBadge(badgeBasecamp, "pending");
+  await onScrapeClick<BasecampScrape>({
     els: basecampEls,
     message: { type: "SCRAPE_BASECAMP" },
-    loadingLabel: "Basecamp data loading...",
+    loadingLabel: "Importing…",
     render: renderScrapeResult,
-    onDone: async () => {
-      await renderStatusSummary();
-    },
-  })
-);
+  });
+  importActionOccurred = true;
+  await refresh();
+});
 
-easyspeakEls.btn.addEventListener("click", () =>
-  onScrapeClick<EasySpeakScrape>({
+easyspeakEls.btn.addEventListener("click", async () => {
+  setBadge(badgeEasySpeak, "pending");
+  await onScrapeClick<EasySpeakScrape>({
     els: easyspeakEls,
     message: { type: "SCRAPE_EASYSPEAK" },
-    loadingLabel: "EasySpeak data loading...",
+    loadingLabel: "Importing…",
     render: renderScrapeResult,
-    onDone: async () => {
-      await renderStatusSummary();
-    },
-  })
-);
+  });
+  importActionOccurred = true;
+  await refresh();
+});
 
 init();
 
-// Keeps this tab in sync if a scrape started elsewhere (e.g. the popup)
-// finishes while this one stays open — the popup doesn't need this since
-// it's re-created fresh on each open, but this is a regular tab that can
-// stay open indefinitely.
+// Keeps this tab in sync if a scrape started elsewhere (e.g. another Sync
+// Data tab) finishes while this one stays open.
 chrome.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") init();
 });
@@ -72,29 +88,111 @@ async function init() {
   document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "syncData", info: stepperInfo });
   document.getElementById("stepFooter")!.innerHTML = renderStepFooter("syncData", stepperInfo);
 
+  await refresh();
+}
+
+async function refresh() {
   // Tells background this counts as "having seen" any finished (success/
   // error) result, reverting the toolbar icon to idle — a still-loading
-  // source is left alone. Also gives us the current per-source status so
-  // we know whether to disable a button below.
+  // source is left alone. Also gives us the current per-source status so a
+  // scrape running from elsewhere still shows as "Importing" here.
   const statuses = (await sendMessage({ type: "POPUP_OPENED" })) || { basecamp: "idle", easyspeak: "idle" };
 
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 
-  if (cached.basecampData) {
-    setStatus(basecampEls, `Last extraction: ${formatDate(cached.basecampScrapedAt)}`);
-    renderScrapeResult(basecampEls, cached.basecampData);
+  renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, statuses.basecamp === "loading", countBasecampMembers);
+  renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, statuses.easyspeak === "loading", countEasySpeakMembers);
+
+  await renderCompletionSummary(cached.basecampData ?? null, cached.easyspeakData ?? null);
+
+  const hasBoth = !!cached.basecampData && !!cached.easyspeakData;
+  continueHelper.textContent = hasBoth ? "" : "Import Basecamp and EasySpeak data to continue.";
+}
+
+function setBadge(el: HTMLElement, tone: BadgeTone) {
+  el.className = `badge badge-${tone}`;
+  el.textContent = BADGE_LABEL[tone];
+}
+
+// Time-only ("7:42 AM") rather than shared/sync-status-panel.ts's formatDate
+// (full date + time) — a freshly imported source is always "today", so the
+// date part is redundant noise in the card's 3-line result.
+function formatTime(timestamp: number | undefined): string {
+  if (!timestamp) return "just now";
+  return new Date(timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function renderSourceCard<T extends BasecampScrape | EasySpeakScrape>(
+  els: SourceEls,
+  badge: HTMLElement,
+  result: HTMLElement,
+  details: HTMLDetailsElement,
+  idleLabel: string,
+  data: T | null,
+  scrapedAt: number | undefined,
+  isLoading: boolean,
+  countMembers: (data: T) => number
+) {
+  if (isLoading) {
+    setBadge(badge, "pending");
+    els.btn.className = "btn btn-primary sync-card__action";
+    els.btn.disabled = true;
+    els.btn.textContent = "Importing…";
+    details.hidden = true;
+    return;
   }
 
-  if (cached.easyspeakData) {
-    setStatus(easyspeakEls, `Last extraction: ${formatDate(cached.easyspeakScrapedAt)}`);
-    renderScrapeResult(easyspeakEls, cached.easyspeakData);
+  els.btn.disabled = false;
+
+  if (data) {
+    setBadge(badge, "success");
+    // De-emphasized once a source already has data — re-importing is a
+    // secondary action that shouldn't compete with the page's primary
+    // Continue button, so it becomes a plain link rather than a full button.
+    els.btn.className = "link-btn";
+    els.btn.textContent = "Re-import data";
+    const count = countMembers(data);
+    result.innerHTML = `
+      <div class="sync-card__result-status">Imported ✓</div>
+      <div>${count} member${count === 1 ? "" : "s"}</div>
+      <div>Imported ${formatTime(scrapedAt)}</div>
+    `;
+    els.status.textContent = "";
+    details.hidden = false;
+    renderScrapeResult(els, data);
+  } else {
+    setBadge(badge, "danger");
+    els.btn.className = "btn btn-primary sync-card__action";
+    els.btn.textContent = idleLabel;
+    result.innerHTML = "";
+    els.status.textContent = "";
+    details.hidden = true;
+  }
+}
+
+async function renderCompletionSummary(basecampData: BasecampScrape | null, easyspeakData: EasySpeakScrape | null) {
+  if (!importActionOccurred || !basecampData || !easyspeakData) {
+    completionSummary.hidden = true;
+    return;
   }
 
-  await renderStatusSummary({ basecamp: statuses.basecamp === "loading", easyspeak: statuses.easyspeak === "loading" });
+  const { matched, total } = await loadMatchSummary(basecampData, easyspeakData);
+  const basecampCount = countBasecampMembers(basecampData);
+  const easyspeakCount = countEasySpeakMembers(easyspeakData);
+  const needsReview = total - matched;
 
-  if (statuses.basecamp === "loading") setStatus(basecampEls, "Still extracting… this can take a minute or two.");
-  if (statuses.easyspeak === "loading") setStatus(easyspeakEls, "Still extracting… this can take a minute or two.");
-
-  setButtonLoading(basecampEls, statuses.basecamp === "loading", "Basecamp data loading...");
-  setButtonLoading(easyspeakEls, statuses.easyspeak === "loading", "EasySpeak data loading...");
+  completionSummary.hidden = false;
+  completionSummary.innerHTML = `
+    <div class="setup-summary__title sync-summary-title">
+      <span>Data Import Complete</span>
+      <span class="sync-summary-check">✓</span>
+    </div>
+    <div class="setup-summary__stats">
+      <div class="setup-summary__item">Basecamp: ${basecampCount} member${basecampCount === 1 ? "" : "s"}</div>
+      <div class="setup-summary__item">EasySpeak: ${easyspeakCount} member${easyspeakCount === 1 ? "" : "s"}</div>
+      <div class="setup-summary__item">Matched: ${matched} member${matched === 1 ? "" : "s"}</div>
+      <div class="setup-summary__item">Needs Review: ${needsReview} member${needsReview === 1 ? "" : "s"}</div>
+    </div>
+    <p class="setup-summary__footer">Ready to continue to Club Review.</p>
+  `;
 }
