@@ -6,7 +6,7 @@
 // for the actual scrape trigger + response handling (unchanged) — this file
 // only owns the card/badge/summary presentation layered on top of it.
 
-import { local } from "../shared/storage";
+import { local, session } from "../shared/storage";
 import { sendMessage } from "../shared/send-message";
 import { renderAppShell, renderStepFooter } from "../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
@@ -32,6 +32,7 @@ const basecampEls: SourceEls = bindSourceEls({ btn: "scrapeBasecampBtn", status:
 const easyspeakEls: SourceEls = bindSourceEls({ btn: "scrapeEasySpeakBtn", status: "statusEasySpeak", summary: "summaryEasySpeak", rawData: "rawDataEasySpeak" });
 
 const badgeBasecamp = document.getElementById("badgeBasecamp")!;
+const progressBasecamp = document.getElementById("progressBasecamp")!;
 const metaBasecamp = document.getElementById("metaBasecamp")!;
 const detailsBasecamp = document.getElementById("detailsBasecamp") as HTMLDetailsElement;
 const badgeEasySpeak = document.getElementById("badgeEasySpeak")!;
@@ -77,9 +78,13 @@ easyspeakEls.btn.addEventListener("click", async () => {
 init();
 
 // Keeps this tab in sync if a scrape started elsewhere (e.g. another Sync
-// Data tab) finishes while this one stays open.
-chrome.storage.onChanged.addListener((_changes, area) => {
+// Data tab) finishes while this one stays open. Session-area changes are
+// handled separately below (renderProgress alone, not a full init()) since
+// those fire once per page fetched during a Basecamp import — far too often
+// to justify a full re-render.
+chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local") init();
+  else if (area === "session" && changes.scrapeProgress) renderProgress();
 });
 
 async function init() {
@@ -102,11 +107,35 @@ async function refresh() {
 
   renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, statuses.basecamp === "loading", countBasecampMembers);
   renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, statuses.easyspeak === "loading", countEasySpeakMembers);
+  await renderProgress();
 
   await renderCompletionSummary(cached.basecampData ?? null, cached.easyspeakData ?? null);
 
   const hasBoth = !!cached.basecampData && !!cached.easyspeakData;
   continueHelper.textContent = hasBoth ? "" : "Import Basecamp and EasySpeak data to continue.";
+}
+
+// Reads the live progress of a still-running Basecamp import (written by
+// background/scrape-progress.ts to chrome.storage.session) and renders it
+// as a plain-text line — e.g. "Club 2 of 5 (Springfield) — 40 members out
+// of 70 loaded so far". currentClubMembersTotal comes straight from the
+// API's own per-club "count" field (see ScrapeProgress), so this is a real
+// fraction, not an estimate. Called once on page load/refresh and again on
+// every scrapeProgress change via the chrome.storage.onChanged listener
+// above; naturally blanks itself once the import finishes or errors, since
+// messaging.ts clears the stored progress at that point.
+async function renderProgress() {
+  const state = await session.value("scrapeProgress");
+  const progress = state?.basecamp;
+  if (!progress) {
+    progressBasecamp.textContent = "";
+    return;
+  }
+  const clubLabel = `Club ${progress.currentClubIndex} of ${progress.clubsTotal} (${progress.currentClubName})`;
+  progressBasecamp.textContent =
+    progress.currentClubMembersTotal === null
+      ? `${clubLabel} — starting…`
+      : `${clubLabel} — ${progress.currentClubMembersFetched} member${progress.currentClubMembersFetched === 1 ? "" : "s"} out of ${progress.currentClubMembersTotal} loaded so far`;
 }
 
 function setBadge(el: HTMLElement, tone: BadgeTone) {

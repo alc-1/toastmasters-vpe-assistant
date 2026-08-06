@@ -301,6 +301,23 @@ export type SourceKey = "basecamp" | "easyspeak";
 export type SourceStatus = "idle" | "loading" | "success" | "error";
 export type IconStatuses = Record<SourceKey, SourceStatus>;
 
+// Incremental progress for a still-running scrape, written to
+// chrome.storage.session (see shared/storage.ts's SessionSchema) so a page
+// can render live updates. clubsTotal/currentClubIndex are real counts
+// (Basecamp's /api/members/roles response gives the full club list
+// upfront); currentClubMembersTotal comes from the current club's own
+// /api/bcm/progress/ response ("count", present on every page) so it's a
+// real "N out of M" fraction, not an estimate — null only in the brief
+// window between starting a new club and that club's first page arriving.
+export interface ScrapeProgress {
+  currentClubIndex: number; // 1-based
+  clubsTotal: number;
+  currentClubName: string;
+  currentClubMembersFetched: number;
+  currentClubMembersTotal: number | null;
+}
+export type ScrapeProgressState = Record<SourceKey, ScrapeProgress | null>;
+
 // ---------------------------------------------------------------------------
 // Messaging (popup/options -> background service worker)
 // ---------------------------------------------------------------------------

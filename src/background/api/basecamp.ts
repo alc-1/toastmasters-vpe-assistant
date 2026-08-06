@@ -22,6 +22,7 @@ import { local } from "../../shared/storage";
 import { pageUrl } from "../../shared/pages";
 import { resolveActiveProfile } from "../../shared/settings-store";
 import { MOCK_BASECAMP_DATA } from "../../shared/mock/mockData";
+import { setScrapeProgress } from "../scrape-progress";
 import type { BasecampMember, BasecampScrape } from "../../shared/types";
 
 const API_ROOT = "https://basecamp.toastmasters.org/api";
@@ -43,6 +44,7 @@ interface BasecampClubRoleEntry {
 }
 
 interface BasecampProgressPage {
+  count: number;
   results: unknown[];
   next: string | null;
 }
@@ -78,10 +80,27 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
   }
 
   const result: BasecampScrape = {};
+  let clubIndex = 0;
   for (const club of bcmClubs) {
+    clubIndex += 1;
+    await setScrapeProgress("basecamp", {
+      currentClubIndex: clubIndex,
+      clubsTotal: bcmClubs.length,
+      currentClubName: club.name,
+      currentClubMembersFetched: 0,
+      currentClubMembersTotal: null,
+    });
     result[club.uuid] = {
       name: club.name,
-      members: await fetchClubProgressPaginated(club.uuid),
+      members: await fetchClubProgressPaginated(club.uuid, async (fetchedCount, total) => {
+        await setScrapeProgress("basecamp", {
+          currentClubIndex: clubIndex,
+          clubsTotal: bcmClubs.length,
+          currentClubName: club.name,
+          currentClubMembersFetched: fetchedCount,
+          currentClubMembersTotal: total,
+        });
+      }),
     };
   }
 
@@ -178,8 +197,13 @@ async function waitForBasecampLogin(): Promise<void> {
   await chrome.tabs.update(tabId, { url: pageUrl("status/basecamp-auth.html") });
 }
 
-/** Fetches every page of progress data for a given club. */
-async function fetchClubProgressPaginated(uuid: string): Promise<BasecampMember[]> {
+/**
+ * Fetches every page of progress data for a given club. onPage, if given, is
+ * invoked after each page is fetched with the running fetched-so-far count
+ * and the club's total row count (the API's "count" field, present on every
+ * page), so a caller can report real "N out of M" progress for this club.
+ */
+async function fetchClubProgressPaginated(uuid: string, onPage?: (fetchedCount: number, total: number) => Promise<void>): Promise<BasecampMember[]> {
   let url: string | null = `${API_ROOT}/bcm/progress/?club=${uuid}&page=1`;
   const members: BasecampMember[] = [];
   let safety = 0;
@@ -197,6 +221,7 @@ async function fetchClubProgressPaginated(uuid: string): Promise<BasecampMember[
       throw new Error(`Unexpected response for ${url} (no "results" field).`);
     }
     members.push(...(data.results as BasecampMember[]).map(stripUnneededUserFields));
+    if (onPage) await onPage(members.length, data.count);
     url = data.next;
   }
 

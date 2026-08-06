@@ -10,6 +10,7 @@
 import { scrapeAllClubs } from "./api/basecamp";
 import { scrapeAllEasySpeakClubs } from "./api/easyspeak";
 import { acknowledgeIconStatuses, setSourceStatus } from "./icon-state";
+import { clearScrapeProgress } from "./scrape-progress";
 import type { BasecampScrape, EasySpeakScrape, Request, ScrapeEnvelope, ScrapeFn, SourceKey } from "../shared/types";
 
 /**
@@ -26,6 +27,11 @@ async function runScrape<T>(source: SourceKey, scrapeFn: ScrapeFn<T>, sendRespon
   } catch (err) {
     await setSourceStatus(source, "error");
     sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
+  } finally {
+    // Clears any in-progress progress reading (see scrapeAllClubs()) once
+    // the scrape ends, success or failure — a no-op for EasySpeak, which
+    // never writes one.
+    await clearScrapeProgress(source);
   }
 }
 

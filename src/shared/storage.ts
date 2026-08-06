@@ -37,6 +37,7 @@ import type {
   PathLookup,
   ProfileId,
   RejectedPair,
+  ScrapeProgressState,
 } from "./types";
 
 export interface LocalSchema {
@@ -76,6 +77,7 @@ export interface LocalSchema {
 
 export interface SessionSchema {
   iconStatus: IconStatuses;
+  scrapeProgress: ScrapeProgressState;
 }
 
 // Every LocalSchema key except `activeProfile` — kept as a literal list
