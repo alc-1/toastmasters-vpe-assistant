@@ -53,10 +53,12 @@ jobs:
         run: npm run build
 
       - name: Zip dist/
+        id: zip
         run: |
           cd dist
           zip -r "../toastmasters-vpe-assistant-v${{ steps.version.outputs.version }}.zip" .
           cd ..
+          echo "zip_name=toastmasters-vpe-assistant-v${{ steps.version.outputs.version }}.zip" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
         run: |
@@ -76,5 +78,42 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}
-          files: toastmasters-vpe-assistant-v${{ steps.version.outputs.version }}.zip
+          files: ${{ steps.zip.outputs.zip_name }}
           generate_release_notes: true
+          body: |
+            ## Before you start
+            - ✅ You need a **computer** (Windows or Mac) — this won't work on a phone or tablet.
+            - ✅ You need **Google Chrome**, **Microsoft Edge**, **Brave**, **Opera**, **Vivaldi**, or **Arc** as your browser.
+            - ✅ You need to be an **officer of a Toastmasters club** in Basecamp and/or EasySpeak — the extension only shows data for clubs where you hold an officer role.
+
+            > This extension isn't on the Chrome Web Store yet, so installing it takes a few extra manual steps below. Don't worry — it only takes 2 minutes, just follow along carefully.
+
+            ## Installation (step by step)
+
+            ### Step 1 — Download the file
+            Click on **${{ steps.zip.outputs.zip_name }}** under "Assets" at the bottom of this page (you may need to click "Assets" to expand the list first). It will download to your computer, usually into your **Downloads** folder.
+
+            ### Step 2 — Unzip the file
+            Find the downloaded file (probably in your **Downloads** folder) and double-click it to unzip it.
+            - **On Windows:** right-click the file → "Extract All" → click "Extract".
+            - **On Mac:** just double-click it — it will unzip automatically.
+
+            You should now see a **folder** (not a .zip file) with the same name.
+
+            ### Step 3 — Open the Extensions page
+            Copy this address: `chrome://extensions`
+
+            Paste it into your browser's address bar (the same place you type website addresses) and press Enter.
+
+            > ⚠️ This link won't work if you click it directly from this page — that's a Chrome security restriction. You have to copy-paste it yourself.
+
+            ### Step 4 — Turn on Developer mode
+            In the top-right corner of the page that just opened, find the **Developer mode** toggle switch and turn it **on**.
+
+            ### Step 5 — Load the extension
+            Three new buttons will appear. Click **Load unpacked**, then select the **folder** you unzipped in Step 2 (not the .zip file).
+
+            ✅ **Done!** You should now see the extension's icon appear in your browser toolbar.
+
+            ---
+            **Something not working?** [Open an issue here](../../issues) and describe what you see — happy to help.
