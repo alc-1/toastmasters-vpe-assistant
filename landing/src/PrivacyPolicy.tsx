@@ -46,7 +46,7 @@ export default function PrivacyPolicy() {
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-navy-950">
             Privacy Policy for Toastmasters VPE Assistant
           </h1>
-          <p className="mt-3 text-sm font-medium text-navy-700">Effective date: August 5, 2026</p>
+          <p className="mt-3 text-sm font-medium text-navy-700">Effective date: August 6, 2026</p>
           <p className={`mt-6 text-lg ${bodyText}`}>
             Toastmasters VPE Assistant is a Chrome extension built to help Toastmasters Vice
             Presidents of Education (VPEs) get a unified view of members' Pathways progress, by
@@ -122,13 +122,6 @@ export default function PrivacyPolicy() {
               <h3 className="text-lg font-semibold text-navy-950">Storage permission</h3>
               <p className={`mt-2 ${bodyText}`}>
                 Used to save your preferences and matching decisions on your device.
-              </p>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-navy-950">Tabs permission</h3>
-              <p className={`mt-2 ${bodyText}`}>
-                Used to identify and interact with the relevant Basecamp and EasySpeak tabs when
-                generating a report.
               </p>
             </div>
             <div>
