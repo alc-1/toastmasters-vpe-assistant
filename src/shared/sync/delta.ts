@@ -405,6 +405,7 @@ export function buildLevelSummary(report: ReportResult): LevelSummaryGroup[] {
           matchConfidence: member.matchConfidence,
           pathName: path.displayName,
           pathPresence: path.presence,
+          pendingReview: needsAction(member),
           ...computeLevelSummary(path),
         });
       }
@@ -434,13 +435,17 @@ export function isMemberReadyForNextLevel(member: MemberReport): boolean {
  * Distinct members (across every club) ready for their next level — see
  * isMemberReadyForNextLevel() above. Backs the popup's vertical-stepper
  * "Club Progress" step: the count a VPE actually wants at a glance, without
- * opening the full Next Level Summary table.
+ * opening the full Next Level Summary table. Excludes members needsAction()
+ * flags as pending review (unmatched identity or an unresolved orphaned
+ * path) — same reasoning as buildLevelSummary()'s per-row pendingReview
+ * flag: their numbers aren't a reconciled diff yet, so they shouldn't count
+ * toward "ready".
  */
 export function countMembersReadyForNextLevel(report: ReportResult): number {
   let count = 0;
   for (const club of report.clubPairs) {
     for (const member of club.members) {
-      if (isMemberReadyForNextLevel(member)) count += 1;
+      if (!needsAction(member) && isMemberReadyForNextLevel(member)) count += 1;
     }
   }
   return count;

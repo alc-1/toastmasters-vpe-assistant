@@ -185,6 +185,11 @@ export interface LevelSummaryRow extends LevelSummaryCore {
   matchConfidence: MatchConfidence;
   pathName: string;
   pathPresence: Presence;
+  // Mirrors needsAction(member) at the time this row was built — lets
+  // Club Progress split "Next Level Summary" from a separate "Pending
+  // review" table without re-deriving the classification (which needs
+  // hasOrphanedPaths, not visible on a row otherwise).
+  pendingReview: boolean;
 }
 
 export interface LevelSummaryGroup {

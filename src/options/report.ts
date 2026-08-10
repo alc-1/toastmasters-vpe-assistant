@@ -64,7 +64,7 @@ async function refresh() {
   const clubSections = report.clubPairs.map((clubPair, index) => ({
     clubKey: summaryGroups[index].clubKey,
     clubName: summaryGroups[index].clubName,
-    summaryRows: summaryGroups[index].rows,
+    rows: summaryGroups[index].rows,
     clubPair,
   }));
 
@@ -135,7 +135,9 @@ function computeKpis(clubPair: ClubPairReport): ReportKpis {
 
   for (const member of clubPair.members) {
     paths += member.paths.filter((p) => !p.nonPathway).length;
-    if (isMemberReadyForNextLevel(member)) readyToLevelUp += 1;
+    // A pending-review member's numbers aren't a reconciled diff yet (see
+    // LevelSummaryRow.pendingReview) — don't count them as "ready".
+    if (!needsAction(member) && isMemberReadyForNextLevel(member)) readyToLevelUp += 1;
   }
 
   return { members: clubPair.members.length, paths, readyToLevelUp };
@@ -191,33 +193,60 @@ const SUMMARY_COLUMNS: SummaryColumn[] = [
 interface ClubSection {
   clubKey: string;
   clubName: string | null;
-  summaryRows: LevelSummaryRow[];
+  // All member+path rows for this club, both confirmed and pending-review —
+  // split by .pendingReview at render time (see renderActiveClub()).
+  rows: LevelSummaryRow[];
   clubPair: ClubPairReport;
 }
 
+// Drives one rendered table (sort state, expanded-row state, which DOM root
+// it lives in). Two instances below — "Next Level Summary" and "Pending
+// review" — share every render/sort/expand function, scoped by rootId so
+// the two tables on this page never cross-query each other's DOM.
+interface SummaryTableState {
+  rootId: string;
+  emptyMessage: string;
+  rows: LevelSummaryRow[];
+  sort: { key: keyof LevelSummaryRow; direction: "asc" | "desc" };
+  // Composite `${memberKey}::${pathKey}` key of this table's currently-
+  // expanded row, if any — at most one at a time (see the click handler in
+  // renderSummaryTable() below) — cleared whenever the active club changes
+  // so switching tabs always starts collapsed (see renderClubTabs()'s
+  // tab-button click handler below). The detail <tr> is only ever rendered
+  // into the DOM for this one row, not toggled via a "collapsed" class on an
+  // always-present sibling — that keeps every other row's position in the
+  // tbody stable, which .table tbody tr:nth-child(2n) (shared/styles.css)
+  // relies on for zebra striping.
+  expandedRowKey: string | null;
+}
+
+const mainTable: SummaryTableState = {
+  rootId: "summaryTableRoot",
+  emptyMessage: "No Pathways paths found.",
+  rows: [],
+  sort: { key: "realMissing", direction: "asc" },
+  expandedRowKey: null,
+};
+const pendingTable: SummaryTableState = {
+  rootId: "pendingReviewTableRoot",
+  emptyMessage: "No members pending review.",
+  rows: [],
+  sort: { key: "realMissing", direction: "asc" },
+  expandedRowKey: null,
+};
+
 let clubSections: ClubSection[] = [];
 let activeClubKey: string | null = null;
-let summaryRows: LevelSummaryRow[] = [];
-let summarySort: { key: keyof LevelSummaryRow; direction: "asc" | "desc" } = { key: "realMissing", direction: "asc" };
 
 // The active club's members, keyed by memberKey() — lets a Next Level
 // Summary row's expanded detail look up its member/path without threading
 // the whole MemberReport/PathReport through every sorted row.
 let activeMembers: Map<string, MemberReport> = new Map();
 
-// Composite `${memberKey}::${pathKey}` key of the currently-expanded row, if
-// any — at most one at a time (see the click handler in renderSummaryTable()
-// below) — cleared whenever the active club changes so switching tabs always
-// starts collapsed (see renderClubTabs()'s tab-button click handler below).
-// The detail <tr> is only ever rendered into the DOM for this one row, not
-// toggled via a "collapsed" class on an always-present sibling — that keeps
-// every other row's position in the tbody stable, which .table tbody
-// tr:nth-child(2n) (shared/styles.css) relies on for zebra striping.
-let expandedRowKey: string | null = null;
-
 function renderClubTabs(sections: ClubSection[]) {
   clubSections = sections;
-  expandedRowKey = null;
+  mainTable.expandedRowKey = null;
+  pendingTable.expandedRowKey = null;
   const tabsRoot = document.getElementById("clubTabs")!;
 
   if (sections.length === 0) {
@@ -225,6 +254,7 @@ function renderClubTabs(sections: ClubSection[]) {
     document.getElementById("kpiRoot")!.innerHTML = "";
     tabsRoot.innerHTML = "";
     document.getElementById("summaryTableRoot")!.innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
+    document.getElementById("pendingReviewTableRoot")!.innerHTML = "";
     return;
   }
 
@@ -244,7 +274,8 @@ function renderClubTabs(sections: ClubSection[]) {
   tabsRoot.querySelectorAll<HTMLButtonElement>(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       activeClubKey = btn.dataset.clubKey ?? null;
-      expandedRowKey = null;
+      mainTable.expandedRowKey = null;
+      pendingTable.expandedRowKey = null;
       updateActiveTab();
       renderActiveClub();
     });
@@ -260,15 +291,17 @@ function updateActiveTab() {
   });
 }
 
-// Sort state (summarySort) is shared across tabs on purpose — switching
-// clubs shouldn't reset how the VPE has the list sorted.
+// Sort state is shared across tabs on purpose (per table) — switching clubs
+// shouldn't reset how the VPE has either list sorted.
 function renderActiveClub() {
   const section = clubSections.find((s) => s.clubKey === activeClubKey);
   const clubPair = section ? section.clubPair : null;
   activeMembers = new Map((clubPair?.members ?? []).map((m) => [memberKey(m), m]));
   renderConflictWarning(clubPair);
   renderKpiRow(clubPair);
-  renderSummaryTable(section ? section.summaryRows : []);
+  const rows = section ? section.rows : [];
+  renderSummaryTable(mainTable, rows.filter((r) => !r.pendingReview));
+  renderSummaryTable(pendingTable, rows.filter((r) => r.pendingReview));
 }
 
 // ---------------------------------------------------------------------------
@@ -279,12 +312,12 @@ function renderActiveClub() {
 // stacked detail tables.
 // ---------------------------------------------------------------------------
 
-function renderSummaryTable(rows: LevelSummaryRow[]) {
-  summaryRows = rows;
-  const root = document.getElementById("summaryTableRoot")!;
+function renderSummaryTable(state: SummaryTableState, rows: LevelSummaryRow[]) {
+  state.rows = rows;
+  const root = document.getElementById(state.rootId)!;
 
   if (rows.length === 0) {
-    root.innerHTML = '<p class="empty-state">No Pathways paths found.</p>';
+    root.innerHTML = `<p class="empty-state">${escapeHtml(state.emptyMessage)}</p>`;
     return;
   }
 
@@ -295,9 +328,9 @@ function renderSummaryTable(rows: LevelSummaryRow[]) {
   root.querySelectorAll<HTMLTableCellElement>("th").forEach((th) => {
     th.addEventListener("click", () => {
       const key = th.dataset.key as keyof LevelSummaryRow;
-      summarySort = summarySort.key === key ? { key, direction: summarySort.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" };
-      updateSummaryHeaders();
-      renderSummaryBody();
+      state.sort = state.sort.key === key ? { key, direction: state.sort.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" };
+      updateSummaryHeaders(state);
+      renderSummaryBody(state);
     });
   });
 
@@ -308,26 +341,28 @@ function renderSummaryTable(rows: LevelSummaryRow[]) {
     const row = (event.target as HTMLElement).closest<HTMLElement>("tr[data-row-key]");
     if (!row) return;
     const key = row.dataset.rowKey!;
-    expandedRowKey = expandedRowKey === key ? null : key;
-    renderSummaryBody();
+    state.expandedRowKey = state.expandedRowKey === key ? null : key;
+    renderSummaryBody(state);
   });
 
-  updateSummaryHeaders();
-  renderSummaryBody();
+  updateSummaryHeaders(state);
+  renderSummaryBody(state);
 }
 
-function updateSummaryHeaders() {
-  document.querySelectorAll<HTMLTableCellElement>("table.summary th").forEach((th) => {
+function updateSummaryHeaders(state: SummaryTableState) {
+  const root = document.getElementById(state.rootId)!;
+  root.querySelectorAll<HTMLTableCellElement>("table.summary th").forEach((th) => {
     const col = SUMMARY_COLUMNS.find((c) => c.key === th.dataset.key)!;
-    const isActive = th.dataset.key === summarySort.key;
-    const arrow = isActive ? (summarySort.direction === "asc" ? " ▲" : " ▼") : "";
+    const isActive = th.dataset.key === state.sort.key;
+    const arrow = isActive ? (state.sort.direction === "asc" ? " ▲" : " ▼") : "";
     th.innerHTML = `${escapeHtml(col.label)}${arrow ? `<span class="sort-indicator">${arrow}</span>` : ""}`;
   });
 }
 
-function renderSummaryBody() {
-  const tbody = document.querySelector("table.summary tbody")!;
-  const sorted = [...summaryRows].sort((a, b) => compareSummaryRows(a, b, summarySort.key, summarySort.direction));
+function renderSummaryBody(state: SummaryTableState) {
+  const root = document.getElementById(state.rootId)!;
+  const tbody = root.querySelector("table.summary tbody")!;
+  const sorted = [...state.rows].sort((a, b) => compareSummaryRows(a, b, state.sort.key, state.sort.direction));
   tbody.innerHTML = sorted
     .map((row) => {
       const key = rowKey(row);
@@ -335,7 +370,7 @@ function renderSummaryBody() {
       // row has no sibling <tr> at all, so .table tbody tr:nth-child(2n)'s
       // plain odd/even striping (shared/styles.css) lines up with the
       // visible rows instead of counting hidden detail rows too.
-      return key === expandedRowKey ? renderSummaryRow(row, key) + renderDetailRow(row) : renderSummaryRow(row, key);
+      return key === state.expandedRowKey ? renderSummaryRow(row, key) + renderDetailRow(row) : renderSummaryRow(row, key);
     })
     .join("");
 }
