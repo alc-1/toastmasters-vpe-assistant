@@ -1,11 +1,9 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { crx } from "@crxjs/vite-plugin";
 
-// Not import.meta.dirname (Node 20.11+ only) — this repo's toolchain targets
-// Node 18, so resolve paths the portable way.
-const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+const r = (p: string) => resolve(import.meta.dirname, p);
 
 export default defineConfig(({ mode }) => {
   // Two release targets share this one config: "store" (the Chrome Web
@@ -16,8 +14,8 @@ export default defineConfig(({ mode }) => {
   const target = mode === "preview" ? "preview" : "store";
 
   // Read manifest.<target>.json via fs rather than a JSON import attribute
-  // (`with { type: "json" }`) — Node 18's support for that syntax is
-  // version-sensitive, so a plain readFileSync + JSON.parse sidesteps it.
+  // (`with { type: "json" }`) — the specifier here is dynamic (`target`
+  // varies per build), and import attributes need a static specifier.
   const manifest = JSON.parse(readFileSync(r(`manifest.${target}.json`), "utf8"));
 
   return {

@@ -775,14 +775,21 @@ config:
   synchronous bundle wouldn't. In practice every message here is popup-click-initiated (worker
   already warm), so this is a low-probability footgun, not a blocker — just don't debug a suspiciously
   flaky message-not-received issue in dev mode before ruling this out.
-- **Node version note**: this environment's toolchain is pinned to versions that work on Node 18
-  (`vite@^6`, `vitest@^3`, `jsdom@^26`, `typescript@^5.9`) rather than each package's latest major —
-  `vite@8`/`vitest@4`/`jsdom@27+`/`typescript@7` all require Node ≥20, and `typescript@7`'s `bin/tsc`
-  additionally fails to load at all under this project's Node 18 + `"type":"module"` combination (an
-  `ERR_UNKNOWN_FILE_EXTENSION` from Node's ESM loader, not a TypeScript bug). If the project's Node
-  version is ever bumped to 20+, revisiting these pins to the latest majors is a reasonable, isolated
-  follow-up — but don't bump the packages without also bumping Node, or `npm install`/`vite
-  build`/`tsc` will break exactly as they did during this migration.
+- **Node version note**: this project targets **Node 24** (`"engines": { "node": ">=24" }` in both
+  `package.json` and `landing/package.json`, enforced nowhere automatically — `npm install` won't
+  refuse an older Node on its own — but every CI workflow's `actions/setup-node` pins `node-version:
+  24` to match). This replaced an earlier Node 18 pin that held the toolchain back from each
+  package's latest major (`vite@^6`, `vitest@^3`, `jsdom@^26`, `typescript@^5.9`) — those majors all
+  require Node ≥20, and `typescript@7`'s `bin/tsc` additionally failed to load at all under Node 18 +
+  `"type":"module"` (`ERR_UNKNOWN_FILE_EXTENSION` from Node's ESM loader, not a TypeScript bug).
+  Current pins: `vite@^8`, `vitest@^4`, `jsdom@^30`, `typescript@^7`, `@types/node@^24`. Note
+  `typescript@7` is not an incremental release — it's a from-scratch native (Go-based) compiler
+  rewrite that deliberately skips major version 6, so watch for it behaving subtly differently from
+  the 5.x `tsc` this project used before (edge cases in type-checking, possible gaps vs. less common
+  tsconfig flags) rather than assuming it's a drop-in replacement. If the project's Node version is
+  ever bumped again, revisiting these pins to whatever's newest at that point follows the same
+  pattern — but don't bump the packages without also bumping Node (and the `engines`/CI pins to
+  match), or `npm install`/`vite build`/`tsc` will break exactly as they did before this migration.
 
 ## Conventions
 
