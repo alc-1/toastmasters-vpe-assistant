@@ -160,6 +160,127 @@ describe("matchPaths", () => {
     // separately for its own Basecamp-only display.
     expect(paths[0].pathCompletion).toEqual({ completed: 1, total: 1, missing: 0 });
   });
+
+  it("tags a completed easyspeak-only path (all levels needed 0) as completedHistory, not an actionable orphan", () => {
+    // Basecamp's live progress extraction only returns a member's currently-
+    // active path(s) — a path already completed drops out of Basecamp
+    // entirely, while EasySpeak keeps the full history. This member has one
+    // currently-active Basecamp path with no EasySpeak entry yet, plus one
+    // EasySpeak-only path they already finished (nothing left needed).
+    const basecampPerson = {
+      userId: 1,
+      name: "Test Member",
+      paths: [
+        {
+          path_name: "Persuasive Influence",
+          progression: {
+            "Level 1": { completed: 1, total: 2, approved: true },
+          },
+        },
+      ],
+    };
+    const easyspeakPerson = {
+      memberId: "e1",
+      name: "Test Member",
+      paths: [
+        {
+          path: "Innovative Planning (2017)",
+          levels: [
+            { level: 1, needed: 0, done: 0 },
+            { level: 2, needed: 0, done: 0 },
+            { level: 3, needed: 0, done: 0 },
+            { level: 4, needed: 0, done: 0 },
+            { level: 5, needed: 0, done: 0 },
+          ],
+        },
+      ],
+    };
+
+    const { paths } = matchPaths(basecampPerson, easyspeakPerson);
+    const activePath = paths.find((p) => p.presence === "basecamp-only")!;
+    const completedPath = paths.find((p) => p.presence === "easyspeak-only")!;
+
+    expect(completedPath.completedHistory).toBe(true);
+    expect(activePath.completedHistory).toBe(false);
+    expect(hasOrphanedPaths({ paths })).toBe(false);
+  });
+
+  it("tags a completed easyspeak-only path with real, fully-satisfied counts (not needed=0) as completedHistory", () => {
+    // Some completed EasySpeak paths report real non-zero needed/done counts
+    // rather than needed=0 everywhere — still completed (done >= needed on
+    // every level), still absent from Basecamp's active-only extraction.
+    const basecampPerson = {
+      userId: 1,
+      name: "Test Member",
+      paths: [
+        {
+          path_name: "Persuasive Influence",
+          progression: {
+            "Level 1": { completed: 1, total: 2, approved: true },
+          },
+        },
+      ],
+    };
+    const easyspeakPerson = {
+      memberId: "e1",
+      name: "Test Member",
+      paths: [
+        {
+          path: "Innovative Planning (2017)",
+          levels: [
+            { level: 1, needed: 2, done: 2 },
+            { level: 2, needed: 4, done: 4 },
+            { level: 3, needed: 4, done: 4 },
+            { level: 4, needed: 4, done: 4 },
+            { level: 5, needed: 2, done: 2 },
+          ],
+        },
+      ],
+    };
+
+    const { paths } = matchPaths(basecampPerson, easyspeakPerson);
+    const completedPath = paths.find((p) => p.presence === "easyspeak-only")!;
+
+    expect(completedPath.completedHistory).toBe(true);
+    expect(hasOrphanedPaths({ paths })).toBe(false);
+  });
+
+  it("does not tag an easyspeak-only path with real remaining work as completedHistory", () => {
+    // A genuine mismatch — the member picked a different, still-active path
+    // than Basecamp has on record — must keep flagging as an actionable
+    // orphan; this fix must never suppress it.
+    const basecampPerson = {
+      userId: 1,
+      name: "Test Member",
+      paths: [
+        {
+          path_name: "Innovative Planning",
+          progression: {
+            "Level 1": { completed: 2, total: 2, approved: true },
+          },
+        },
+      ],
+    };
+    const easyspeakPerson = {
+      memberId: "e1",
+      name: "Test Member",
+      paths: [
+        {
+          path: "Strategic Relationships",
+          levels: [
+            { level: 1, needed: 2, done: 2 },
+            { level: 2, needed: 3, done: 0 },
+          ],
+        },
+      ],
+    };
+
+    const { paths } = matchPaths(basecampPerson, easyspeakPerson);
+    const easyspeakOnly = paths.find((p) => p.presence === "easyspeak-only")!;
+
+    expect(easyspeakOnly.completedHistory).toBe(false);
+    expect(hasOrphanedPaths({ paths })).toBe(true);
+  });
 });
 
 

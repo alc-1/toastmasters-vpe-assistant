@@ -119,6 +119,12 @@ export interface PathReport {
   nonPathway: boolean;
   overridden: boolean;
   orphaned: boolean;
+  // Easyspeak-only path whose 5 levels all report `needed: 0` — Basecamp's
+  // live progress extraction only returns a member's currently-active
+  // path(s), so a path they already completed drops out of Basecamp
+  // entirely while EasySpeak keeps the full history. Read-only history, not
+  // an actionable orphan (see hasOrphanedPaths()/renderPathBindDetail()).
+  completedHistory: boolean;
   levels: LevelDiff[];
   pathCompletion: PathCompletion | null;
 }

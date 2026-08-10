@@ -133,12 +133,15 @@ export function countEasySpeakMembers(data: EasySpeakScrape): number {
  * marked orphaned (matchPaths()'s `orphaned` tag — see markPathOrphan() in
  * shared/resolution-store.ts) has already been reviewed and dismissed, so
  * it's excluded from each side's count here, the same way hasOrphanedPaths
- * treats a bound path as no longer orphaned.
+ * treats a bound path as no longer orphaned. An easyspeak-only path tagged
+ * `completedHistory` (matchPaths()) is likewise excluded — it's read-only
+ * history Basecamp no longer tracks because it's done, not a mismatch
+ * needing a human decision.
  */
 export function hasOrphanedPaths(member: { paths?: PathReport[] }): boolean {
   const paths = member.paths ?? [];
   const hasBasecampOrphan = paths.some((p) => p.presence === "basecamp-only" && !p.nonPathway && !p.orphaned);
-  const hasEasyspeakOrphan = paths.some((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.orphaned);
+  const hasEasyspeakOrphan = paths.some((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.orphaned && !p.completedHistory);
   return hasBasecampOrphan && hasEasyspeakOrphan;
 }
 
@@ -383,16 +386,17 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
 
 /**
  * @returns one group per club (same order as report.clubPairs), each with
- *   one row per member+path (excluding non-Pathways paths) — grouped rather
- *   than a flat list so the UI can show one club at a time behind tabs
- *   instead of mixing every club's members into a single list.
+ *   one row per member+path (excluding non-Pathways paths and completed
+ *   EasySpeak-only history — see PathReport.completedHistory) — grouped
+ *   rather than a flat list so the UI can show one club at a time behind
+ *   tabs instead of mixing every club's members into a single list.
  */
 export function buildLevelSummary(report: ReportResult): LevelSummaryGroup[] {
   return report.clubPairs.map((club, index) => {
     const rows: LevelSummaryRow[] = [];
     for (const member of club.members) {
       for (const path of member.paths) {
-        if (path.nonPathway) continue;
+        if (path.nonPathway || path.completedHistory) continue;
         rows.push({
           memberKey: memberKey(member),
           pathKey: path.canonicalKey,

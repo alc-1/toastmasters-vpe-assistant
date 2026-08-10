@@ -434,8 +434,28 @@ export function canonicalizePathName(rawPath: string, pathAliasLookup: Map<strin
 
 const PATHWAYS_LEVEL_COUNT = 5;
 
+// "No active path" means EasySpeak literally has no path name recorded for
+// this member (the mock Carla Mendes case: `path: ""`) — not merely that a
+// path's levels compute to all-zero-needed, since that's also exactly how a
+// *completed* path reads (see isCompletedEasySpeakHistory below). Using the
+// needed-count signal here would make hasNoActivePath swallow a member's
+// only EasySpeak path before matchPaths() ever gets a chance to tag it as
+// completed history instead of discarding it outright.
 function hasNoActivePath(easyspeakPaths: EasySpeakPersonPath[]): boolean {
-  return easyspeakPaths.length === 0 || easyspeakPaths.every((p) => p.levels.every((level) => level.needed === 0));
+  return easyspeakPaths.length === 0 || easyspeakPaths.every((p) => !p.path.trim());
+}
+
+// Basecamp's live progress extraction only returns a member's currently-
+// active path(s) — a path they already completed drops out of Basecamp
+// entirely, while EasySpeak keeps the full history. An easyspeak-only path
+// whose every level is fully satisfied (`done >= needed`) is that completed
+// history showing up with no Basecamp counterpart, not a genuine mismatch a
+// human needs to reconcile. This covers both a path EasySpeak reports as
+// `needed: 0` everywhere (0 >= 0 still holds) and one with real non-zero
+// counts that have all been met. `levels.length > 0` keeps this from ever
+// matching a nonPathway path (which always has `levels: []` below).
+function isCompletedEasySpeakHistory(es: EasySpeakPersonPath, nonPathway: boolean): boolean {
+  return !nonPathway && es.levels.length > 0 && es.levels.every((l) => l.done >= l.needed);
 }
 
 function buildPathCompletion(bc: BasecampPersonPath | null): PathCompletion | null {
@@ -547,6 +567,7 @@ export function matchPaths(
       nonPathway: false,
       overridden: true,
       orphaned: false,
+      completedHistory: false,
       levels: diffLevels(es, bc),
       pathCompletion: buildPathCompletion(bc),
     });
@@ -594,6 +615,7 @@ export function matchPaths(
         nonPathway: false,
         overridden: false,
         orphaned: isBasecampOrphaned(bc.path_name),
+        completedHistory: false,
         levels: diffLevels(null, bc),
         pathCompletion: buildPathCompletion(bc),
       });
@@ -606,6 +628,7 @@ export function matchPaths(
         nonPathway,
         overridden: false,
         orphaned: isEasyspeakOrphaned(es.path),
+        completedHistory: isCompletedEasySpeakHistory(es, nonPathway),
         levels: nonPathway ? [] : diffLevels(es, null),
         pathCompletion: null,
       });
@@ -625,6 +648,7 @@ export function matchPaths(
       nonPathway,
       overridden: false,
       orphaned,
+      completedHistory: presence === "easyspeak-only" && es ? isCompletedEasySpeakHistory(es, nonPathway) : false,
       levels: nonPathway ? [] : diffLevels(es, bc),
       pathCompletion: buildPathCompletion(bc),
     });

@@ -505,10 +505,16 @@ function renderPathBindDetail(member: MemberReport): string {
   const matchedPaths = realPaths.filter((p) => p.presence === "both");
   const resolvedOrphans = realPaths.filter((p) => p.orphaned);
   // Excludes already orphan-marked paths — onBindPath() recomputes these same
-  // two filters internally, so data-bc-index must stay aligned with what's
-  // rendered here.
+  // two filters internally, so data-bc-index/the <select> value must stay
+  // aligned with what's rendered here. completedHistory paths (EasySpeak-only,
+  // all levels done — see PathReport.completedHistory) are excluded from
+  // esOrphans entirely: Basecamp's live extraction never returns a completed
+  // path, so there's genuinely nothing to bind it to, and offering it as a
+  // bind candidate is exactly what invites a wrong pairing against an
+  // unrelated active path. They get their own read-only section below.
   const bcOrphans = realPaths.filter((p) => p.presence === "basecamp-only" && !p.orphaned);
-  const esOrphans = realPaths.filter((p) => p.presence === "easyspeak-only" && !p.orphaned);
+  const esOrphans = realPaths.filter((p) => p.presence === "easyspeak-only" && !p.orphaned && !p.completedHistory);
+  const esCompletedHistory = realPaths.filter((p) => p.presence === "easyspeak-only" && !p.orphaned && p.completedHistory);
 
   const sections: string[] = [];
 
@@ -582,6 +588,21 @@ function renderPathBindDetail(member: MemberReport): string {
             <div class="path-pair-row">
               <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
               <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
+            </div>
+          `
+        )
+        .join("")
+    );
+  }
+
+  if (esCompletedHistory.length > 0) {
+    sections.push(
+      esCompletedHistory
+        .map(
+          (esPath) => `
+            <div class="path-pair-row" title="Basecamp only tracks currently-active paths, so a completed one has no live counterpart to bind to.">
+              <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
+              <span class="muted-text">Completed (not tracked in Basecamp)</span>
             </div>
           `
         )
@@ -701,7 +722,7 @@ async function onBindPath(btn: HTMLButtonElement) {
   if (!member) return;
 
   const bcOrphans = member.paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway && !p.orphaned);
-  const esOrphans = member.paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.orphaned);
+  const esOrphans = member.paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.orphaned && !p.completedHistory);
   const bcPath = bcOrphans[bcIndex];
   const select = btn.closest(".path-pair-row")!.querySelector("select")!;
   const esPath = esOrphans[Number(select.value)];
