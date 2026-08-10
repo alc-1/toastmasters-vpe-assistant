@@ -480,7 +480,7 @@ describe("buildReport (synthetic fixtures)", () => {
     expect(boundPath.presence).toBe("both");
   });
 
-  it("resolves a member-scoped path orphan and reports it via hasPathOrphan / PathReport.orphaned", () => {
+  it("keeps flagging a path issue until every real candidate on both sides is resolved, not just the first one", () => {
     const orphaned = buildReport(
       basecampData,
       easyspeakData,
@@ -502,10 +502,30 @@ describe("buildReport (synthetic fixtures)", () => {
       easyspeakClubName: "Riverside Toastmasters",
     });
     const helena = findMember(club, { basecampName: "Helena Voss", easyspeakName: "Helena Voss" });
-    expect(hasOrphanedPaths(helena)).toBe(false);
     expect(hasPathOrphan(helena)).toBe(true);
     const orphanPath = helena.paths.find((p: PathReport) => p.orphaned)!;
     expect(orphanPath.presence).toBe("basecamp-only");
+    // Helena's EasySpeak-only "Team Collaboration" is still unresolved — marking
+    // just the Basecamp side as an orphan must not clear the member's flag.
+    expect(hasOrphanedPaths(helena)).toBe(true);
+
+    const bothResolved = buildReport(
+      basecampData,
+      easyspeakData,
+      {},
+      {
+        memberPathOrphans: [
+          { basecampUserId: 9005, easyspeakMemberId: "305", basecampPathName: "Strategic Relationships", easyspeakPathLabel: null, orphanedAt: 0 },
+          { basecampUserId: 9005, easyspeakMemberId: "305", basecampPathName: null, easyspeakPathLabel: "Team Collaboration", orphanedAt: 0 },
+        ],
+      }
+    );
+    const clubBothResolved = findClubPair(bothResolved, {
+      basecampClubName: "Riverside Toastmasters",
+      easyspeakClubName: "Riverside Toastmasters",
+    });
+    const helenaBothResolved = findMember(clubBothResolved, { basecampName: "Helena Voss", easyspeakName: "Helena Voss" });
+    expect(hasOrphanedPaths(helenaBothResolved)).toBe(false);
   });
 
   it("computes a level summary reflecting Basecamp-approved progress", () => {

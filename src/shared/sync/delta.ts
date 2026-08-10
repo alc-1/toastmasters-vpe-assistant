@@ -129,20 +129,25 @@ export function countEasySpeakMembers(data: EasySpeakScrape): number {
  * Definition backing the Members view's "Path issues" filter: a member with
  * at least one Pathways path orphaned on each side (both sides picked a
  * path the other doesn't have) even though the member link itself is fine —
- * exactly the case a member-scoped path-bind override exists to fix. A path
- * marked orphaned (matchPaths()'s `orphaned` tag — see markPathOrphan() in
- * shared/resolution-store.ts) has already been reviewed and dismissed, so
- * it's excluded from each side's count here, the same way hasOrphanedPaths
- * treats a bound path as no longer orphaned. An easyspeak-only path tagged
- * `completedHistory` (matchPaths()) is likewise excluded — it's read-only
- * history Basecamp no longer tracks because it's done, not a mismatch
- * needing a human decision.
+ * exactly the case a member-scoped path-bind override/orphan-mark exists to
+ * fix. Gating on both sides ever having a real (non-nonPathway) candidate —
+ * regardless of whether some of those candidates have since been resolved —
+ * is what distinguishes a genuine two-sided mismatch from a harmless
+ * one-sided leftover (e.g. a member who simply hasn't started an equivalent
+ * path on the other system yet, or an easyspeak-only path tagged
+ * `completedHistory`, read-only history Basecamp no longer tracks because
+ * it's done). Once that gate is satisfied, this stays true until *every*
+ * real candidate on *both* sides is individually resolved (`orphaned` or
+ * folded into a "both"-presence pair) — resolving only the smaller side
+ * must not flip a member with several outstanding items on the other side
+ * to "done".
  */
 export function hasOrphanedPaths(member: { paths?: PathReport[] }): boolean {
   const paths = member.paths ?? [];
-  const hasBasecampOrphan = paths.some((p) => p.presence === "basecamp-only" && !p.nonPathway && !p.orphaned);
-  const hasEasyspeakOrphan = paths.some((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.orphaned && !p.completedHistory);
-  return hasBasecampOrphan && hasEasyspeakOrphan;
+  const basecampCandidates = paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway);
+  const easyspeakCandidates = paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.completedHistory);
+  if (basecampCandidates.length === 0 || easyspeakCandidates.length === 0) return false;
+  return basecampCandidates.some((p) => !p.orphaned) || easyspeakCandidates.some((p) => !p.orphaned);
 }
 
 /**
