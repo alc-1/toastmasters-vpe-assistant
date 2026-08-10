@@ -114,7 +114,7 @@ src/
 ├── welcome/                 # first-run-only tab, opened by background/index.ts's onInstalled
 │   ├── welcome.html
 │   └── welcome.ts
-└── shared/                 # no chrome.* dependency except storage.ts/resolution-store.ts/settings-store.ts/sync-status-panel.ts
+└── shared/                 # no chrome.* dependency except storage.ts/resolution-store.ts/settings-store.ts/sync-status-panel.ts/update-store.ts
     ├── types.ts             # the domain type catalog — read this first when touching data shapes
     ├── storage.ts           # the ONLY file allowed to call chrome.storage.* directly
     ├── pages.ts             # extension page URL constants (chrome.runtime.getURL wrapper)
@@ -203,6 +203,20 @@ background service worker → source-specific scraper**.
   rather than opening a second one). `welcome/welcome.ts` has no `chrome.storage`/resolution-store
   dependency at all — it's a static walkthrough, not part of the stepper flow those five options
   pages share (no `app-shell.ts` nav on it), so it isn't wired into `NAV_ITEMS`.
+- **`background/index.preview.ts`** — `manifest.preview.json`'s `background.service_worker` entry,
+  **not** `manifest.store.json`'s (which still points at plain `background/index.ts` above). A
+  physically separate file, not a runtime flag inside `index.ts`: it does `import "./index"` (runs
+  the identical shared setup) then calls `background/api/update-checker.ts`'s
+  `registerUpdateChecker()`. This is what keeps the preview-only "check GitHub for a newer preview
+  release" poller (`chrome.alarms` every 6h + on install/update, badges the toolbar icon, fires one
+  `chrome.notifications` toast per newly-seen version) — and every string in it, including the
+  GitHub API host — physically out of the store build's bundle graph, verified by
+  `.github/workflows/ci.yml` grepping `dist/store/` for it. `alarms`/`downloads`/`notifications`
+  permissions and the `api.github.com` host permission are likewise only in `manifest.preview.json`.
+  The download+instructions flow (`shared/update-store.ts`'s `startUpdateDownload()`) is called both
+  from the popup's update banner and from `chrome.notifications.onClicked` directly — no
+  message-passing round trip, same reasoning as `options/members.ts`'s direct resolution-store
+  writes (no service-worker-lifetime constraint applies here, unlike EasySpeak's tab-navigation).
 - **`background/messaging.ts`** — the `onMessage` listener: `SCRAPE_BASECAMP`/`SCRAPE_EASYSPEAK`
   both go through a shared `runScrape(source, scrapeFn, sendResponse)` helper that brackets the call
   with `setSourceStatus(source, "loading"/"success"/"error")` (see below) before `sendResponse({ok:
@@ -738,7 +752,7 @@ config:
   in `vite.config.ts` since their Vite defaults are relative to `root` (would otherwise become
   `src/public`/`src/dist`); `build.outDir` is additionally derived from `target` now, not a fixed
   path.
-- **`build.rollupOptions.input`** lists the seven extra HTML pages (five `options/*.html`, two
+- **`build.rollupOptions.input`** lists the eight extra HTML pages (five `options/*.html`, three
   `status/*.html`) that aren't discoverable from either manifest alone. `popup/index.html` is
   deliberately **not** listed there — crxjs picks it up automatically from the active manifest's
   `action.default_popup`; double-listing it would be redundant, not just harmless, so don't add it.

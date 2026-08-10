@@ -10,11 +10,14 @@
 // popup was opened (see init() below).
 
 import { renderVerticalStepper } from "../shared/app-shell";
+import { escapeHtml } from "../shared/dom-utils";
 import { PAGES, pageUrl } from "../shared/pages";
 import { sendMessage } from "../shared/send-message";
 import { computeStepperInfo } from "../shared/stepper-info";
+import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, startUpdateDownload } from "../shared/update-store";
 
 const stepperRoot = document.getElementById("popupStepperRoot")!;
+const updateBannerRoot = document.getElementById("updateBannerRoot")!;
 
 // Delegated once — renderPopup() replaces stepperRoot's innerHTML on every
 // call, but the root element itself never changes, so a single delegated
@@ -37,9 +40,39 @@ async function init() {
   // acknowledging the toolbar icon.
   await sendMessage({ type: "POPUP_OPENED" });
   await renderPopup();
+  await renderUpdateBanner();
 }
 
 async function renderPopup() {
   const info = await computeStepperInfo();
   stepperRoot.innerHTML = renderVerticalStepper(info);
+}
+
+// No-op on the store build — updateCheck is only ever written by the preview
+// build's background/api/update-checker.ts, so this always finds nothing.
+async function renderUpdateBanner() {
+  const [update, dismissedVersion] = await Promise.all([getUpdateCheck(), getDismissedUpdateVersion()]);
+  if (!update || update.latestVersion === dismissedVersion) {
+    updateBannerRoot.innerHTML = "";
+    return;
+  }
+
+  updateBannerRoot.innerHTML = `
+    <div class="update-banner">
+      <span>Update available: v${escapeHtml(update.latestVersion)}</span>
+      <span class="update-banner__actions">
+        <button id="updateDownloadBtn" class="btn btn-primary">Download</button>
+        <button id="updateDismissBtn" class="btn btn-secondary">Dismiss</button>
+      </span>
+    </div>
+  `;
+
+  document.getElementById("updateDownloadBtn")!.addEventListener("click", async () => {
+    await startUpdateDownload(update);
+    updateBannerRoot.innerHTML = "";
+  });
+  document.getElementById("updateDismissBtn")!.addEventListener("click", async () => {
+    await dismissUpdate(update.latestVersion);
+    updateBannerRoot.innerHTML = "";
+  });
 }

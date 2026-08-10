@@ -34,5 +34,12 @@ jobs:
       - name: Build (store)
         run: npm run build
 
+      - name: Verify store build has no update-checker references
+        run: |
+          if grep -r "api.github.com" dist/store/; then
+            echo "::error::Store build must not reference the GitHub releases API"
+            exit 1
+          fi
+
       - name: Build (preview)
         run: npm run build:preview

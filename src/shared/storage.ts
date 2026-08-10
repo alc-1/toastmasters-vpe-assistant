@@ -38,6 +38,7 @@ import type {
   ProfileId,
   RejectedPair,
   ScrapeProgressState,
+  UpdateCheckInfo,
 } from "./types";
 
 export interface LocalSchema {
@@ -73,6 +74,12 @@ export interface LocalSchema {
   // Drives the "locked until reached via Next" gating in shared/app-shell.ts,
   // separately from this same StepMeta's prerequisite-based `disabled`.
   visitedSteps: AppShellPage[];
+  // Preview build only (see background/api/update-checker.ts /
+  // background/index.preview.ts — physically absent from the store build).
+  // Not profile-scoped: which preview build is newest has nothing to do with
+  // which club/region data is active.
+  updateCheck: UpdateCheckInfo;
+  updateDismissedVersion: string;
 }
 
 export interface SessionSchema {

@@ -6,7 +6,10 @@
 
   "permissions": [
     "storage",
-    "scripting"
+    "scripting",
+    "alarms",
+    "downloads",
+    "notifications"
   ],
 
   "host_permissions": [
@@ -14,11 +17,12 @@
     "https://apps.basecamp.toastmasters.org/*",
     "https://tmclub.eu/*",
     "https://toastmasterclub.org/*",
-    "https://easy-speak.org/*"
+    "https://easy-speak.org/*",
+    "https://api.github.com/*"
   ],
 
   "background": {
-    "service_worker": "background/index.ts",
+    "service_worker": "background/index.preview.ts",
     "type": "module"
   },
 

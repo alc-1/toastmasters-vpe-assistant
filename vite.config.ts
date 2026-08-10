@@ -43,6 +43,7 @@ export default defineConfig(({ mode }) => {
           clubReview: r("src/options/club-review.html"),
           basecampAuth: r("src/status/basecamp-auth.html"),
           easyspeakDone: r("src/status/easyspeak-done.html"),
+          updateAvailable: r("src/status/update-available.html"),
           welcome: r("src/welcome/welcome.html"),
         },
       },

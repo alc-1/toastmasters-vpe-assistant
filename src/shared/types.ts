@@ -301,6 +301,18 @@ export type SourceKey = "basecamp" | "easyspeak";
 export type SourceStatus = "idle" | "loading" | "success" | "error";
 export type IconStatuses = Record<SourceKey, SourceStatus>;
 
+/**
+ * Result of the preview build's background GitHub-release poll (see
+ * background/api/update-checker.ts) — only ever written when a version newer
+ * than the running extension's own was found. `latestVersion` is bare
+ * (`"0.4.0"`, no leading "v") so it can be compared/displayed directly.
+ */
+export interface UpdateCheckInfo {
+  latestVersion: string;
+  downloadUrl: string;
+  checkedAt: number;
+}
+
 // Incremental progress for a still-running scrape, written to
 // chrome.storage.session (see shared/storage.ts's SessionSchema) so a page
 // can render live updates. clubsTotal/currentClubIndex are real counts
