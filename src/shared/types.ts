@@ -337,7 +337,7 @@ export type IconStatuses = Record<SourceKey, SourceStatus>;
  */
 export interface UpdateCheckInfo {
   latestVersion: string;
-  downloadUrl: string;
+  releaseUrl: string;
   checkedAt: number;
 }
 

@@ -1,21 +1,29 @@
 // src/shared/update-store.ts
 //
-// Storage I/O + the download/instructions flow for the preview build's
-// update checker (background/api/update-checker.ts writes updateCheck;
-// nothing else does). This is preview-build-only in practice — the store
-// build never writes an updateCheck record — but the module itself has no
-// build-mode branching, since it's harmless dead weight if ever called
-// against an empty record.
+// Storage I/O + the release-page flow for the preview build's update checker
+// (background/api/update-checker.ts writes updateCheck; nothing else does).
+// This is preview-build-only in practice — the store build never writes an
+// updateCheck record — but the module itself has no build-mode branching,
+// since it's harmless dead weight if ever called against an empty record.
 //
-// chrome.downloads/chrome.tabs/chrome.action are all callable from any
-// extension context with the relevant permission, not background-only, so
-// startUpdateDownload() is called directly from both the popup's Download
-// button AND background's chrome.notifications.onClicked handler — no
-// message-passing round trip needed (unlike EasySpeak's tab-navigation flow,
-// which genuinely needs the service worker's lifetime across popup teardown).
+// chrome.tabs/chrome.action are callable from any extension context with the
+// relevant permission, not background-only, so openUpdateRelease() is called
+// directly from both the popup's Download button AND background's
+// chrome.notifications.onClicked handler — no message-passing round trip
+// needed (unlike EasySpeak's tab-navigation flow, which genuinely needs the
+// service worker's lifetime across popup teardown).
+//
+// This used to actually trigger the zip download itself via
+// chrome.downloads.download(), but that download was silently getting
+// cancelled: Chrome doesn't create the real DownloadItem until it gets a
+// server response, and the very next step (opening a tab) steals window
+// focus, which — when called from the popup — closes the popup and cancels
+// any download that hadn't started yet. Simplest fix: don't drive the
+// download from the extension at all, just send the user to the GitHub
+// release page and let them click the asset themselves, same as the
+// release notes' own instructions already tell them to do.
 
 import { local } from "./storage";
-import { PAGES, pageUrl } from "./pages";
 import type { UpdateCheckInfo } from "./types";
 
 export async function getUpdateCheck(): Promise<UpdateCheckInfo | undefined> {
@@ -39,15 +47,11 @@ export async function dismissUpdate(version: string): Promise<void> {
 }
 
 /**
- * Starts the release zip download, opens the reload/reinstall instructions
- * tab, and clears the toolbar badge. Only ever called from an explicit user
- * click (popup's Download button, or the OS notification itself) — never
- * automatically.
+ * Opens the GitHub release page in a new tab and clears the toolbar badge.
+ * Only ever called from an explicit user click (popup's Download button, or
+ * the OS notification itself) — never automatically.
  */
-export async function startUpdateDownload(info: UpdateCheckInfo): Promise<void> {
-  await chrome.downloads.download({ url: info.downloadUrl });
-  await chrome.tabs.create({
-    url: `${pageUrl(PAGES.updateAvailable)}?v=${encodeURIComponent(info.latestVersion)}`,
-  });
+export async function openUpdateRelease(info: UpdateCheckInfo): Promise<void> {
+  await chrome.tabs.create({ url: info.releaseUrl });
   await chrome.action.setBadgeText({ text: "" });
 }

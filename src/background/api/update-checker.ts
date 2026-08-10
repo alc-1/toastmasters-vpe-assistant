@@ -16,7 +16,7 @@
 // synchronous top-level evaluation.
 
 import { local } from "../../shared/storage";
-import { startUpdateDownload } from "../../shared/update-store";
+import { openUpdateRelease } from "../../shared/update-store";
 import type { UpdateCheckInfo } from "../../shared/types";
 
 const REPO = "alc-1/toastmasters-vpe-assistant";
@@ -24,16 +24,10 @@ const LATEST_RELEASE_URL = `https://api.github.com/repos/${REPO}/releases/latest
 const CHECK_ALARM_NAME = "checkForPreviewUpdate";
 const CHECK_INTERVAL_MINUTES = 360; // 6 hours
 const UPDATE_NOTIFICATION_ID = "toastmasters-vpe-assistant-update-available";
-const PREVIEW_ASSET_PREFIX = "toastmasters-vpe-assistant-preview-";
-
-interface GitHubReleaseAsset {
-  name: string;
-  browser_download_url: string;
-}
 
 interface GitHubRelease {
   tag_name: string;
-  assets: GitHubReleaseAsset[];
+  html_url: string;
 }
 
 export function registerUpdateChecker(): void {
@@ -61,7 +55,7 @@ export function registerUpdateChecker(): void {
 
 async function handleNotificationClick(): Promise<void> {
   const info = await local.value("updateCheck");
-  if (info) await startUpdateDownload(info);
+  if (info) await openUpdateRelease(info);
 }
 
 async function checkForUpdate(): Promise<void> {
@@ -86,13 +80,10 @@ async function checkForUpdate(): Promise<void> {
   const dismissedVersion = await local.value("updateDismissedVersion");
   if (latestVersion === dismissedVersion) return; // user already dismissed this exact version
 
-  const asset = release.assets.find((a) => a.name.startsWith(PREVIEW_ASSET_PREFIX) && a.name.endsWith(".zip"));
-  if (!asset) return; // release exists but hasn't finished uploading assets yet
-
   const previous = await local.value("updateCheck");
   const isFirstSightingOfThisVersion = previous?.latestVersion !== latestVersion;
 
-  const info: UpdateCheckInfo = { latestVersion, downloadUrl: asset.browser_download_url, checkedAt: Date.now() };
+  const info: UpdateCheckInfo = { latestVersion, releaseUrl: release.html_url, checkedAt: Date.now() };
   await local.set({ updateCheck: info });
 
   await chrome.action.setBadgeText({ text: "1" });
@@ -103,7 +94,7 @@ async function checkForUpdate(): Promise<void> {
       type: "basic",
       iconUrl: "icons/default/128.png",
       title: "Update available",
-      message: `Toastmasters VPE Assistant v${latestVersion} is ready — click to download.`,
+      message: `Toastmasters VPE Assistant v${latestVersion} is ready — click to view the release.`,
     });
   }
 }

@@ -211,12 +211,21 @@ background service worker → source-specific scraper**.
   release" poller (`chrome.alarms` every 6h + on install/update, badges the toolbar icon, fires one
   `chrome.notifications` toast per newly-seen version) — and every string in it, including the
   GitHub API host — physically out of the store build's bundle graph, verified by
-  `.github/workflows/ci.yml` grepping `dist/store/` for it. `alarms`/`downloads`/`notifications`
-  permissions and the `api.github.com` host permission are likewise only in `manifest.preview.json`.
-  The download+instructions flow (`shared/update-store.ts`'s `startUpdateDownload()`) is called both
-  from the popup's update banner and from `chrome.notifications.onClicked` directly — no
-  message-passing round trip, same reasoning as `options/members.ts`'s direct resolution-store
+  `.github/workflows/ci.yml` grepping `dist/store/` for it. `alarms`/`notifications` permissions and
+  the `api.github.com` host permission are likewise only in `manifest.preview.json`. The
+  release-page flow (`shared/update-store.ts`'s `openUpdateRelease()`, which just does
+  `chrome.tabs.create({url: info.releaseUrl})` against the GitHub release's own `html_url`) is
+  called both from the popup's update banner and from `chrome.notifications.onClicked` directly —
+  no message-passing round trip, same reasoning as `options/members.ts`'s direct resolution-store
   writes (no service-worker-lifetime constraint applies here, unlike EasySpeak's tab-navigation).
+  This used to trigger the release zip download directly via `chrome.downloads.download()` plus a
+  reload-instructions status page, but that download was silently getting cancelled: Chrome doesn't
+  create the real `DownloadItem` until it gets a server response, and the very next step (opening a
+  tab) steals window focus, which — called from the popup — closes the popup and cancels any
+  download that hadn't started yet. Simplified instead to just open the GitHub release page and let
+  the user click the asset themselves, same as the release notes' own instructions already say to
+  do — no `downloads` permission, no `status/update-available.html`, no asset-lookup logic in
+  `update-checker.ts` needed anymore.
 - **`background/messaging.ts`** — the `onMessage` listener: `SCRAPE_BASECAMP`/`SCRAPE_EASYSPEAK`
   both go through a shared `runScrape(source, scrapeFn, sendResponse)` helper that brackets the call
   with `setSourceStatus(source, "loading"/"success"/"error")` (see below) before `sendResponse({ok:

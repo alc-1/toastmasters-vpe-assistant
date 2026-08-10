@@ -14,7 +14,7 @@ import { escapeHtml } from "../shared/dom-utils";
 import { PAGES, pageUrl } from "../shared/pages";
 import { sendMessage } from "../shared/send-message";
 import { computeStepperInfo } from "../shared/stepper-info";
-import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, startUpdateDownload } from "../shared/update-store";
+import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, openUpdateRelease } from "../shared/update-store";
 
 const stepperRoot = document.getElementById("popupStepperRoot")!;
 const updateBannerRoot = document.getElementById("updateBannerRoot")!;
@@ -68,7 +68,7 @@ async function renderUpdateBanner() {
   `;
 
   document.getElementById("updateDownloadBtn")!.addEventListener("click", async () => {
-    await startUpdateDownload(update);
+    await openUpdateRelease(update);
     updateBannerRoot.innerHTML = "";
   });
   document.getElementById("updateDismissBtn")!.addEventListener("click", async () => {

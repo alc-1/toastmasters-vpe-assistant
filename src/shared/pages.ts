@@ -18,7 +18,6 @@ export const PAGES = {
   clubReview: "options/club-review.html",
   basecampAuth: "status/basecamp-auth.html",
   easyspeakDone: "status/easyspeak-done.html",
-  updateAvailable: "status/update-available.html",
   welcome: "welcome/welcome.html",
 } as const;
 
