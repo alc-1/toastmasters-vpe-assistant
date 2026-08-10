@@ -20,6 +20,7 @@ import type {
   MemberLink,
   MemberOrphan,
   MemberPathExclusion,
+  MemberPathFlag,
   MemberPathOrphan,
   MemberPathOverride,
   MatchSource,
@@ -43,6 +44,7 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     "memberPathOverrides",
     "memberPathExclusions",
     "memberPathOrphans",
+    "memberPathFlags",
   ]);
   const pathLookup = await ensurePathLookupSeeded(stored.pathLookup);
 
@@ -55,6 +57,7 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     memberPathOverrides: stored.memberPathOverrides ?? [],
     memberPathExclusions: stored.memberPathExclusions ?? [],
     memberPathOrphans: stored.memberPathOrphans ?? [],
+    memberPathFlags: stored.memberPathFlags ?? [],
     pathAliasLookup: buildPathAliasLookup(pathLookup),
   };
 }
@@ -260,6 +263,55 @@ export async function unmarkPathOrphan(
       )
   );
   await local.set({ memberPathOrphans: filtered });
+}
+
+/**
+ * Confirms a single-sided path (basecampPathName XOR easyspeakPathLabel is
+ * non-null) has been reviewed but deliberately left unresolved — neither
+ * bound nor a genuine orphan yet (e.g. the member looks mid-transition
+ * between paths). Unlike markPathOrphan(), this is NOT a resolution: it
+ * stops the path counting toward hasOrphanedPaths()/"To do" (same effect as
+ * an orphan mark) but does not tag the member "resolved-manually" — see
+ * hasFlaggedPaths()/classifyMember() in shared/sync/delta.ts.
+ */
+export async function flagPath(
+  basecampUserId: number,
+  easyspeakMemberId: string,
+  basecampPathName: string | null,
+  easyspeakPathLabel: string | null
+): Promise<void> {
+  const memberPathFlags = await local.value("memberPathFlags");
+  const existing = memberPathFlags ?? [];
+  const already = existing.some(
+    (f) =>
+      f.basecampUserId === basecampUserId &&
+      f.easyspeakMemberId === easyspeakMemberId &&
+      f.basecampPathName === basecampPathName &&
+      f.easyspeakPathLabel === easyspeakPathLabel
+  );
+  if (already) return;
+  const entry: MemberPathFlag = { basecampUserId, easyspeakMemberId, basecampPathName, easyspeakPathLabel, flaggedAt: Date.now() };
+  await local.set({ memberPathFlags: [...existing, entry] });
+}
+
+/** The "Unflag" action — returns the path to the normal orphan/bind-picker state. */
+export async function unflagPath(
+  basecampUserId: number,
+  easyspeakMemberId: string,
+  basecampPathName: string | null,
+  easyspeakPathLabel: string | null
+): Promise<void> {
+  const memberPathFlags = await local.value("memberPathFlags");
+  const filtered = (memberPathFlags ?? []).filter(
+    (f) =>
+      !(
+        f.basecampUserId === basecampUserId &&
+        f.easyspeakMemberId === easyspeakMemberId &&
+        f.basecampPathName === basecampPathName &&
+        f.easyspeakPathLabel === easyspeakPathLabel
+      )
+  );
+  await local.set({ memberPathFlags: filtered });
 }
 
 /** @param basecampClubName / easyspeakClubName denormalized, for Settings display only */

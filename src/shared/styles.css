@@ -921,8 +921,9 @@ body {
 /* ---------------------------------------------------------------------- */
 /* Badges — grouped into exactly the 4 statuses the Member Matching table  */
 /* distinguishes (Exact/green, Resolved Manually/blue, Unmatched/red, Needs */
-/* Review/orange); Report's own presence badges (basecamp-only/easyspeak-  */
-/* only) reuse the same 4 tokens rather than a separate 5th color.         */
+/* Review/orange, also reused by Flagged); Report's own presence badges    */
+/* (basecamp-only/easyspeak-only) reuse the same 4 tokens rather than a    */
+/* separate 5th color.                                                    */
 /* ---------------------------------------------------------------------- */
 
 .badge {
@@ -949,7 +950,8 @@ body {
 }
 
 .badge-basecamp-only,
-.badge-fuzzy {
+.badge-fuzzy,
+.badge-flagged {
   background: var(--warning-bg);
   color: var(--warning-text);
 }

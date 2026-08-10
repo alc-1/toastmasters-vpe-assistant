@@ -119,6 +119,11 @@ export interface PathReport {
   nonPathway: boolean;
   overridden: boolean;
   orphaned: boolean;
+  // Reviewed and deliberately deferred — neither bound nor confirmed as a
+  // genuine orphan. Never true on a "both"-presence/overridden entry. See
+  // hasFlaggedPaths()/flagPath() — a third, non-resolving state alongside
+  // overridden/orphaned.
+  flagged: boolean;
   // Easyspeak-only path whose 5 levels all report `needed: 0` — Basecamp's
   // live progress extraction only returns a member's currently-active
   // path(s), so a path they already completed drops out of Basecamp
@@ -266,6 +271,17 @@ export interface MemberPathOrphan {
   orphanedAt: number;
 }
 
+/** Exactly one of basecampPathName/easyspeakPathLabel is set — the side being flagged. A
+ *  deliberately non-resolving deferral: "reviewed, but neither bind nor orphan-mark is right
+ *  yet" — see flagPath() in shared/resolution-store.ts. */
+export interface MemberPathFlag {
+  basecampUserId: number;
+  easyspeakMemberId: string;
+  basecampPathName: string | null;
+  easyspeakPathLabel: string | null;
+  flaggedAt: number;
+}
+
 /** Exactly buildReport()'s 4th param shape — omitting it entirely reproduces
  * plain automatic matching, unchanged. */
 export interface ResolutionData {
@@ -277,6 +293,7 @@ export interface ResolutionData {
   memberPathOverrides?: MemberPathOverride[];
   memberPathExclusions?: MemberPathExclusion[];
   memberPathOrphans?: MemberPathOrphan[];
+  memberPathFlags?: MemberPathFlag[];
   pathAliasLookup?: Map<string, string>;
   /** Default true (Members view). report.ts passes false so an unconfirmed
    * fuzzy guess never renders there as if it were a fact. */

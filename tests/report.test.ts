@@ -16,11 +16,14 @@ import {
 import {
   buildLevelSummary,
   buildReport,
+  classifyMember,
   computeMatchSummary,
+  hasFlaggedPaths,
   hasOrphanedPaths,
   hasPathOrphan,
   hasPathOverride,
   isMemberResolved,
+  needsAction,
 } from "../src/shared/sync/delta";
 import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport, PathReport } from "../src/shared/types";
 
@@ -281,6 +284,28 @@ describe("matchPaths", () => {
     expect(easyspeakOnly.completedHistory).toBe(false);
     expect(hasOrphanedPaths({ paths })).toBe(true);
   });
+
+  it("tags the flagged side's PathReport with flagged: true and leaves every other path false", () => {
+    const basecampPerson = {
+      userId: 1,
+      name: "Test Member",
+      paths: [{ path_name: "Strategic Relationships", progression: { "Level 1": { completed: 1, total: 1, approved: true } } }],
+    };
+    const easyspeakPerson = {
+      memberId: "e1",
+      name: "Test Member",
+      paths: [{ path: "Team Collaboration", levels: [{ level: 1, needed: 1, done: 1 }] }],
+    };
+
+    const { paths } = matchPaths(basecampPerson, easyspeakPerson, [], undefined, [], [], [
+      { basecampUserId: 1, easyspeakMemberId: "e1", basecampPathName: "Strategic Relationships", easyspeakPathLabel: null, flaggedAt: 0 },
+    ]);
+
+    const bcOnly = paths.find((p) => p.presence === "basecamp-only")!;
+    const esOnly = paths.find((p) => p.presence === "easyspeak-only")!;
+    expect(bcOnly.flagged).toBe(true);
+    expect(esOnly.flagged).toBe(false);
+  });
 });
 
 
@@ -526,6 +551,94 @@ describe("buildReport (synthetic fixtures)", () => {
     });
     const helenaBothResolved = findMember(clubBothResolved, { basecampName: "Helena Voss", easyspeakName: "Helena Voss" });
     expect(hasOrphanedPaths(helenaBothResolved)).toBe(false);
+  });
+
+  it("flagging one side of a mismatched pair defers it without clearing the other side's unresolved flag", () => {
+    const flagged = buildReport(
+      basecampData,
+      easyspeakData,
+      {},
+      {
+        memberPathFlags: [
+          { basecampUserId: 9005, easyspeakMemberId: "305", basecampPathName: "Strategic Relationships", easyspeakPathLabel: null, flaggedAt: 0 },
+        ],
+      }
+    );
+    const club = findClubPair(flagged, { basecampClubName: "Riverside Toastmasters", easyspeakClubName: "Riverside Toastmasters" });
+    const helena = findMember(club, { basecampName: "Helena Voss", easyspeakName: "Helena Voss" });
+
+    expect(hasFlaggedPaths(helena)).toBe(true);
+    // The EasySpeak-only "Team Collaboration" side is still a genuine
+    // unresolved mismatch — flagging only the Basecamp side must not clear it.
+    expect(hasOrphanedPaths(helena)).toBe(true);
+    const tags = classifyMember(helena);
+    expect(tags).toContain("flagged");
+    expect(tags).not.toContain("resolved-manually");
+  });
+
+  it("clears hasOrphanedPaths/needsAction once both sides of a mismatch are flagged, without tagging resolved-manually", () => {
+    const bothFlagged = buildReport(
+      basecampData,
+      easyspeakData,
+      {},
+      {
+        memberPathFlags: [
+          { basecampUserId: 9005, easyspeakMemberId: "305", basecampPathName: "Strategic Relationships", easyspeakPathLabel: null, flaggedAt: 0 },
+          { basecampUserId: 9005, easyspeakMemberId: "305", basecampPathName: null, easyspeakPathLabel: "Team Collaboration", flaggedAt: 0 },
+        ],
+      }
+    );
+    const club = findClubPair(bothFlagged, { basecampClubName: "Riverside Toastmasters", easyspeakClubName: "Riverside Toastmasters" });
+    const helena = findMember(club, { basecampName: "Helena Voss", easyspeakName: "Helena Voss" });
+
+    expect(hasOrphanedPaths(helena)).toBe(false);
+    expect(needsAction(helena)).toBe(false);
+    const tags = classifyMember(helena);
+    expect(tags).toContain("flagged");
+    expect(tags).not.toContain("resolved-manually");
+    expect(tags).not.toContain("path-issues");
+  });
+
+  it("does not let a flagged path on one side mask a genuine, unrelated unresolved mismatch on the other", () => {
+    // Regression test for the corrected hasOrphanedPaths() gating: Owen Bright
+    // (basecamp-only, fuzzy-excluded here) has no path data of its own to flag,
+    // so build a synthetic member shape directly instead — one flagged
+    // basecamp-only path plus a separate, unrelated unresolved easyspeak-only
+    // path (different canonical key). The naive "exclude flagged from the
+    // candidate-list filters" approach would empty out basecampCandidates and
+    // incorrectly report false; the correct fix only excludes it from the
+    // final unresolved check.
+    const paths: PathReport[] = [
+      {
+        canonicalKey: "flagged-path",
+        displayName: "Flagged Path",
+        basecampPathName: "Flagged Path",
+        easyspeakPathLabel: null,
+        presence: "basecamp-only",
+        nonPathway: false,
+        overridden: false,
+        orphaned: false,
+        flagged: true,
+        completedHistory: false,
+        levels: [],
+        pathCompletion: null,
+      },
+      {
+        canonicalKey: "unrelated-path",
+        displayName: "Unrelated Path",
+        basecampPathName: null,
+        easyspeakPathLabel: "Unrelated Path",
+        presence: "easyspeak-only",
+        nonPathway: false,
+        overridden: false,
+        orphaned: false,
+        flagged: false,
+        completedHistory: false,
+        levels: [],
+        pathCompletion: null,
+      },
+    ];
+    expect(hasOrphanedPaths({ paths })).toBe(true);
   });
 
   it("computes a level summary reflecting Basecamp-approved progress", () => {

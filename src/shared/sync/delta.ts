@@ -140,14 +140,18 @@ export function countEasySpeakMembers(data: EasySpeakScrape): number {
  * real candidate on *both* sides is individually resolved (`orphaned` or
  * folded into a "both"-presence pair) — resolving only the smaller side
  * must not flip a member with several outstanding items on the other side
- * to "done".
+ * to "done". A `flagged` candidate (see hasFlaggedPaths()/flagPath()) is
+ * excluded from the final "still unresolved" check the same way `orphaned`
+ * is, without being removed from the two-sided-mismatch gate itself — so an
+ * unrelated flagged path on one side never masks a genuine unresolved
+ * mismatch on the other.
  */
 export function hasOrphanedPaths(member: { paths?: PathReport[] }): boolean {
   const paths = member.paths ?? [];
   const basecampCandidates = paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway);
   const easyspeakCandidates = paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.completedHistory);
   if (basecampCandidates.length === 0 || easyspeakCandidates.length === 0) return false;
-  return basecampCandidates.some((p) => !p.orphaned) || easyspeakCandidates.some((p) => !p.orphaned);
+  return basecampCandidates.some((p) => !p.orphaned && !p.flagged) || easyspeakCandidates.some((p) => !p.orphaned && !p.flagged);
 }
 
 /**
@@ -172,6 +176,18 @@ export function hasPathOverride(member: { paths?: PathReport[] }): boolean {
  */
 export function hasPathOrphan(member: { paths?: PathReport[] }): boolean {
   return (member.paths ?? []).some((p) => p.orphaned);
+}
+
+/**
+ * A member-scoped path flag took effect for this member (see the `flagged`
+ * tag matchPaths() sets — see flagPath() in shared/resolution-store.ts). The
+ * third, deliberately non-resolving counterpart to hasPathOverride()/
+ * hasPathOrphan(): unlike those two, this does NOT feed classifyMember()'s
+ * "resolved-manually" tag — flagging is explicitly a deferral, not a
+ * resolution, so it gets its own "flagged" tag instead.
+ */
+export function hasFlaggedPaths(member: { paths?: PathReport[] }): boolean {
+  return (member.paths ?? []).some((p) => p.flagged);
 }
 
 /**
@@ -228,6 +244,7 @@ export function classifyMember(member: MemberReport): string[] {
   if (member.matchConfidence === "fuzzy") tags.push("suggested");
   if (member.presence !== "both" && member.matchConfidence !== "confirmed") tags.push("unmatched");
   if (member.hasOrphanedPaths) tags.push("path-issues");
+  if (hasFlaggedPaths(member)) tags.push("flagged");
   if (member.matchConfidence === "confirmed" || hasPathOverride(member) || hasPathOrphan(member)) tags.push("resolved-manually");
   return tags;
 }
@@ -258,6 +275,7 @@ function buildClubPairReport(
   const memberPathOverrides = resolution.memberPathOverrides ?? [];
   const memberPathExclusions = resolution.memberPathExclusions ?? [];
   const memberPathOrphans = resolution.memberPathOrphans ?? [];
+  const memberPathFlags = resolution.memberPathFlags ?? [];
   const pathAliasLookup = resolution.pathAliasLookup ?? PATH_ALIAS_LOOKUP;
   const allowFuzzy = resolution.allowFuzzyMemberMatches ?? true;
 
@@ -274,13 +292,17 @@ function buildClubPairReport(
     const pathOrphansForMember = memberPathOrphans.filter(
       (o) => o.basecampUserId === basecamp?.userId && o.easyspeakMemberId === easyspeak?.memberId
     );
+    const flagsForMember = memberPathFlags.filter(
+      (f) => f.basecampUserId === basecamp?.userId && f.easyspeakMemberId === easyspeak?.memberId
+    );
     const { paths, easyspeakNoActivePath } = matchPaths(
       basecamp,
       easyspeak,
       overridesForMember,
       pathAliasLookup,
       exclusionsForMember,
-      pathOrphansForMember
+      pathOrphansForMember,
+      flagsForMember
     );
     const member: MemberReport = {
       basecampUserId: basecamp?.userId ?? null,
