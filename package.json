@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build --mode store",
+    "build:preview": "tsc --noEmit && vite build --mode preview",
     "build:watch": "vite build --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

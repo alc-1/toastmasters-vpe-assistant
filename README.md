@@ -14,16 +14,19 @@ https://alc-1.github.io/toastmasters-vpe-assistant/
 
 ## Installation
 
-Not on the Chrome Web Store — install from the latest release zip:
+Not on the Chrome Web Store — install from the latest release's **preview**
+zip (`toastmasters-vpe-assistant-preview-v<version>.zip`; the
+`...-store-v<version>-candidate.zip` asset on the same release is a Chrome
+Web Store submission candidate, not meant for general install):
 
-1. Download the zip from the
+1. Download the preview zip from the
    [latest release](https://github.com/alc-1/toastmasters-vpe-assistant/releases/latest)
    and unzip it.
 2. Open `chrome://extensions`, enable "Developer mode".
 3. "Load unpacked" → select the unzipped folder.
 
-To update, download the new release's zip, unzip it over the old folder (or
-to a new location), then click "Reload" on the extension in
+To update, download the new release's preview zip, unzip it over the old
+folder (or to a new location), then click "Reload" on the extension in
 `chrome://extensions`.
 
 ## Feedback / bugs
@@ -34,10 +37,14 @@ Found a bug or have an idea? Please
 ## Development setup
 
 1. `npm install`
-2. `npm run build` — type-checks and bundles into `dist/` (gitignored,
-   regenerated on every build)
+2. `npm run build` — type-checks and bundles the **store** target into
+   `dist/store/` (gitignored, regenerated on every build); `npm run
+   build:preview` does the same for the **preview** target into
+   `dist/preview/`. The two targets differ only in their manifest's
+   name/description today — pick whichever you're testing, `dist/store/` if
+   in doubt.
 3. Open `chrome://extensions`, enable "Developer mode"
-4. "Load unpacked" → select this repo's `dist/` folder (after any code
+4. "Load unpacked" → select `dist/store/` or `dist/preview/` (after any code
    change, rebuild and click "Reload" on the extension instead of
    re-selecting the folder)
 

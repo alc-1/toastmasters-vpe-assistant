@@ -18,13 +18,18 @@ what replaced it, and don't reintroduce the old plain-`<script>`/`importScripts`
 ## Running / testing changes
 
 1. `npm install` once.
-2. `npm run build` — type-checks (`tsc --noEmit`) then runs `vite build`, producing `dist/`. Or
-   `npm run dev` for Vite's dev server (works for iterating on popup/options page UI in a normal
+2. `npm run build` — type-checks (`tsc --noEmit`) then runs `vite build --mode store`, producing
+   `dist/store/` (the Chrome Web Store submission candidate manifest — see "Two build targets"
+   under "Build tooling" below). `npm run build:preview` does the same for `dist/preview/` (the
+   tester-facing preview manifest) — the two are functionally identical today, differing only in
+   their manifest's `name`/`description`; pick whichever you're testing, `dist/store/` if in doubt.
+   Or `npm run dev` for Vite's dev server (works for iterating on popup/options page UI in a normal
    browser tab, but MV3 service-worker + `chrome.scripting` flows still need a real loaded-unpacked
    reload to test — see the crxjs caveat under "Build tooling" below). `dist/` is gitignored,
    regenerable — never hand-edit anything under it.
 3. Open `chrome://extensions`, enable "Developer mode".
-4. "Load unpacked" → select this repo's `dist/` folder (or "Reload" the extension after rebuilding).
+4. "Load unpacked" → select `dist/store/` or `dist/preview/` (or "Reload" the extension after
+   rebuilding).
 5. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or your configured EasySpeak
    server (`https://tmclub.eu/` by default — see Setup to change it; any tab, any time
    beforehand).
@@ -48,9 +53,9 @@ what replaced it, and don't reintroduce the old plain-`<script>`/`importScripts`
 Background worker errors surface via the response returned to the popup (`{ ok: false, error }`),
 not the console — check `popup/index.ts`'s status line first when debugging a failed scrape.
 
-`.github/workflows/ci.yml` runs `typecheck`/`test`/`build` on every push/PR to `main` — a green run
-there is not a substitute for the manual walkthrough above, which is the only thing that exercises
-the real `chrome.*` flows.
+`.github/workflows/ci.yml` runs `test` then both `build` (store) and `build:preview` on every
+push/PR to `main` — a green run there is not a substitute for the manual walkthrough above, which
+is the only thing that exercises the real `chrome.*` flows.
 
 `npm run typecheck` (`tsc --noEmit`, no `vite build`) is the fast way to check types alone.
 
@@ -92,7 +97,7 @@ src/
 │       └── easyspeak.ts    # EasySpeak scraping (tab-navigation based)
 ├── content/
 │   └── easyspeak-parser.iife.ts   # dynamically-injected into a live EasySpeak tab — see below
-├── popup/                 # manifest.json's action.default_popup
+├── popup/                 # the active manifest's action.default_popup
 │   ├── index.html
 │   └── index.ts
 ├── options/                # five independent pages, NOT a merged options_page/dashboard —
@@ -218,11 +223,12 @@ background service worker → source-specific scraper**.
   any `success`/`error` source back to `idle` (opening the popup = "seen it") but leaves `loading`
   alone. The loading icon is a real 8-frame animation
   (`public/icons/loading/{0..7}-{16,32,48,128}.png`, 150ms/frame — `public/` is copied verbatim
-  into `dist/icons/` by Vite, so these paths are unchanged from before the migration); the interval
-  only runs while the combined state is `loading` and is stopped the moment it isn't.
+  into `dist/<target>/icons/` by Vite, so these paths are unchanged from before the migration
+  aside from the `<target>` segment added by the preview/store split); the interval only runs
+  while the combined state is `loading` and is stopped the moment it isn't.
 - **`background/api/basecamp.ts`** — all Basecamp scraping logic. Data fetching itself needs no tab:
   `fetch(..., { credentials: "include" })` runs directly from the privileged service worker context,
-  and because `manifest.json`'s `host_permissions` covers the Basecamp hosts, the browser's existing
+  and because the manifest's `host_permissions` covers the Basecamp hosts, the browser's existing
   session cookie is sent automatically.
   1. `GET /api/members/roles` → clubs, filtered to those where the current user has `is_bcm: true`.
   2. For each such club, paginates `GET /api/bcm/progress/?club={uuid}&page=N` following the `next`
@@ -339,8 +345,9 @@ background service worker → source-specific scraper**.
        await chrome.scripting.executeScript({ target: { tabId }, files: [parserFile] });
        ```
        `parserFile` resolves at build time to the real, content-hashed output path (verify in
-       `dist/manifest.json`'s `web_accessible_resources` and in the built background chunk if you
-       ever doubt this — crxjs auto-populates the WAR entry for this file, don't hand-write one).
+       `dist/store/manifest.json`'s (or `dist/preview/manifest.json`'s) `web_accessible_resources`
+       and in the built background chunk if you ever doubt this — crxjs auto-populates the WAR
+       entry for this file, don't hand-write one).
 
        **Why `?iife` and not `?script`**: crxjs's default `?script` query wraps the target module in
        an *async* loader that does `await import(...)` internally. `chrome.scripting.executeScript()`
@@ -706,29 +713,45 @@ Cloudflare or similar). And if it needs the latter, its parser must be injected 
 
 ## Build tooling
 
-Vite (`vite.config.ts`) + `@crxjs/vite-plugin` build `src/` into `dist/`. `manifest.json` is
-hand-authored at the repo root (not `defineManifest()` — nothing here is computed/dynamic) and
-imported into `vite.config.ts` via `readFileSync`+`JSON.parse` rather than a JSON import attribute
-(Node-version-sensitive syntax; the plain `fs` read sidesteps it). A few decisions worth knowing
-before changing the config:
+Vite (`vite.config.ts`) + `@crxjs/vite-plugin` build `src/` into `dist/<target>/`. Two full
+manifests are hand-authored at the repo root (not `defineManifest()` — nothing here is
+computed/dynamic; a base+per-target-overlay-merge approach was deliberately rejected in favor of
+two complete, independently-readable files) — `manifest.store.json` (the Chrome Web Store
+submission candidate; this is the manifest that existed alone, as the repo's only manifest, before
+the preview/store split) and `manifest.preview.json` (for testers, installed outside the store;
+today differs from the store manifest only in `name`/`description` — its `name` carries a
+"(Preview)" suffix so it's visually distinguishable in `chrome://extensions` — but is expected to
+diverge further once debug-only tooling lands). `vite.config.ts` picks one via Vite's `mode`
+(`defineConfig(({ mode }) => ...)`, not a plain object — needed specifically to branch on this) and
+reads it with `readFileSync`+`JSON.parse` rather than a JSON import attribute (Node-version-sensitive
+syntax; the plain `fs` read sidesteps it): `mode === "preview"` reads `manifest.preview.json` into
+`dist/preview/`, anything else (including no `--mode` flag at all — `npm run dev`, `build:watch`)
+falls back to `manifest.store.json` into `dist/store/`, preserving this repo's original
+single-target behavior as the default. `npm run build` passes `--mode store` explicitly;
+`npm run build:preview` passes `--mode preview`. A few decisions worth knowing before changing the
+config:
 
-- **`root: "src"`** — Vite's build root is `src/`, not the repo root, so `dist/popup/index.html`,
-  `dist/options/report.html`, etc. land without an `src/` prefix leaking into the runtime URLs. Every
-  extension-page path string lives in `shared/pages.ts`; if this `root` decision is ever reversed,
-  that's the one file to update. `publicDir`/`build.outDir` are both set explicitly in
-  `vite.config.ts` since their Vite defaults are relative to `root` (would otherwise become
-  `src/public`/`src/dist`).
+- **`root: "src"`** — Vite's build root is `src/`, not the repo root, so `dist/<target>/popup/index.html`,
+  `dist/<target>/options/report.html`, etc. land without an `src/` prefix leaking into the runtime
+  URLs. Every extension-page path string lives in `shared/pages.ts`; if this `root` decision is
+  ever reversed, that's the one file to update. `publicDir`/`build.outDir` are both set explicitly
+  in `vite.config.ts` since their Vite defaults are relative to `root` (would otherwise become
+  `src/public`/`src/dist`); `build.outDir` is additionally derived from `target` now, not a fixed
+  path.
 - **`build.rollupOptions.input`** lists the seven extra HTML pages (five `options/*.html`, two
-  `status/*.html`) that aren't discoverable from `manifest.json` alone. `popup/index.html` is
-  deliberately **not** listed there — crxjs picks it up automatically from `manifest.json`'s
+  `status/*.html`) that aren't discoverable from either manifest alone. `popup/index.html` is
+  deliberately **not** listed there — crxjs picks it up automatically from the active manifest's
   `action.default_popup`; double-listing it would be redundant, not just harmless, so don't add it.
 - The built service worker is a real ESM bundle, loaded via a thin generated
-  `dist/service-worker-loader.js` that crxjs writes (visible in the build output) — this is normal,
-  not a build error; the real background code is the hashed chunk it imports.
-- Versioned release zips (what `dist/` becomes for end users, since there's no Chrome Web Store
-  listing) are cut via `.github/workflows/release.yml`, triggered manually from the Actions tab —
-  it bumps `package.json`/`manifest.json` together, tags the commit, and attaches the zip to a
-  GitHub Release.
+  `dist/<target>/service-worker-loader.js` that crxjs writes (visible in the build output) — this is
+  normal, not a build error; the real background code is the hashed chunk it imports.
+- **Two release zips per version**, both cut in one run by `.github/workflows/release.yml`,
+  triggered manually from the Actions tab: it bumps `package.json` and both manifests' `version`
+  together, builds both targets, and attaches
+  `toastmasters-vpe-assistant-preview-v<version>.zip` (from `dist/preview/`) and
+  `toastmasters-vpe-assistant-store-v<version>-candidate.zip` (from `dist/store/`) to one GitHub
+  Release. The release note explicitly tells testers to install the preview zip and to ignore the
+  store-candidate zip (that one's for the maintainer's own Chrome Web Store submission).
 - `npm run dev` (`vite`) is useful for iterating on options/popup page markup with faster feedback,
   but MV3 background/`chrome.scripting` behavior (the EasySpeak flow especially) should always get a
   real `npm run build` + "Reload" in `chrome://extensions` before you trust it — crxjs's dev-mode

@@ -42,26 +42,38 @@ jobs:
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Sync manifest.json version
+      - name: Sync manifest versions
         run: |
-          sed -i -E 's/"version": "[^"]+"/"version": "${{ steps.version.outputs.version }}"/' manifest.json
+          sed -i -E 's/"version": "[^"]+"/"version": "${{ steps.version.outputs.version }}"/' manifest.preview.json manifest.store.json
 
-      - name: Build
+      - name: Build (store)
         run: npm run build
+
+      - name: Build (preview)
+        run: npm run build:preview
 
       - name: Zip dist/
         id: zip
         run: |
-          cd dist
-          zip -r "../toastmasters-vpe-assistant-v${{ steps.version.outputs.version }}.zip" .
-          cd ..
-          echo "zip_name=toastmasters-vpe-assistant-v${{ steps.version.outputs.version }}.zip" >> "$GITHUB_OUTPUT"
+          PREVIEW_ZIP="toastmasters-vpe-assistant-preview-v${{ steps.version.outputs.version }}.zip"
+          STORE_ZIP="toastmasters-vpe-assistant-store-v${{ steps.version.outputs.version }}-candidate.zip"
+
+          cd dist/preview
+          zip -r "../../$PREVIEW_ZIP" .
+          cd ../..
+
+          cd dist/store
+          zip -r "../../$STORE_ZIP" .
+          cd ../..
+
+          echo "preview_zip_name=$PREVIEW_ZIP" >> "$GITHUB_OUTPUT"
+          echo "store_zip_name=$STORE_ZIP" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json manifest.json
+          git add package.json package-lock.json manifest.preview.json manifest.store.json
           git commit -m "chore(release): v${{ steps.version.outputs.version }}"
           git push origin HEAD:main
 
@@ -75,9 +87,15 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}
-          files: ${{ steps.zip.outputs.zip_name }}
+          files: |
+            ${{ steps.zip.outputs.preview_zip_name }}
+            ${{ steps.zip.outputs.store_zip_name }}
           generate_release_notes: true
           body: |
+            ## Two downloads, two purposes
+            - 🧪 **${{ steps.zip.outputs.preview_zip_name }}** — for testers. Install this one. Follow the steps below.
+            - 🏪 **${{ steps.zip.outputs.store_zip_name }}** — the Chrome Web Store submission candidate. Not meant for general install; ignore this one unless you know why you're here.
+
             ## Before you start
             - ✅ You need a **computer** (Windows or Mac) — this won't work on a phone or tablet.
             - ✅ You need **Google Chrome**, **Microsoft Edge**, **Brave**, **Opera**, **Vivaldi**, or **Arc** as your browser.
@@ -88,7 +106,7 @@ jobs:
             ## Installation (step by step)
 
             ### Step 1 — Download the file
-            Click on **${{ steps.zip.outputs.zip_name }}** under "Assets" at the bottom of this page (you may need to click "Assets" to expand the list first). It will download to your computer, usually into your **Downloads** folder.
+            Click on **${{ steps.zip.outputs.preview_zip_name }}** under "Assets" at the bottom of this page (you may need to click "Assets" to expand the list first). It will download to your computer, usually into your **Downloads** folder.
 
             ### Step 2 — Unzip the file
             Find the downloaded file (probably in your **Downloads** folder) and double-click it to unzip it.
