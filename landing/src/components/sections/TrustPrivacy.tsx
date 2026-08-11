@@ -29,6 +29,12 @@ export default function TrustPrivacy() {
           </li>
         ))}
       </ul>
+
+      <p className="mt-8 text-center">
+        <a href="./privacy.html" className="text-yellow-accent underline hover:text-white">
+          Read the full Privacy Policy &rarr;
+        </a>
+      </p>
     </Section>
   );
 }

@@ -3,7 +3,7 @@ import Section from "../ui/Section";
 
 export default function BenefitsGrid() {
   return (
-    <Section tone="alt">
+    <Section id="features" tone="alt">
       <div className="grid sm:grid-cols-2 gap-6">
         {benefits.map((benefit) => (
           <div

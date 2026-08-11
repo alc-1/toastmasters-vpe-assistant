@@ -5,9 +5,29 @@ export interface FaqItem {
 
 export const faqItems: FaqItem[] = [
   {
+    question: "What is Toastmasters VPE Assistant?",
+    answer:
+      "A Chrome extension that consolidates member Pathways progress from Basecamp and EasySpeak into a single, reconciled report — so a VPE doesn't have to cross-check the two systems by hand.",
+  },
+  {
     question: "Who is this for?",
     answer:
       "Toastmasters Vice Presidents of Education who track member Pathways progress across Basecamp and EasySpeak and want to stop reconciling the two by hand.",
+  },
+  {
+    question: "Is it available now?",
+    answer:
+      "Yes. The Stable version is available on the Chrome Web Store today, and a Preview channel is open for anyone who wants the latest builds.",
+  },
+  {
+    question: "What is the difference between Stable and Preview?",
+    answer:
+      "The Stable version is the latest reviewed Chrome Web Store release. Preview builds are made available earlier so we can iterate and gather feedback without waiting for Chrome Web Store review.",
+  },
+  {
+    question: "Why is Preview ahead of the Chrome Web Store version?",
+    answer:
+      "Chrome Web Store releases go through a review process. To keep development moving quickly, new versions are first made available to Preview testers, then submitted to the Chrome Web Store once they're ready.",
   },
   {
     question: "Does this require EasySpeak API access?",
@@ -35,8 +55,18 @@ export const faqItems: FaqItem[] = [
       "All three regional EasySpeak servers: tmclub.eu, toastmasterclub.org, and easy-speak.org. You choose yours during setup.",
   },
   {
+    question: "Is FreeToastHost supported?",
+    answer:
+      "Not at the moment. Supporting FreeToastHost isn't currently planned in the short term, but it could be added further down the road if there is enough interest from VPEs and clubs using it.",
+  },
+  {
     question: "Who made this?",
     answer:
-      "This was created by Alvaro Costa, a fellow Toastmaster at Lausanne International Toastmasters Club. Like many VPEs, he wanted to spend less time reconciling spreadsheets and systems, and more time helping members progress on their Pathways journey."
-  }
+      "Alvaro Costa, a fellow Toastmaster at Lausanne International Toastmasters Club — see \"Built by a Toastmaster\" above for the full story.",
+  },
+  {
+    question: "How can I provide feedback?",
+    answer:
+      "Join the Preview Program and open a GitHub issue with bugs or feature ideas — that feedback is what shapes the roadmap.",
+  },
 ];

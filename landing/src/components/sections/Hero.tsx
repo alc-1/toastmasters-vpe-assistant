@@ -1,5 +1,5 @@
 import dashboardScreenshot from "../../assets/screenshot_club_progress.png";
-import { scrollToId } from "../../lib/scrollToId";
+import { CHROME_WEB_STORE_URL, PREVIEW_SIGNUP_URL } from "../../data/releaseInfo";
 import Button from "../ui/Button";
 import BrowserFrameMockup from "../ui/BrowserFrameMockup";
 import Container from "../ui/Container";
@@ -7,6 +7,12 @@ import Lightbox, { useLightbox } from "../ui/Lightbox";
 
 const dashboardAlt =
   "Toastmasters VPE Assistant Club Progress dashboard, showing member counts, paths, and a Next Level Summary table";
+
+const trustSignals = [
+  "Available on Chrome Web Store",
+  "Built for Toastmasters VPEs",
+  "No additional credentials required",
+];
 
 export default function Hero() {
   const lightbox = useLightbox();
@@ -20,20 +26,31 @@ export default function Hero() {
               Stop Cross-Checking Basecamp and EasySpeak
             </h1>
             <p className="text-lg text-navy-100 max-w-xl leading-relaxed">
-              Get a complete view of every member's Pathways progress in minutes instead of
-              hours.
+              Get a complete view of your club's Pathways progress in minutes instead of hours.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 mt-2">
-              <Button variant="primary" onClick={() => scrollToId("get-started")}>
-                Become an Early Tester
+              <Button
+                variant="primary"
+                href={CHROME_WEB_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Install from Chrome Web Store
               </Button>
-              <Button variant="ghost" onClick={() => scrollToId("screenshots")}>
-                Watch Demo
+              <Button variant="ghost" href={PREVIEW_SIGNUP_URL}>
+                Join Preview Program
               </Button>
             </div>
-            <p className="text-sm text-navy-200 mt-2">
-              No AI. No extra passwords. Uses your existing browser sessions.
-            </p>
+            <ul className="flex flex-wrap justify-center lg:justify-start gap-x-5 gap-y-1 text-sm text-navy-300 mt-2">
+              {trustSignals.map((signal) => (
+                <li key={signal} className="flex items-center gap-1.5">
+                  <span aria-hidden="true" className="text-yellow-accent">
+                    &#10003;
+                  </span>
+                  {signal}
+                </li>
+              ))}
+            </ul>
           </div>
 
           <BrowserFrameMockup urlLabel="Toastmasters VPE Assistant — Club Progress">

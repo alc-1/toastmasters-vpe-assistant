@@ -4,7 +4,7 @@ import SectionHeading from "../ui/SectionHeading";
 
 export default function Workflow() {
   return (
-    <Section tone="white">
+    <Section id="how-it-works" tone="white">
       <SectionHeading
         eyebrow="How It Works"
         title="From Manual Investigation to Two-Click Reporting"

@@ -20,19 +20,19 @@ export const screenshots: Screenshot[] = [
   {
     id: "dashboard",
     title: "Unified Progress Dashboard",
-    caption: "View every member's Pathways status in one place.",
+    caption: "Your club's Pathways progress in one view.",
     image: dashboardImg,
   },
   {
     id: "match-resolution",
     title: "Smart Match Resolution",
-    caption: "Review uncertain matches once and let the extension remember.",
+    caption: "Resolve uncertain matches once and remember your decisions.",
     image: matchImg,
   },
   {
     id: "discrepancy",
     title: "Discrepancy Detection",
-    caption: "Catch differences between systems before they become problems.",
+    caption: "Catch discrepancies between Basecamp and EasySpeak.",
     image: discrepancyImg,
   },
 ];

@@ -1,5 +1,6 @@
 import logo from "../../assets/logo-512.png";
 import { navLinks } from "../../data/nav";
+import { CHROME_WEB_STORE_URL } from "../../data/releaseInfo";
 import { scrollToId } from "../../lib/scrollToId";
 import Button from "../ui/Button";
 import Container from "../ui/Container";
@@ -54,15 +55,15 @@ export default function Header({ page = "home" }: Props) {
             )}
           </nav>
 
-          {isHome ? (
-            <Button variant="primary" className="px-4 py-2" onClick={() => scrollToId("get-started")}>
-              Become an Early Tester
-            </Button>
-          ) : (
-            <Button variant="primary" className="px-4 py-2" href="./index.html#get-started">
-              Become an Early Tester
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            className="px-4 py-2"
+            href={CHROME_WEB_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Install
+          </Button>
         </div>
       </Container>
     </header>
