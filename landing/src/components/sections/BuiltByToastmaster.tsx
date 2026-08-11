@@ -3,7 +3,7 @@ import SectionHeading from "../ui/SectionHeading";
 
 export default function BuiltByToastmaster() {
   return (
-    <Section id="built-by-a-toastmaster" tone="alt" narrow>
+    <Section id="built-by-a-toastmaster" tone="white" narrow>
       <SectionHeading title="Built by a Toastmaster" />
 
       <div className="mt-8 flex flex-col gap-4 text-navy-700/90 leading-relaxed text-lg">

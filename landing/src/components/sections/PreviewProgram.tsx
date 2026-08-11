@@ -20,7 +20,7 @@ const whatIAsk = [
 
 export default function PreviewProgram() {
   return (
-    <Section id="preview-program" tone="white">
+    <Section id="preview-program" tone="alt">
       <SectionHeading
         title="Become a Preview Tester"
         subtitle="I'm looking for Toastmasters VPEs who want to use the latest versions of the extension with their real club data and help shape what gets built next."
@@ -55,7 +55,7 @@ export default function PreviewProgram() {
         </Card>
       </div>
 
-      <div className="mt-16 max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 rounded-xl border border-silver-light bg-surface-alt px-6 py-6">
+      <div className="mt-16 max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 rounded-xl border border-silver-light bg-white px-6 py-6">
         <div>
           <h3 className="text-base font-semibold text-navy-950">Join the Preview Program</h3>
           <p className="text-sm text-navy-700/80 mt-1">

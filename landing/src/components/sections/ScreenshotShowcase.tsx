@@ -8,7 +8,7 @@ export default function ScreenshotShowcase() {
   const lightbox = useLightbox();
 
   return (
-    <Section id="screenshots" tone="alt">
+    <Section id="screenshots" tone="white">
       <SectionHeading eyebrow="See It In Action" title="What You'll See in the Extension" />
 
       <div className="mt-14 grid sm:grid-cols-2 gap-10">
