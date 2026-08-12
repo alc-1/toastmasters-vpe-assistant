@@ -8,21 +8,27 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build --mode store",
-    "build:preview": "tsc --noEmit && vite build --mode preview",
-    "build:watch": "vite build --watch",
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "tsc --noEmit && wxt build --mode store",
+    "build:firefox": "tsc --noEmit && wxt build -b firefox --mode store",
+    "build:preview": "tsc --noEmit && wxt build --mode preview",
+    "build:preview:firefox": "tsc --noEmit && wxt build -b firefox --mode preview",
+    "zip": "wxt zip --mode store",
+    "zip:firefox": "wxt zip -b firefox --mode store",
+    "zip:preview": "wxt zip --mode preview",
+    "zip:preview:firefox": "wxt zip -b firefox --mode preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "wxt prepare"
   },
   "devDependencies": {
-    "@crxjs/vite-plugin": "^2.7.1",
-    "@types/chrome": "^0.2.5",
     "@types/node": "^24.13.3",
     "jsdom": "^30.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "wxt": "^0.21.4"
   }
 }

@@ -1,20 +1,20 @@
-// src/popup/index.ts
+// src/entrypoints/popup/main.ts
 //
 // The popup is now just the branded header + the vertical stepper — actual
 // data extraction (buttons, per-source status, raw data) and the sync/match
-// indicators live on the Sync Data page only (options/sync-data.html +
+// indicators live on the Sync Data page only (entrypoints/sync-data +
 // shared/sync-status-panel.ts). The header subtitle is static markup in
 // index.html now (no longer data-dependent); this file's job is rendering
 // the stepper (its five info lines come from shared/stepper-info.ts, shared
 // with the options pages' horizontal stepper), plus telling background the
 // popup was opened (see init() below).
 
-import { renderVerticalStepper } from "../shared/app-shell";
-import { escapeHtml } from "../shared/dom-utils";
-import { PAGES, pageUrl } from "../shared/pages";
-import { sendMessage } from "../shared/send-message";
-import { computeStepperInfo } from "../shared/stepper-info";
-import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, openUpdateRelease } from "../shared/update-store";
+import { renderVerticalStepper } from "../../shared/app-shell";
+import { escapeHtml } from "../../shared/dom-utils";
+import { PAGES, pageUrl } from "../../shared/pages";
+import { sendMessage } from "../../shared/send-message";
+import { computeStepperInfo } from "../../shared/stepper-info";
+import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, openUpdateRelease } from "../../shared/update-store";
 
 const stepperRoot = document.getElementById("popupStepperRoot")!;
 const updateBannerRoot = document.getElementById("updateBannerRoot")!;
@@ -27,7 +27,7 @@ stepperRoot.addEventListener("click", (e) => {
   if (!step) return;
   e.preventDefault();
   const key = step.dataset.pageKey as keyof typeof PAGES;
-  chrome.tabs.create({ url: pageUrl(PAGES[key]) });
+  browser.tabs.create({ url: pageUrl(PAGES[key]) });
 });
 
 init();

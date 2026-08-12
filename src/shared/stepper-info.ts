@@ -24,7 +24,7 @@ export async function getVisitedSteps(): Promise<AppShellPage[]> {
  *  this is what unlocks a step for free direct stepper navigation from then
  *  on (see computeStepperInfo()'s `locked` computation below). Guarded
  *  against a redundant write: every page re-runs its init() on
- *  chrome.storage.onChanged, so writing unconditionally would re-trigger
+ *  browser.storage.onChanged, so writing unconditionally would re-trigger
  *  itself every time. */
 export async function markStepVisited(step: AppShellPage): Promise<void> {
   const visited = await getVisitedSteps();

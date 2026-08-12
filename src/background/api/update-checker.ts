@@ -2,18 +2,23 @@
 //
 // Preview-build-only: polls GitHub's Releases API for a newer tagged release
 // than the running extension's own version, and if found, badges the
-// toolbar icon and fires one OS notification. This file (and every string in
-// it, including the GitHub API host) is never bundled into the store build —
-// only background/index.preview.ts imports it, and manifest.store.json's
-// service worker entry (background/index.ts) never does. See
-// background/index.preview.ts for why a physically separate entry file is
-// used instead of a runtime flag.
+// toolbar icon and fires one OS notification. This module (and every string
+// in it, including the GitHub API host) is never bundled into the store
+// build — entrypoints/background.ts only imports it behind a
+// `import.meta.env.MODE === "preview"` check, which Vite/Rollup statically
+// eliminates (including the dynamic import() expression itself) for any
+// other mode, so the store build's bundle graph never reaches this file. See
+// entrypoints/background.ts for that gating and .github/workflows/ci.yml's
+// grep step that verifies it.
 //
-// registerUpdateChecker() registers every chrome.alarms/chrome.notifications
+// registerUpdateChecker() registers every browser.alarms/browser.notifications
 // listener synchronously, at call time — not from inside a .then() after a
 // dynamic import — because MV3 service workers only reliably redeliver an
 // event to a listener that was registered during the worker's initial
-// synchronous top-level evaluation.
+// synchronous top-level evaluation. entrypoints/background.ts's dynamic
+// import().then(...) call happens during that same initial synchronous
+// evaluation (the .then() callback fires on a microtask shortly after, still
+// within the same wake cycle), so this ordering constraint is preserved.
 
 import { local } from "../../shared/storage";
 import { openUpdateRelease } from "../../shared/update-store";
@@ -31,24 +36,24 @@ interface GitHubRelease {
 }
 
 export function registerUpdateChecker(): void {
-  chrome.alarms.create(CHECK_ALARM_NAME, { periodInMinutes: CHECK_INTERVAL_MINUTES });
+  browser.alarms.create(CHECK_ALARM_NAME, { periodInMinutes: CHECK_INTERVAL_MINUTES });
 
-  chrome.alarms.onAlarm.addListener((alarm) => {
+  browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === CHECK_ALARM_NAME) void checkForUpdate();
   });
 
-  // A second, independent onInstalled listener from background/index.ts's own
-  // (welcome-page-only) one — Chrome runs every registered listener for an
-  // event, so this doesn't interfere with it. Gives a freshly installed or
-  // updated preview build its first check immediately rather than waiting up
-  // to 6 hours for the first alarm.
-  chrome.runtime.onInstalled.addListener((details) => {
+  // A second, independent onInstalled listener from entrypoints/background.ts's
+  // own (welcome-page-only) one — the browser runs every registered listener
+  // for an event, so this doesn't interfere with it. Gives a freshly
+  // installed or updated preview build its first check immediately rather
+  // than waiting up to 6 hours for the first alarm.
+  browser.runtime.onInstalled.addListener((details) => {
     if (details.reason === "install" || details.reason === "update") void checkForUpdate();
   });
 
-  chrome.notifications.onClicked.addListener((notificationId) => {
+  browser.notifications.onClicked.addListener((notificationId) => {
     if (notificationId !== UPDATE_NOTIFICATION_ID) return;
-    chrome.notifications.clear(UPDATE_NOTIFICATION_ID);
+    browser.notifications.clear(UPDATE_NOTIFICATION_ID);
     void handleNotificationClick();
   });
 }
@@ -69,11 +74,11 @@ async function checkForUpdate(): Promise<void> {
   }
 
   const latestVersion = release.tag_name.replace(/^v/, "");
-  const currentVersion = chrome.runtime.getManifest().version;
+  const currentVersion = browser.runtime.getManifest().version;
 
   if (!isNewerVersion(latestVersion, currentVersion)) {
     await local.remove(["updateCheck"]);
-    await chrome.action.setBadgeText({ text: "" });
+    await browser.action.setBadgeText({ text: "" });
     return;
   }
 
@@ -86,11 +91,11 @@ async function checkForUpdate(): Promise<void> {
   const info: UpdateCheckInfo = { latestVersion, releaseUrl: release.html_url, checkedAt: Date.now() };
   await local.set({ updateCheck: info });
 
-  await chrome.action.setBadgeText({ text: "1" });
-  await chrome.action.setBadgeBackgroundColor({ color: "#004165" }); // --tm-navy — informational, not the red "error" icon state
+  await browser.action.setBadgeText({ text: "1" });
+  await browser.action.setBadgeBackgroundColor({ color: "#004165" }); // --tm-navy — informational, not the red "error" icon state
 
   if (isFirstSightingOfThisVersion) {
-    chrome.notifications.create(UPDATE_NOTIFICATION_ID, {
+    browser.notifications.create(UPDATE_NOTIFICATION_ID, {
       type: "basic",
       iconUrl: "icons/default/128.png",
       title: "Update available",

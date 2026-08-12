@@ -42,38 +42,32 @@ jobs:
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Sync manifest versions
-        run: |
-          sed -i -E 's/"version": "[^"]+"/"version": "${{ steps.version.outputs.version }}"/' manifest.preview.json manifest.store.json
-
-      - name: Build (store)
-        run: npm run build
-
-      - name: Build (preview)
-        run: npm run build:preview
-
-      - name: Zip dist/
+      - name: Zip all 4 build combinations
         id: zip
         run: |
-          PREVIEW_ZIP="toastmasters-vpe-assistant-preview-v${{ steps.version.outputs.version }}.zip"
-          STORE_ZIP="toastmasters-vpe-assistant-store-v${{ steps.version.outputs.version }}-candidate.zip"
+          # wxt.config.ts reads the extension version from package.json directly
+          # (no separate manifest files to keep in sync anymore). Each `wxt zip`
+          # call both builds and zips; Firefox also produces a companion
+          # "-sources-<mode>.zip" (AMO's review requirement for a bundled build) —
+          # 6 zip files total.
+          npx wxt zip --mode store
+          npx wxt zip -b firefox --mode store
+          npx wxt zip --mode preview
+          npx wxt zip -b firefox --mode preview
 
-          cd dist/preview
-          zip -r "../../$PREVIEW_ZIP" .
-          cd ../..
-
-          cd dist/store
-          zip -r "../../$STORE_ZIP" .
-          cd ../..
-
-          echo "preview_zip_name=$PREVIEW_ZIP" >> "$GITHUB_OUTPUT"
-          echo "store_zip_name=$STORE_ZIP" >> "$GITHUB_OUTPUT"
+          V="${{ steps.version.outputs.version }}"
+          echo "chrome_store_zip=toastmasters-vpe-assistant-$V-chrome-store.zip" >> "$GITHUB_OUTPUT"
+          echo "firefox_store_zip=toastmasters-vpe-assistant-$V-firefox-store.zip" >> "$GITHUB_OUTPUT"
+          echo "firefox_store_sources_zip=toastmasters-vpe-assistant-$V-sources-store.zip" >> "$GITHUB_OUTPUT"
+          echo "chrome_preview_zip=toastmasters-vpe-assistant-$V-chrome-preview.zip" >> "$GITHUB_OUTPUT"
+          echo "firefox_preview_zip=toastmasters-vpe-assistant-$V-firefox-preview.zip" >> "$GITHUB_OUTPUT"
+          echo "firefox_preview_sources_zip=toastmasters-vpe-assistant-$V-sources-preview.zip" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json manifest.preview.json manifest.store.json
+          git add package.json package-lock.json
           git commit -m "chore(release): v${{ steps.version.outputs.version }}"
           git push origin HEAD:main
 
@@ -88,25 +82,28 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}
           files: |
-            ${{ steps.zip.outputs.preview_zip_name }}
-            ${{ steps.zip.outputs.store_zip_name }}
+            .output/${{ steps.zip.outputs.chrome_preview_zip }}
+            .output/${{ steps.zip.outputs.chrome_store_zip }}
+            .output/${{ steps.zip.outputs.firefox_preview_zip }}
+            .output/${{ steps.zip.outputs.firefox_preview_sources_zip }}
+            .output/${{ steps.zip.outputs.firefox_store_zip }}
+            .output/${{ steps.zip.outputs.firefox_store_sources_zip }}
           generate_release_notes: true
           body: |
-            ## Two downloads, two purposes
-            - 🧪 **${{ steps.zip.outputs.preview_zip_name }}** — for testers. Install this one. Follow the steps below.
-            - 🏪 **${{ steps.zip.outputs.store_zip_name }}** — the Chrome Web Store submission candidate. Not meant for general install; ignore this one unless you know why you're here.
+            ## Downloads
 
-            ## Before you start
-            - ✅ You need a **computer** (Windows or Mac) — this won't work on a phone or tablet.
-            - ✅ You need **Google Chrome**, **Microsoft Edge**, **Brave**, **Opera**, **Vivaldi**, or **Arc** as your browser.
-            - ✅ You need to be an **officer of a Toastmasters club** in Basecamp and/or EasySpeak — the extension only shows data for clubs where you hold an officer role.
+            - 🧪 **${{ steps.zip.outputs.chrome_preview_zip }}** — Chrome/Edge/Brave/etc. testers. Install this one.
+            - 🧪 **${{ steps.zip.outputs.firefox_preview_zip }}** — Firefox testers. Install this one (see the Firefox section below — it's a different process than Chrome's).
+            - 🏪 **${{ steps.zip.outputs.chrome_store_zip }}** — the Chrome Web Store submission candidate. Not meant for general install; ignore this one unless you know why you're here.
+            - 🏪 **${{ steps.zip.outputs.firefox_store_zip }}** / **${{ steps.zip.outputs.firefox_store_sources_zip }}** — the AMO (addons.mozilla.org) submission candidate + its required sources archive. Not meant for general install.
+            - The **-sources-preview.zip** file is the sources archive for the Firefox *preview* build; ignore it unless you're the maintainer verifying an AMO submission.
+
+            ## Chrome / Edge / Brave / Opera / Vivaldi / Arc
 
             > This extension isn't on the Chrome Web Store yet, so installing it takes a few extra manual steps below. Don't worry — it only takes 2 minutes, just follow along carefully.
 
-            ## Installation (step by step)
-
             ### Step 1 — Download the file
-            Click on **${{ steps.zip.outputs.preview_zip_name }}** under "Assets" at the bottom of this page (you may need to click "Assets" to expand the list first). It will download to your computer, usually into your **Downloads** folder.
+            Click on **${{ steps.zip.outputs.chrome_preview_zip }}** under "Assets" at the bottom of this page (you may need to click "Assets" to expand the list first). It will download to your computer, usually into your **Downloads** folder.
 
             ### Step 2 — Unzip the file
             Find the downloaded file (probably in your **Downloads** folder) and double-click it to unzip it.
@@ -129,6 +126,15 @@ jobs:
             Three new buttons will appear. Click **Load unpacked**, then select the **folder** you unzipped in Step 2 (not the .zip file).
 
             ✅ **Done!** You should now see the extension's icon appear in your browser toolbar.
+
+            ## Firefox
+
+            Firefox does not support permanently loading an unpacked/unsigned extension the way Chrome's "Load unpacked" does — every install (even a self-distributed one) needs Mozilla's signature, which this preview build doesn't have yet. Until this extension is submitted to addons.mozilla.org:
+
+            1. Download **${{ steps.zip.outputs.firefox_preview_zip }}** and unzip it (same steps as Chrome above).
+            2. Go to `about:debugging#/runtime/this-firefox` in Firefox.
+            3. Click **Load Temporary Add-on…** and select the **manifest.json** file inside the unzipped folder.
+            4. ✅ The extension is now active — but only for this browser session. Firefox removes temporary add-ons on restart, so you'll need to repeat these steps after quitting/reopening Firefox.
 
             ---
             **Something not working?** [Open an issue here](../../issues) and describe what you see — happy to help.

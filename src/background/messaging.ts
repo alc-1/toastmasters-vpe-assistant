@@ -1,11 +1,11 @@
 // src/background/messaging.ts
 //
 // Handles messages from the popup/options UI. Registers the single
-// chrome.runtime.onMessage listener for the service worker and brackets
-// each scrape with icon-state status updates (see icon-state.ts) so the
-// toolbar icon stays correct regardless of whether the popup that triggered
-// the scrape is still open to receive the response (EasySpeak's tab-focus
-// steal closes it almost immediately — see background/api/easyspeak.ts).
+// browser.runtime.onMessage listener for the background entrypoint and
+// brackets each scrape with icon-state status updates (see icon-state.ts) so
+// the toolbar icon stays correct regardless of whether the popup that
+// triggered the scrape is still open to receive the response (EasySpeak's
+// tab-focus steal closes it almost immediately — see background/api/easyspeak.ts).
 
 import { scrapeAllClubs } from "./api/basecamp";
 import { scrapeAllEasySpeakClubs } from "./api/easyspeak";
@@ -36,10 +36,10 @@ async function runScrape<T>(source: SourceKey, scrapeFn: ScrapeFn<T>, sendRespon
 }
 
 export function registerMessageHandlers(): void {
-  chrome.runtime.onMessage.addListener((message: Request, _sender, sendResponse) => {
+  browser.runtime.onMessage.addListener((message: Request, _sender, sendResponse) => {
     if (message?.type === "SCRAPE_BASECAMP") {
       runScrape<BasecampScrape>("basecamp", scrapeAllClubs, sendResponse);
-      // Tells Chrome we'll respond asynchronously.
+      // Tells the browser we'll respond asynchronously.
       return true;
     }
 

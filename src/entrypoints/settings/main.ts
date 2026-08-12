@@ -1,4 +1,4 @@
-// src/options/settings.ts
+// src/entrypoints/settings/main.ts
 //
 // DOM glue for the Setup page: a two-option "how do you want to prepare your
 // club progress report" step (demo data vs. real club data), with the
@@ -13,11 +13,11 @@
 // visible) — the bottom summary is the confirmation, and "Continue" just
 // moves on to the next step once a choice has been made.
 
-import { escapeAttr, escapeHtml } from "../shared/dom-utils";
-import { EASYSPEAK_SERVERS, getActiveProfile, getLastEasySpeakRegion, setActiveProfile } from "../shared/settings-store";
-import { renderAppShell, renderStepFooter } from "../shared/app-shell";
-import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
-import type { EasySpeakServerId } from "../shared/types";
+import { escapeAttr, escapeHtml } from "../../shared/dom-utils";
+import { EASYSPEAK_SERVERS, getActiveProfile, getLastEasySpeakRegion, setActiveProfile } from "../../shared/settings-store";
+import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
+import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
+import type { EasySpeakServerId } from "../../shared/types";
 
 // null = no choice made yet (the Setup step's required no-default state).
 // Distinguished from getActiveProfile()'s `"demo"`/region results by reading
@@ -29,7 +29,7 @@ init();
 
 // Keeps this tab in sync if the choice is edited from another tab while
 // this one stays open.
-chrome.storage.onChanged.addListener((_changes, area) => {
+browser.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") init();
 });
 
@@ -91,9 +91,9 @@ async function onChooseDataSource(choice: "demo" | "real") {
 // ---------------------------------------------------------------------------
 
 const REGION_IMAGES: Record<EasySpeakServerId, string> = {
-  "tmclub.eu": "../images/continental_europe.png",
-  "toastmasterclub.org": "../images/uk_and_ireland.png",
-  "easy-speak.org": "../images/rest_of_the_world.png",
+  "tmclub.eu": "/images/continental_europe.png",
+  "toastmasterclub.org": "/images/uk_and_ireland.png",
+  "easy-speak.org": "/images/rest_of_the_world.png",
 };
 
 function renderRegionSection(choice: DataSourceChoice, region: EasySpeakServerId) {

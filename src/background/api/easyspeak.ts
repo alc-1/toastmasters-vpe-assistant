@@ -13,17 +13,17 @@
 // (always opened fresh rather than reusing any already-open tab, so the
 // user's own open tabs are never hijacked mid-navigation; visible, not
 // hidden, so the user can solve an interactive Cloudflare challenge if one
-// ever appears) and injects src/content/easyspeak-parser.iife.ts into it via
-// chrome.scripting to extract data from its live DOM. Once every club has
-// been scraped, that same tab is redirected to a confirmation page
-// (status/easyspeak-done.html) that auto-closes a few seconds later.
+// ever appears) and injects entrypoints/easyspeak-parser.content.ts into it
+// via browser.scripting to extract data from its live DOM. Once every club
+// has been scraped, that same tab is redirected to a confirmation page
+// (easyspeak-done.html) that auto-closes a few seconds later.
 //
 // Because ensureEasySpeakTab() below deliberately steals tab/window focus
-// (chrome.tabs.update/chrome.windows.update), the extension popup — which
-// Chrome always closes as soon as it loses focus — will not survive long
-// enough to receive the response and persist it itself the way
+// (browser.tabs.update/browser.windows.update), the extension popup — which
+// Chrome/Firefox both close as soon as it loses focus — will not survive
+// long enough to receive the response and persist it itself the way
 // popup/index.ts normally would. So this module writes the result to
-// chrome.storage.local directly, making it the source of truth regardless
+// browser.storage.local directly, making it the source of truth regardless
 // of whether the popup is still around when scraping finishes;
 // popup/index.ts's init() already reads from storage on open and will pick
 // it up next time it's opened.
@@ -42,14 +42,14 @@ import { resolveActiveProfile } from "../../shared/settings-store";
 import { MOCK_EASYSPEAK_DATA } from "../../shared/mock/mockData";
 import type { EasySpeakScrape, MemberchartParseResult, ProfileParseResult } from "../../shared/types";
 
-// The critical integration point: importing with the `?iife` query resolves
-// to the built, content-hashed output path of the IIFE bundle at build
-// time, string-usable directly in chrome.scripting.executeScript({ files }).
-// See src/content/easyspeak-parser.iife.ts's doc comment for exactly why
-// `?iife` and not the default `?script` query — using `?script` here would
-// reintroduce a race where the parser globals aren't defined yet when the
-// second executeScript() call below runs.
-import parserFile from "../../content/easyspeak-parser.iife.ts?iife";
+// entrypoints/easyspeak-parser.content.ts is a runtime-registered content
+// script (registration: "runtime" — never auto-injected by manifest match
+// rules), which WXT bundles as a plain IIFE at this stable, predictable
+// output path — no content hash, so it's safe to hardcode here rather than
+// resolve via an import. See that file's doc comment for why the parser
+// globals are guaranteed to exist synchronously by the time the first
+// executeScript() call below resolves.
+const PARSER_FILE = "/content-scripts/easyspeak-parser.js" as const;
 
 const CHALLENGE_TITLE = "Just a moment...";
 const PAGE_LOAD_TIMEOUT_MS = 30000;
@@ -105,7 +105,7 @@ export async function scrapeAllEasySpeakClubs(): Promise<EasySpeakScrape> {
   // On any error above (Cloudflare stuck, login timeout, parse failure),
   // this line is never reached, and the tab is left open as-is so the user
   // can see/solve whatever went wrong.
-  await chrome.tabs.update(tabId, { url: pageUrl("status/easyspeak-done.html") });
+  await browser.tabs.update(tabId, { url: pageUrl("easyspeak-done.html") });
 
   return result;
 }
@@ -116,7 +116,7 @@ export async function scrapeAllEasySpeakClubs(): Promise<EasySpeakScrape> {
  * @returns the new tab's id
  */
 async function ensureEasySpeakTab(): Promise<number> {
-  const tab = await chrome.tabs.create({ active: true });
+  const tab = await browser.tabs.create({ active: true });
   return tab.id!;
 }
 
@@ -125,18 +125,18 @@ type ParseFnName = "parseProfileLinks" | "parseMemberchart";
 /**
  * Navigates the given tab to url, waits for that exact real (non-
  * Cloudflare-challenge) page to finish loading, then injects and runs the
- * named parser function from src/content/easyspeak-parser.iife.ts against
+ * named parser function from entrypoints/easyspeak-parser.content.ts against
  * that page's DOM.
  */
 async function loadAndParse(tabId: number, url: string, parseFnName: ParseFnName): Promise<ProfileParseResult | MemberchartParseResult> {
   await navigateAndWaitForRealPage(tabId, url);
 
-  await chrome.scripting.executeScript({
+  await browser.scripting.executeScript({
     target: { tabId },
-    files: [parserFile],
+    files: [PARSER_FILE],
   });
 
-  const [{ result }] = await chrome.scripting.executeScript({
+  const [{ result }] = await browser.scripting.executeScript({
     target: { tabId },
     func: (fnName: string) => {
       const fn = (globalThis as unknown as Record<string, () => unknown>)[fnName];
@@ -157,9 +157,9 @@ async function loadAndParse(tabId: number, url: string, parseFnName: ParseFnName
  * interstitial, and not EasySpeak's login page). Rejects if the tab is
  * closed or nothing resolves within the timeout.
  *
- * Listeners are registered before chrome.tabs.update() is called, and
- * resolution only happens on an actual chrome.tabs.onUpdated "complete"
- * event whose tab.url matches the target url — chrome.tabs.update()'s
+ * Listeners are registered before browser.tabs.update() is called, and
+ * resolution only happens on an actual browser.tabs.onUpdated "complete"
+ * event whose tab.url matches the target url — browser.tabs.update()'s
  * returned promise only confirms the navigation was requested, not that it
  * started or finished, so checking the tab's current state immediately
  * after calling it would race against the still-loaded *previous* page
@@ -203,16 +203,16 @@ function navigateAndWaitForRealPage(tabId: number, url: string, timeoutMs = PAGE
       if (settled) return;
       settled = true;
       clearTimeout(timeoutId);
-      chrome.tabs.onUpdated.removeListener(onUpdated);
-      chrome.tabs.onRemoved.removeListener(onRemoved);
+      browser.tabs.onUpdated.removeListener(onUpdated);
+      browser.tabs.onRemoved.removeListener(onRemoved);
       action();
     }
 
     async function checkTab() {
       if (settled) return;
-      let tab: chrome.tabs.Tab;
+      let tab: Browser.tabs.Tab;
       try {
-        tab = await chrome.tabs.get(tabId);
+        tab = await browser.tabs.get(tabId);
       } catch {
         return;
       }
@@ -235,7 +235,7 @@ function navigateAndWaitForRealPage(tabId: number, url: string, timeoutMs = PAGE
         // but not identical to it (see function doc comment).
         awaitingLogin = false;
         armTimeout(PAGE_LOAD_TIMEOUT_MS, CHALLENGE_TIMEOUT_MESSAGE);
-        chrome.tabs.update(tabId, { url }).catch((err) => finish(() => reject(err)));
+        browser.tabs.update(tabId, { url }).catch((err) => finish(() => reject(err)));
         return;
       }
 
@@ -245,7 +245,7 @@ function navigateAndWaitForRealPage(tabId: number, url: string, timeoutMs = PAGE
 
       let title: string, bodyText: string;
       try {
-        const [{ result }] = await chrome.scripting.executeScript({
+        const [{ result }] = await browser.scripting.executeScript({
           target: { tabId },
           func: () => ({ title: document.title, bodyText: document.body.innerText || "" }),
         });
@@ -265,14 +265,14 @@ function navigateAndWaitForRealPage(tabId: number, url: string, timeoutMs = PAGE
         // in, then retry the original url once they navigate away from it.
         awaitingLogin = true;
         armTimeout(LOGIN_TIMEOUT_MS, LOGIN_TIMEOUT_MESSAGE);
-        chrome.tabs.update(tabId, { url: loginPath }).catch((err) => finish(() => reject(err)));
+        browser.tabs.update(tabId, { url: loginPath }).catch((err) => finish(() => reject(err)));
         return;
       }
 
       finish(resolve);
     }
 
-    function onUpdated(updatedTabId: number, changeInfo: chrome.tabs.OnUpdatedInfo) {
+    function onUpdated(updatedTabId: number, changeInfo: Browser.tabs.OnUpdatedInfo) {
       if (updatedTabId === tabId && changeInfo.status === "complete") {
         checkTab();
       }
@@ -285,8 +285,8 @@ function navigateAndWaitForRealPage(tabId: number, url: string, timeoutMs = PAGE
     }
 
     armTimeout(timeoutMs, CHALLENGE_TIMEOUT_MESSAGE);
-    chrome.tabs.onUpdated.addListener(onUpdated);
-    chrome.tabs.onRemoved.addListener(onRemoved);
-    chrome.tabs.update(tabId, { url }).catch((err) => finish(() => reject(err)));
+    browser.tabs.onUpdated.addListener(onUpdated);
+    browser.tabs.onRemoved.addListener(onRemoved);
+    browser.tabs.update(tabId, { url }).catch((err) => finish(() => reject(err)));
   });
 }

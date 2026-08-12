@@ -6,11 +6,11 @@
 // deliberately NOT imported from any options/popup page. It owns a running
 // setInterval for the spin animation; if a page also imported this module,
 // opening it while something is loading would start a second, independent
-// interval fighting over chrome.action.setIcon() with the background's own.
-// Keeping all icon mutation in one context (the service worker) avoids
+// interval fighting over browser.action.setIcon() with the background's own.
+// Keeping all icon mutation in one context (the background entrypoint) avoids
 // that — the popup only ever asks background for the current statuses via
 // the POPUP_OPENED message (see messaging.ts) and never touches
-// chrome.storage.session or chrome.action itself.
+// browser.storage.session or browser.action itself.
 
 import { session } from "../shared/storage";
 import type { IconStatuses, SourceKey, SourceStatus } from "../shared/types";
@@ -102,15 +102,15 @@ async function applyIcon(statuses: IconStatuses): Promise<void> {
     return;
   }
   stopLoadingAnimation();
-  await chrome.action.setIcon({ path: STATIC_ICON_PATHS[combined] });
+  await browser.action.setIcon({ path: STATIC_ICON_PATHS[combined] });
 }
 
 function startLoadingAnimation(): void {
   if (animationTimer) return; // already animating
-  chrome.action.setIcon({ path: loadingFramePath(animationFrame) });
+  browser.action.setIcon({ path: loadingFramePath(animationFrame) });
   animationTimer = setInterval(() => {
     animationFrame = (animationFrame + 1) % LOADING_FRAME_COUNT;
-    chrome.action.setIcon({ path: loadingFramePath(animationFrame) });
+    browser.action.setIcon({ path: loadingFramePath(animationFrame) });
   }, LOADING_FRAME_INTERVAL_MS);
 }
 

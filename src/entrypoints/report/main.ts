@@ -1,24 +1,24 @@
-// src/options/report.ts
+// src/entrypoints/report/main.ts
 //
 // DOM glue for the comparison report page: reads the already-scraped data
-// straight out of chrome.storage.local (no live scraping happens here) and
+// straight out of browser.storage.local (no live scraping happens here) and
 // hands it to buildReport() from shared/sync/delta.ts, then renders the
 // result. Kept separate from shared/sync/* so the pure matching/diff logic
-// stays chrome.*-free and independently testable.
+// stays browser.*-free and independently testable.
 
-import { escapeAttr, escapeHtml, warningIconHtml } from "../shared/dom-utils";
-import { local } from "../shared/storage";
-import { loadResolutionData } from "../shared/resolution-store";
-import { buildLevelSummary, buildReport, isMemberReadyForNextLevel, memberKey, needsAction } from "../shared/sync/delta";
-import { renderAppShell, renderStepFooter } from "../shared/app-shell";
-import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
-import type { ClubPairReport, LevelSummaryRow, MemberReport, PathReport } from "../shared/types";
+import { escapeAttr, escapeHtml, warningIconHtml } from "../../shared/dom-utils";
+import { local } from "../../shared/storage";
+import { loadResolutionData } from "../../shared/resolution-store";
+import { buildLevelSummary, buildReport, isMemberReadyForNextLevel, memberKey, needsAction } from "../../shared/sync/delta";
+import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
+import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
+import type { ClubPairReport, LevelSummaryRow, MemberReport, PathReport } from "../../shared/types";
 
 refresh();
 
 // Keeps this tab in sync if data is re-extracted or resolution decisions are
 // edited from another tab (e.g. Members, Club Review) while this one stays open.
-chrome.storage.onChanged.addListener((_changes, area) => {
+browser.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") refresh();
 });
 

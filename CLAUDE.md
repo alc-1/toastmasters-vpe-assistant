@@ -4,60 +4,82 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Chrome extension (Manifest V3) for a Toastmasters VPE (Vice President Education) to consolidate
-member Pathways progress following, from two sources: **Basecamp Toastmasters** (a clean internal
-JSON API) and **EasySpeak** (no API — HTML pages that must be parsed; runs as three separate
-regional deployments — `tmclub.eu` (default), `toastmasterclub.org`, `easy-speak.org` — picked on
-Setup, see `shared/settings-store.ts` below). Both scrapers store their extraction locally.
+A cross-browser extension (Manifest V3 on Chrome/Chromium browsers, Manifest V2 on Firefox) for a
+Toastmasters VPE (Vice President Education) to consolidate member Pathways progress following, from
+two sources: **Basecamp Toastmasters** (a clean internal JSON API) and **EasySpeak** (no API — HTML
+pages that must be parsed; runs as three separate regional deployments — `tmclub.eu` (default),
+`toastmasterclub.org`, `easy-speak.org` — picked on Setup, see `shared/settings-store.ts` below).
+Both scrapers store their extraction locally.
 
-The extension is written in **TypeScript, built with Vite + `@crxjs/vite-plugin`**, under `src/`
-(see "Architecture" below for the full tree). This is a deliberate reversal of an earlier
-"no bundler, no npm dependencies" convention that used to be documented here — see "Conventions" for
-what replaced it, and don't reintroduce the old plain-`<script>`/`importScripts` pattern.
+The extension is written in **TypeScript, built with [WXT](https://wxt.dev)** (a Vite-based,
+cross-browser web-extension framework), under `src/` (see "Architecture" below for the full tree).
+WXT replaced an earlier Vite + `@crxjs/vite-plugin` Chrome-only setup — that migration is what
+introduced Firefox support (previously there was no Firefox target at all) and the `entrypoints/`
+file-based-routing convention described below. Don't reintroduce hand-authored `manifest.*.json`
+files or a bare `vite.config.ts` — `wxt.config.ts` generates the manifest per browser/mode now.
+
+Every extension API call goes through the `browser` global (a WXT-provided auto-import: `chrome` on
+Chrome, native `browser` on Firefox — never call `chrome.*` directly, it silently doesn't exist on
+Firefox). `defineBackground()`/`defineContentScript()` are similarly WXT auto-imports, not manual
+imports — see the entrypoint files themselves for the pattern, don't add `import` statements for
+these.
 
 ## Running / testing changes
 
-1. `npm install` once.
-2. `npm run build` — type-checks (`tsc --noEmit`) then runs `vite build --mode store`, producing
-   `dist/store/` (the Chrome Web Store submission candidate manifest — see "Two build targets"
-   under "Build tooling" below). `npm run build:preview` does the same for `dist/preview/` (the
-   tester-facing preview manifest) — the two are functionally identical today, differing only in
-   their manifest's `name`/`description`; pick whichever you're testing, `dist/store/` if in doubt.
-   Or `npm run dev` for Vite's dev server (works for iterating on popup/options page UI in a normal
-   browser tab, but MV3 service-worker + `chrome.scripting` flows still need a real loaded-unpacked
-   reload to test — see the crxjs caveat under "Build tooling" below). `dist/` is gitignored,
-   regenerable — never hand-edit anything under it.
-3. Open `chrome://extensions`, enable "Developer mode".
-4. "Load unpacked" → select `dist/store/` or `dist/preview/` (or "Reload" the extension after
-   rebuilding).
-5. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or your configured EasySpeak
+1. `npm install` once (`postinstall` runs `wxt prepare`, generating the gitignored `.wxt/` directory
+   — types + a base tsconfig `tsconfig.json` extends; regenerable, never hand-edit).
+2. `npm run build` — type-checks (`tsc --noEmit`) then runs `wxt build --mode store` for **Chrome**,
+   producing `.output/store/chrome-mv3/` (the Chrome Web Store submission candidate — see "Build
+   modes × browsers" under "Build tooling" below). The full combination matrix:
+   - `npm run build` → `.output/store/chrome-mv3/`
+   - `npm run build:firefox` → `.output/store/firefox-mv2/`
+   - `npm run build:preview` → `.output/preview/chrome-mv3/`
+   - `npm run build:preview:firefox` → `.output/preview/firefox-mv2/`
+
+   The "store" targets are Chrome-Web-Store/AMO submission candidates; "preview" is the
+   tester-facing build (adds the update-checker, an "(Preview)" name suffix). Pick `build`
+   (store, Chrome) if in doubt. Or `npm run dev` / `npm run dev:firefox` for WXT's dev server
+   (works for iterating on popup/options page UI, but MV3 background/`browser.scripting` flows
+   — the EasySpeak flow especially — should always get a real build + reload before you trust
+   them; see the dev-mode caveat under "Build tooling"). `.output/` is gitignored, regenerable —
+   never hand-edit anything under it.
+3. **Chrome/Chromium**: open `chrome://extensions`, enable "Developer mode", "Load unpacked" →
+   select `.output/store/chrome-mv3/` (or "Reload" after rebuilding).
+   **Firefox**: go to `about:debugging#/runtime/this-firefox` → "Load Temporary Add-on…" → select
+   the `manifest.json` inside `.output/store/firefox-mv2/`. This is temporary (cleared on Firefox
+   restart) since the build isn't Mozilla-signed locally — that's expected for day-to-day dev.
+4. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or your configured EasySpeak
    server (`https://tmclub.eu/` by default — see Setup to change it; any tab, any time
    beforehand).
-6. Click the extension icon, then "Extract Basecamp data" and/or "Extract EasySpeak data" — no
+5. Click the extension icon, then "Extract Basecamp data" and/or "Extract EasySpeak data" — no
    Basecamp tab needs to stay open (unless a login is required — see Architecture). EasySpeak
    scraping always opens and focuses a brand-new tab on the configured EasySpeak server (never
    reuses an already-open one — see Architecture for why), which
-   **closes the popup immediately** (Chrome tears down `action` popups as soon as they lose focus,
-   and stealing tab/window focus is exactly what `ensureEasySpeakTab()` does). That tab redirects to
-   a "data fetched" confirmation page and closes itself a few seconds later once scraping finishes;
-   reopen the popup to see the result — see the storage note below for why this works.
-7. Inspect the popup summary table and the raw JSON under "Raw data", or check the background
-   service worker's console (`chrome://extensions` → this extension → "service worker" inspect
-   link) for errors. Code injected into the EasySpeak tab via `chrome.scripting` logs to that
-   *tab's* own DevTools console, not the service worker's.
-8. Watch the toolbar icon while a scrape runs: it should animate (spinning), then land on a green
+   **closes the popup immediately** (both Chrome and Firefox tear down `action` popups as soon as
+   they lose focus, and stealing tab/window focus is exactly what `ensureEasySpeakTab()` does).
+   That tab redirects to a "data fetched" confirmation page and closes itself a few seconds later
+   once scraping finishes; reopen the popup to see the result — see the storage note below for why
+   this works.
+6. Inspect the popup summary table and the raw JSON under "Raw data", or check the background
+   entrypoint's console (`chrome://extensions` → this extension → "service worker" inspect link on
+   Chrome; `about:debugging` → "Inspect" on Firefox) for errors. Code injected into the EasySpeak
+   tab via `browser.scripting` logs to that *tab's* own DevTools console, not the background's.
+7. Watch the toolbar icon while a scrape runs: it should animate (spinning), then land on a green
    check or red cross, then revert to the classic icon the next time you open the popup (see
    `background/icon-state.ts` in Architecture). Each source's button should be disabled only while
    *that* source is loading.
 
-Background worker errors surface via the response returned to the popup (`{ ok: false, error }`),
-not the console — check `popup/index.ts`'s status line first when debugging a failed scrape.
+Background errors surface via the response returned to the popup (`{ ok: false, error }`), not the
+console — check `entrypoints/popup/main.ts`'s status line first when debugging a failed scrape.
 
-`.github/workflows/ci.yml` runs `test` then both `build` (store) and `build:preview` on every
-push/PR to `main` — a green run there is not a substitute for the manual walkthrough above, which
-is the only thing that exercises the real `chrome.*` flows.
+`.github/workflows/ci.yml` runs `test` then all 4 build combinations (store/preview × chrome/firefox)
+on every push/PR to `main` — a green run there is not a substitute for the manual walkthrough above,
+which is the only thing that exercises the real `browser.*` flows, **on both browsers** — Firefox's
+non-persistent MV2 background page has a similar but not necessarily identical idle-suspension model
+to Chrome's MV3 service worker, so don't assume a flow that works on Chrome automatically works on
+Firefox too, especially the EasySpeak scrape's multi-minute login-wait timeouts.
 
-`npm run typecheck` (`tsc --noEmit`, no `vite build`) is the fast way to check types alone.
+`npm run typecheck` (`tsc --noEmit`, no `wxt build`) is the fast way to check types alone.
 
 `npm test` (Vitest) runs the real automated suite in `tests/`, against fixtures in `test-data/`:
 - `tests/easyspeak-parser.test.ts` exercises the pure, DOM-based HTML-parsing logic in
@@ -75,52 +97,67 @@ is the only thing that exercises the real `chrome.*` flows.
 - Tests use real ESM `import` from `../src/...` — no `require()`/`module.exports` workaround needed
   now that everything is a real TS module (that workaround was only ever needed back when these
   files were plain globals-exporting `<script>`s).
-- `vitest.config.ts` is a **standalone config that must not import `vite.config.ts`** — loading the
-  `crx()` plugin during a test run breaks, since it expects a manifest, a file writer, and an
-  extension environment Vitest doesn't provide.
+- `vitest.config.ts` is a **standalone config that must not import `wxt.config.ts`** — loading WXT's
+  config during a test run breaks, since it expects a manifest, a file writer, and an extension
+  build environment Vitest doesn't provide.
 - Out of scope, unchanged manual-only workflow: `background/api/basecamp.ts`,
   `background/api/easyspeak.ts`, `shared/resolution-store.ts`, `shared/settings-store.ts`'s
   `getEasySpeakServer`/`setEasySpeakServer`, `background/icon-state.ts`, and every popup/options/
-  status page — all genuinely `chrome.*`-dependent (tabs, scripting, storage) with no pure logic
+  status page — all genuinely `browser.*`-dependent (tabs, scripting, storage) with no pure logic
   worth isolating.
 
 ## Architecture
 
+WXT imposes structure only on **entrypoints** — background, popup, and every other page/script
+referenced at runtime, each declared under `src/entrypoints/` via file-based routing (one HTML page
+per directory, `index.html` + a same-directory script; a background/content-script is a single `.ts`
+file using WXT's `defineBackground()`/`defineContentScript()`). Everything else (pure logic, storage
+I/O, matching/diff code, DOM helpers) is a plain supporting module living wherever makes sense —
+WXT doesn't care, only entrypoints are special:
+
 ```
 src/
-├── background/           # service worker only — never imported from a page
-│   ├── index.ts           # entry point: registers the message listener
-│   ├── messaging.ts        # onMessage listener + runScrape() helper
-│   ├── icon-state.ts       # toolbar icon state machine
+├── entrypoints/
+│   ├── background.ts                # defineBackground() — consolidates what used to be
+│   │                                 # background/index.ts + background/index.preview.ts (see below)
+│   ├── popup/                       # the generated manifest's action.default_popup
+│   │   ├── index.html
+│   │   └── main.ts
+│   ├── report/, members/, settings/, sync-data/, club-review/
+│   │   │                            # five independent unlisted pages, NOT a merged options_page/
+│   │   │                            # dashboard — each opened via browser.tabs.create, exactly like
+│   │   │                            # popup does, built flat (report.html, members.html, ...) at
+│   │   │                            # the extension root regardless of source directory depth
+│   │   └── index.html + main.ts     # report = read-only comparison view ("Club Progress");
+│   │                                 # members = interactive member-matching review ("Member Review");
+│   │                                 # settings = demo/mock mode + EasySpeak server picker ("Setup");
+│   │                                 # sync-data = Data Extraction card, backed by
+│   │                                 #   shared/sync-status-panel.ts ("Sync Data");
+│   │                                 # club-review = club-name/path-name lookup editors ("Club Review")
+│   ├── basecamp-auth/, easyspeak-done/
+│   │   └── index.html + main.ts     # background-initiated interstitial pages, no user entry point
+│   ├── welcome/                     # first-run-only tab, opened by entrypoints/background.ts's onInstalled
+│   │   └── index.html + main.ts
+│   └── easyspeak-parser.content.ts  # registration:"runtime" content script, dynamically injected
+│                                     # into a live EasySpeak tab — see below
+├── background/                      # plain supporting modules for entrypoints/background.ts —
+│   │                                 # not entrypoints themselves, never imported from a page
+│   ├── messaging.ts                 # onMessage listener + runScrape() helper
+│   ├── icon-state.ts                # toolbar icon state machine
+│   ├── scrape-progress.ts           # live scrape-progress reporting (session storage)
 │   └── api/
-│       ├── basecamp.ts     # Basecamp scraping (fetch-based)
-│       └── easyspeak.ts    # EasySpeak scraping (tab-navigation based)
-├── content/
-│   └── easyspeak-parser.iife.ts   # dynamically-injected into a live EasySpeak tab — see below
-├── popup/                 # the active manifest's action.default_popup
-│   ├── index.html
-│   └── index.ts
-├── options/                # five independent pages, NOT a merged options_page/dashboard —
-│   │                        # each opened via chrome.tabs.create, exactly like popup does
-│   ├── report.html + report.ts       # read-only comparison view ("Club Progress")
-│   ├── members.html + members.ts     # interactive member-matching review workflow ("Member Review")
-│   ├── settings.html + settings.ts   # demo/mock mode + EasySpeak server picker ("Setup")
-│   ├── sync-data.html + sync-data.ts # sync status + Data Extraction card, backed by shared/sync-status-panel.ts ("Sync Data")
-│   └── club-review.html + club-review.ts  # club-name lookup + path-name lookup editors ("Club Review")
-├── status/                 # background-initiated interstitial pages, no user entry point
-│   ├── basecamp-auth.html
-│   ├── easyspeak-done.html
-│   └── countdown.ts        # shared auto-close-in-5s behavior for both pages above
-├── welcome/                 # first-run-only tab, opened by background/index.ts's onInstalled
-│   ├── welcome.html
-│   └── welcome.ts
-└── shared/                 # no chrome.* dependency except storage.ts/resolution-store.ts/settings-store.ts/sync-status-panel.ts/update-store.ts
+│       ├── basecamp.ts              # Basecamp scraping (fetch-based)
+│       ├── easyspeak.ts             # EasySpeak scraping (tab-navigation based)
+│       └── update-checker.ts        # preview-build-only GitHub-release poller
+└── shared/                          # no browser.* dependency except storage.ts/resolution-store.ts/
+                                      # settings-store.ts/sync-status-panel.ts/update-store.ts/countdown.ts
     ├── types.ts             # the domain type catalog — read this first when touching data shapes
-    ├── storage.ts           # the ONLY file allowed to call chrome.storage.* directly
-    ├── pages.ts             # extension page URL constants (chrome.runtime.getURL wrapper)
-    ├── send-message.ts      # typed chrome.runtime.sendMessage() client for popup/index.ts
+    ├── storage.ts           # the ONLY file allowed to call browser.storage.* directly
+    ├── pages.ts             # extension page URL constants (browser.runtime.getURL wrapper)
+    ├── send-message.ts      # typed browser.runtime.sendMessage() client for entrypoints/popup/main.ts
+    ├── countdown.ts         # shared auto-close-in-5s behavior for the two status pages above
     ├── app-shell.ts         # shared header/nav bar (renderAppShell), rendered into #appShell on every options page
-    ├── sync-status-panel.ts # shared sync-status summary + Data Extraction logic, used by popup/index.ts and options/sync-data.ts
+    ├── sync-status-panel.ts # shared sync-status summary + Data Extraction logic, used by entrypoints/popup/main.ts and entrypoints/sync-data/main.ts
     ├── dom-utils.ts         # escapeHtml/escapeAttr/warningIconHtml
     ├── settings-store.ts    # EasySpeak server choice
     ├── resolution-store.ts  # the 6 persisted name-resolution keys
@@ -128,33 +165,34 @@ src/
     │   ├── conflicts.ts      # name/path/member matching + override logic
     │   └── delta.ts          # buildReport orchestrator, diffing, level summary — imports conflicts.ts
     ├── parsers/
-    │   └── easyspeak-parser.ts   # pure DOM parsing, imported by content/easyspeak-parser.iife.ts
+    │   └── easyspeak-parser.ts   # pure DOM parsing, imported by entrypoints/easyspeak-parser.content.ts
     └── mock/
         └── mockData.ts       # demo/mock-mode scaffold — NOT wired up anywhere yet
 ```
 
 **Layering rule, enforced by convention not tooling — don't violate it**: `shared/**` must never
 import from `background/**`. `shared/sync/conflicts.ts` and `shared/sync/delta.ts` run only in
-options pages (never the service worker) but `delta.ts` imports matching functions from
-`conflicts.ts`, so the dependency graph is `options/* → shared/sync/delta → shared/sync/conflicts →
-shared/types`, always acyclic. `background/icon-state.ts` conversely is deliberately *never*
-imported by any page (it owns a running `setInterval` for the icon spin animation; a second copy
-imported into a page would start its own independent interval fighting the background's own over
-`chrome.action.setIcon()`) — the popup only ever asks background for the current statuses via the
-`POPUP_OPENED` message (`options/sync-data.ts`'s `init()` sends the identical message the same
-way, since it drives the same shared `shared/sync-status-panel.ts` rendering/status logic).
+options pages (never the background entrypoint) but `delta.ts` imports matching functions from
+`conflicts.ts`, so the dependency graph is `entrypoints/*/main.ts → shared/sync/delta →
+shared/sync/conflicts → shared/types`, always acyclic. `background/icon-state.ts` conversely is
+deliberately *never* imported by any page (it owns a running `setInterval` for the icon spin
+animation; a second copy imported into a page would start its own independent interval fighting the
+background's own over `browser.action.setIcon()`) — the popup only ever asks background for the
+current statuses via the `POPUP_OPENED` message (`entrypoints/sync-data/main.ts`'s `init()` sends
+the identical message the same way, since it drives the same shared `shared/sync-status-panel.ts`
+rendering/status logic).
 
 Two scraper pipelines with different shapes, sharing one trigger flow from the popup: **popup →
-background service worker → source-specific scraper**.
+background entrypoint → source-specific scraper**.
 
 - **`shared/sync-status-panel.ts`** — the shared logic behind the "Data Extraction" card + the
-  compact sync-status summary, used by both `popup/index.ts` and `options/sync-data.ts` (see that
+  compact sync-status summary, used by both `entrypoints/popup/main.ts` and `entrypoints/sync-data/main.ts` (see that
   page's bullet below) — the two pages render matching markup with matching element ids
   (`scrapeBasecampBtn`/`statusBasecamp`/`summaryBasecamp`/`rawDataBasecamp` and the EasySpeak
   equivalents, plus a shared `#statusSummary` root) and both call into this module instead of
   duplicating the rendering/formatting/scrape-click code. Exports `bindSourceEls()` (looks up a
   source's four elements by id), `onScrapeClick()` (sends `{type: "SCRAPE_BASECAMP"}` /
-  `{type: "SCRAPE_EASYSPEAK"}` to the background service worker via `shared/send-message.ts`'s
+  `{type: "SCRAPE_EASYSPEAK"}` to the background entrypoint via `shared/send-message.ts`'s
   typed `sendMessage()`, parameterized by message type, storage keys, and a render function; takes
   an optional `onDone` hook for page-specific post-scrape follow-up), `renderScrapeResult()`
   (merges what used to be two near-identical `renderBasecampResult`/`renderEasySpeakResult`
@@ -162,7 +200,7 @@ background service worker → source-specific scraper**.
   `renderStatusSummary()` (renders into `#statusSummary`, returns the cached
   `{basecampData, easyspeakData}` so each page can layer its own follow-up on top — e.g. the
   popup's subtitle update — without this module needing to know about it). On a successful scrape,
-  `onScrapeClick()` writes to `chrome.storage.local` itself (via `shared/storage.ts`'s
+  `onScrapeClick()` writes to `browser.storage.local` itself (via `shared/storage.ts`'s
   `local.set`: `basecampData`/`basecampScrapedAt`, `easyspeakData`/`easyspeakScrapedAt`) — **this
   write cannot be the only copy** (see the `background/api/*.ts` bullets below). Loading is
   communicated purely via the triggering button itself (`setButtonLoading`: disabled + relabeled
@@ -170,7 +208,7 @@ background service worker → source-specific scraper**.
   summary/raw-data panels — `onScrapeClick` never touches `els.status`/`els.summary`/`els.rawData`
   while a request is in flight, so "Last extraction: ..." and the previous result stay visible the
   whole time; only a completed extraction or an error updates the status line.
-- **`popup/index.ts`** — UI layer only, composed on top of `shared/sync-status-panel.ts`. `init()`
+- **`entrypoints/popup/main.ts`** — UI layer only, composed on top of `shared/sync-status-panel.ts`. `init()`
   sends `{type: "POPUP_OPENED"}` before anything else, both to let background acknowledge any
   finished success/error status (see `background/icon-state.ts` below) and to learn whether either
   source is currently `"loading"`, so it can apply the same disabled/relabeled button state even
@@ -178,53 +216,62 @@ background service worker → source-specific scraper**.
   popup while EasySpeak is still running in its own tab). Restores cached data on open via
   `renderScrapeResult()`, and passes an `onDone` hook into each `onScrapeClick()` call that
   re-renders the status summary and updates `updateReportButton()`/`updatePopupSubtitle()` — both
-  of which stay popup-only (no such buttons/subtitle element on `options/sync-data.ts`). Does not
-  touch `chrome.tabs`, `chrome.action`, or `chrome.storage.session` itself — all tab handling for
+  of which stay popup-only (no such buttons/subtitle element on `entrypoints/sync-data/main.ts`). Does not
+  touch `browser.tabs`, `browser.action`, or `browser.storage.session` itself — all tab handling for
   EasySpeak lives in `background/api/easyspeak.ts`, all icon/status handling lives in
   `background/icon-state.ts`, both background-only.
-- **`options/sync-data.html` + `options/sync-data.ts`** — a thin page wired up against
+- **`entrypoints/sync-data/index.html` + `entrypoints/sync-data/main.ts`** — a thin page wired up against
   `shared/sync-status-panel.ts`: same Data Extraction card + sync-status summary markup as the
   popup (same element ids), same underlying rendering/formatting/scrape-click logic, no duplicated
   code. Unlike the popup it isn't torn down when `ensureEasySpeakTab()` steals tab/window focus,
   since it's a regular tab, not an `action` popup — so a scrape triggered here survives exactly the
   focus-loss event that kills the popup mid-scrape (see `background/api/easyspeak.ts` below). Has
-  its own `chrome.storage.onChanged` listener re-running `init()`, matching the other long-lived-
+  its own `browser.storage.onChanged` listener re-running `init()`, matching the other long-lived-
   tab options pages' convention (the popup doesn't need this since it's re-created fresh on each
   open). No report/review-matches buttons or Setup link — those stay popup-only.
-- **`background/index.ts`** — service worker entry point, imports `messaging.ts` and calls
-  `registerMessageHandlers()`. Built by crxjs as a real ESM bundle (`"type": "module"` in the built
-  manifest) — the old `importScripts()` classic-script loading pattern is gone; every dependency is
-  a plain `import`. Also registers `chrome.runtime.onInstalled`: on `details.reason === "install"`
-  only (never `"update"`, so an existing user reloading/upgrading the extension never sees this
-  again) it opens `welcome/welcome.html` in a new tab via `pageUrl(PAGES.welcome)` — Chrome doesn't
-  pin a freshly installed extension's toolbar icon by default, so this page exists purely to point
-  a first-time user at the puzzle-piece menu and prompt them to pin it, then hands off to Setup via
-  its own "Get started" button (`location.href = pageUrl(PAGES.settings)`, navigating that same tab
-  rather than opening a second one). `welcome/welcome.ts` has no `chrome.storage`/resolution-store
-  dependency at all — it's a static walkthrough, not part of the stepper flow those five options
-  pages share (no `app-shell.ts` nav on it), so it isn't wired into `NAV_ITEMS`.
-- **`background/index.preview.ts`** — `manifest.preview.json`'s `background.service_worker` entry,
-  **not** `manifest.store.json`'s (which still points at plain `background/index.ts` above). A
-  physically separate file, not a runtime flag inside `index.ts`: it does `import "./index"` (runs
-  the identical shared setup) then calls `background/api/update-checker.ts`'s
-  `registerUpdateChecker()`. This is what keeps the preview-only "check GitHub for a newer preview
-  release" poller (`chrome.alarms` every 6h + on install/update, badges the toolbar icon, fires one
-  `chrome.notifications` toast per newly-seen version) — and every string in it, including the
-  GitHub API host — physically out of the store build's bundle graph, verified by
-  `.github/workflows/ci.yml` grepping `dist/store/` for it. `alarms`/`notifications` permissions and
-  the `api.github.com` host permission are likewise only in `manifest.preview.json`. The
-  release-page flow (`shared/update-store.ts`'s `openUpdateRelease()`, which just does
-  `chrome.tabs.create({url: info.releaseUrl})` against the GitHub release's own `html_url`) is
-  called both from the popup's update banner and from `chrome.notifications.onClicked` directly —
-  no message-passing round trip, same reasoning as `options/members.ts`'s direct resolution-store
-  writes (no service-worker-lifetime constraint applies here, unlike EasySpeak's tab-navigation).
-  This used to trigger the release zip download directly via `chrome.downloads.download()` plus a
-  reload-instructions status page, but that download was silently getting cancelled: Chrome doesn't
-  create the real `DownloadItem` until it gets a server response, and the very next step (opening a
-  tab) steals window focus, which — called from the popup — closes the popup and cancels any
-  download that hadn't started yet. Simplified instead to just open the GitHub release page and let
-  the user click the asset themselves, same as the release notes' own instructions already say to
-  do — no `downloads` permission, no `status/update-available.html`, no asset-lookup logic in
+- **`entrypoints/background.ts`** — the background entrypoint (`export default defineBackground(()
+  => {...})`), consolidating what used to be two physically separate files (`background/index.ts`
+  for the store build, `background/index.preview.ts` for preview — a leftover from the pre-WXT
+  two-manifest setup). Calls `background/messaging.ts`'s `registerMessageHandlers()`, and registers
+  `browser.runtime.onInstalled`: on `details.reason === "install"` only (never `"update"`, so an
+  existing user reloading/upgrading the extension never sees this again) it opens
+  `entrypoints/welcome/index.html` in a new tab via `pageUrl(PAGES.welcome)` — neither Chrome nor
+  Firefox pins a freshly installed extension's toolbar icon by default, so this page exists purely
+  to point a first-time user at the menu and prompt them to pin it, then hands off to Setup via its
+  own "Get started" button (`location.href = pageUrl(PAGES.settings)`, navigating that same tab
+  rather than opening a second one). `entrypoints/welcome/main.ts` has no `browser.storage`/
+  resolution-store dependency at all — it's a static walkthrough, not part of the stepper flow
+  those five options pages share (no `app-shell.ts` nav on it), so it isn't wired into `NAV_ITEMS`.
+
+  The store-vs-preview split those two old files existed for is now a **build-time-eliminated
+  dynamic import**, gated on WXT's build mode:
+  ```ts
+  if (import.meta.env.MODE === "preview") {
+    import("../background/api/update-checker").then((m) => m.registerUpdateChecker());
+  }
+  ```
+  Vite/Rollup statically inlines `import.meta.env.MODE` and dead-code-eliminates the whole branch
+  — including the dynamic `import()` expression itself — for any other mode, so the store build's
+  bundle graph never reaches `background/api/update-checker.ts` (and therefore never contains the
+  literal GitHub Releases API host string), verified by `.github/workflows/ci.yml` grepping
+  `.output/store/` for it. `alarms`/`notifications` permissions and the `api.github.com` host
+  permission are likewise only added to the manifest when `wxt.config.ts`'s `manifest()` function
+  sees `mode === "preview"` (see "Build tooling" below). `background/api/update-checker.ts` is
+  what keeps the preview-only "check GitHub for a newer preview release" poller (`browser.alarms`
+  every 6h + on install/update, badges the toolbar icon, fires one `browser.notifications` toast
+  per newly-seen version). The release-page flow (`shared/update-store.ts`'s `openUpdateRelease()`,
+  which just does `browser.tabs.create({url: info.releaseUrl})` against the GitHub release's own
+  `html_url`) is called both from the popup's update banner and from
+  `browser.notifications.onClicked` directly — no message-passing round trip, same reasoning as
+  `entrypoints/members/main.ts`'s direct resolution-store writes (no background-lifetime constraint
+  applies here, unlike EasySpeak's tab-navigation). This used to trigger the release zip download
+  directly via `chrome.downloads.download()` (a Chrome-only API) plus a reload-instructions status
+  page, but that download was silently getting cancelled: Chrome doesn't create the real
+  `DownloadItem` until it gets a server response, and the very next step (opening a tab) steals
+  window focus, which — called from the popup — closes the popup and cancels any download that
+  hadn't started yet. Simplified instead to just open the GitHub release page and let the user
+  click the asset themselves, same as the release notes' own instructions already say to do — no
+  `downloads` permission, no `status/update-available.html`, no asset-lookup logic in
   `update-checker.ts` needed anymore.
 - **`background/messaging.ts`** — the `onMessage` listener: `SCRAPE_BASECAMP`/`SCRAPE_EASYSPEAK`
   both go through a shared `runScrape(source, scrapeFn, sendResponse)` helper that brackets the call
@@ -232,31 +279,31 @@ background service worker → source-specific scraper**.
   true, data} / {ok: false, error})`; `POPUP_OPENED` calls `acknowledgeIconStatuses()` and replies
   with the resulting statuses (note this response is a bare `IconStatuses`, not the `{ok,data}`
   envelope the two scrape messages use — a pre-existing inconsistency, preserved and now visible in
-  `shared/types.ts`'s `ResponseFor<M>` type rather than implicit). `background/index.ts` is also the
-  intended home for future work (`chrome.alarms` scheduling, centralizing storage across both
-  sources, delta computation).
-- **`background/icon-state.ts`** — toolbar icon state machine, imported only by `background/index.ts`
-  (via `messaging.ts`) — see the layering rule above for why it must never be imported by a page. It
-  owns a running `setInterval` for the spin animation. Follows `{basecamp, easyspeak}` status
-  (`"idle"|"loading"|"success"|"error"`) in `chrome.storage.session` (via `shared/storage.ts`'s
-  `session` wrapper) — session-scoped, not `.local`, specifically so a status can never survive a
-  browser restart and permanently disable a button. `combineStatus()` reduces both sources to the
-  single icon shown, priority **loading > error > success > idle**. `setSourceStatus()` is called by
-  `runScrape()` around each scrape. `acknowledgeIconStatuses()` is called on `POPUP_OPENED`: reverts
-  any `success`/`error` source back to `idle` (opening the popup = "seen it") but leaves `loading`
-  alone. The loading icon is a real 8-frame animation
-  (`public/icons/loading/{0..7}-{16,32,48,128}.png`, 150ms/frame — `public/` is copied verbatim
-  into `dist/<target>/icons/` by Vite, so these paths are unchanged from before the migration
-  aside from the `<target>` segment added by the preview/store split); the interval only runs
-  while the combined state is `loading` and is stopped the moment it isn't.
+  `shared/types.ts`'s `ResponseFor<M>` type rather than implicit). `entrypoints/background.ts` is
+  also the intended home for future work (`browser.alarms` scheduling, centralizing storage across
+  both sources, delta computation).
+- **`background/icon-state.ts`** — toolbar icon state machine, imported only by
+  `entrypoints/background.ts` (via `messaging.ts`) — see the layering rule above for why it must
+  never be imported by a page. It owns a running `setInterval` for the spin animation. Follows
+  `{basecamp, easyspeak}` status (`"idle"|"loading"|"success"|"error"`) in `browser.storage.session`
+  (via `shared/storage.ts`'s `session` wrapper) — session-scoped, not `.local`, specifically so a
+  status can never survive a browser restart and permanently disable a button. `combineStatus()`
+  reduces both sources to the single icon shown, priority **loading > error > success > idle**.
+  `setSourceStatus()` is called by `runScrape()` around each scrape. `acknowledgeIconStatuses()` is
+  called on `POPUP_OPENED`: reverts any `success`/`error` source back to `idle` (opening the popup =
+  "seen it") but leaves `loading` alone. The loading icon is a real 8-frame animation
+  (`public/icons/loading/{0..7}-{16,32,48,128}.png`, 150ms/frame — `public/` is copied verbatim into
+  every build's output root by WXT, same as before the WXT migration, just under `.output/<mode>/
+  <browser>-mv<version>/` now instead of `dist/<target>/`); the interval only runs while the combined
+  state is `loading` and is stopped the moment it isn't.
 - **`background/api/basecamp.ts`** — all Basecamp scraping logic. Data fetching itself needs no tab:
-  `fetch(..., { credentials: "include" })` runs directly from the privileged service worker context,
+  `fetch(..., { credentials: "include" })` runs directly from the privileged background context,
   and because the manifest's `host_permissions` covers the Basecamp hosts, the browser's existing
   session cookie is sent automatically.
   1. `GET /api/members/roles` → clubs, filtered to those where the current user has `is_bcm: true`.
   2. For each such club, paginates `GET /api/bcm/progress/?club={uuid}&page=N` following the `next`
      field until `null` (capped at 200 pages as a safety guard).
-  3. Writes the result to `chrome.storage.local` itself before returning, for the same reason
+  3. Writes the result to `browser.storage.local` itself before returning, for the same reason
      `background/api/easyspeak.ts` does (see below) — belt-and-suspenders here since Basecamp
      doesn't steal focus, but the popup can still close mid-scrape for other reasons (user clicks
      away, etc.), and losing a completed scrape's result silently is worse than one redundant write.
@@ -267,19 +314,19 @@ background service worker → source-specific scraper**.
      tabs are never hijacked mid-navigation) and navigates it to `/dashboard/bcm-dashboard/approvals`
      — a page that itself redirects an unauthenticated visitor to Basecamp's own auth flow, then
      redirects back to that same approvals URL once login succeeds. `waitForLoginRedirect()`
-     registers its `chrome.tabs.onUpdated`/`onRemoved` listeners **before** calling
-     `chrome.tabs.update()`, for the identical race-avoidance reason documented below for
+     registers its `browser.tabs.onUpdated`/`onRemoved` listeners **before** calling
+     `browser.tabs.update()`, for the identical race-avoidance reason documented below for
      `navigateAndWaitForRealPage()`, and simply ignores every "complete" event until the tab's URL is
      exactly the approvals URL again (no Cloudflare-challenge or restricted-text checks are needed
      here, unlike EasySpeak, since Basecamp's own redirect is the only signal that matters) — capped
      at a flat 5-minute timeout. Once resolved, `fetchJson()` retries the original request exactly
      once; a second 401/403 (e.g. wrong account) throws instead of looping. Once
      `waitForLoginRedirect()` resolves, `waitForBasecampLogin()` redirects the tab to
-     `status/basecamp-auth.html` (via `shared/pages.ts`'s `pageUrl()`) — a confirmation page
+     `entrypoints/basecamp-auth/index.html` (via `shared/pages.ts`'s `pageUrl()`) — a confirmation page
      explaining that auth succeeded and the scrape is continuing in the background — instead of
      closing it, so the user gets explicit confirmation of a successful login. Like EasySpeak's
      equivalent confirmation page below, it auto-closes the tab 5 seconds later via the shared
-     `status/countdown.ts` (see there), with a visible countdown and a "Keep this tab open" button to
+     `shared/countdown.ts` (see there), with a visible countdown and a "Keep this tab open" button to
      cancel it. On failure/timeout, the tab is left open exactly as-is (not redirected) so the user
      can see what went wrong.
 - **EasySpeak is architecturally different, and deliberately so** — don't "simplify" it to match
@@ -304,10 +351,10 @@ background service worker → source-specific scraper**.
     visible, not hidden, so the user can solve an interactive Cloudflare puzzle if the
     usually-automatic "managed" challenge ever escalates to one). `loadAndParse(tabId, url,
     parseFnName)` calls `navigateAndWaitForRealPage(tabId, url)`, which registers its
-    `chrome.tabs.onUpdated`/`onRemoved` listeners **before** calling `chrome.tabs.update(tabId,
+    `browser.tabs.onUpdated`/`onRemoved` listeners **before** calling `browser.tabs.update(tabId,
     {url})`, and only resolves on an actual `"complete"` event whose `tab.url` matches the target
     url and whose `document.title` is no longer `"Just a moment..."`. This ordering matters: an
-    earlier version called `chrome.tabs.update()` first and then eagerly checked the tab's state —
+    earlier version called `browser.tabs.update()` first and then eagerly checked the tab's state —
     but `tabs.update()`'s promise only confirms the navigation was *requested*, not that it started,
     so that eager check was racing against the still-loaded *previous* page and silently resolving
     against it, causing every club after the first to parse a copy of the previous club's page.
@@ -327,67 +374,62 @@ background service worker → source-specific scraper**.
     credentials, waiting for the tab to navigate away from `login.php`. EasySpeak's own post-login
     redirect lands close to but not exactly on the originally-requested URL (e.g. missing our
     `#tab_ti` fragment, carrying a new `&sid=` param instead), so the function re-issues
-    `chrome.tabs.update(tabId, {url})` itself once login is detected, now that the session is
+    `browser.tabs.update(tabId, {url})` itself once login is detected, now that the session is
     authenticated, and reverts the timeout back to the normal 30s. This lives in
     `navigateAndWaitForRealPage` itself (not `scrapeAllEasySpeakClubs`), so it transparently covers a
     session that expires mid-scrape too, not just one that's already expired before the first
     `loadAndParse` call. Once the real page is confirmed loaded, `loadAndParse` injects the built
-    parser bundle (see the `?iife` bullet immediately below) and invokes the named parser function by
-    name in a second `executeScript` call, returning its result. `scrapeAllEasySpeakClubs()` ties it
+    parser bundle (see the injection-pattern bullet immediately below) and invokes the named parser
+    function by name in a second `executeScript` call, returning its result. `scrapeAllEasySpeakClubs()` ties it
     together: `profile.php?mode=editprofile#tab_ti` → officer clubs, then
     `memberchart.php?chart=10&c={clubId}` per club → members; writes the result to
-    `chrome.storage.local` (`easyspeakData`/`easyspeakScrapedAt`, via `shared/storage.ts`) itself
-    first, then redirects the tab to `status/easyspeak-done.html` (via `shared/pages.ts`) — a
+    `browser.storage.local` (`easyspeakData`/`easyspeakScrapedAt`, via `shared/storage.ts`) itself
+    first, then redirects the tab to `entrypoints/easyspeak-done/index.html` (via `shared/pages.ts`) — a
     confirmation page that counts down 5 seconds (visibly, via a `#countdown` span) and closes itself
-    via `chrome.tabs.remove()` (not `window.close()`, which only works on a tab/window a script itself
+    via `browser.tabs.remove()` (not `window.close()`, which only works on a tab/window a script itself
     opened via `window.open()`), with a "Keep this tab open" button to cancel the close. This
-    countdown/cancel behavior lives in `status/countdown.ts`, shared with `status/basecamp-auth.html`
+    countdown/cancel behavior lives in `shared/countdown.ts`, shared with `entrypoints/basecamp-auth/index.html`
     (see `waitForBasecampLogin()` above) rather than duplicated per page — each including page just
     needs to define `#countdownText`/`#countdown`/`#cancelBtn`. If anything above throws (Cloudflare
     stuck, login timeout, parse failure), that redirect line is never reached and the tab is left open
     exactly as-is so the user can see/solve whatever went wrong. **The storage write is load-bearing,
-    not redundant with popup/index.ts's**: `ensureEasySpeakTab()` steals tab/window focus, and Chrome
+    not redundant with entrypoints/popup/main.ts's**: `ensureEasySpeakTab()` steals tab/window focus, and Chrome
     closes an `action` popup the instant it loses focus — so the popup that triggered the scrape is
     gone long before `scrapeAllEasySpeakClubs()` resolves, and its `await sendMessage(...)` in
     `onScrapeClick` never gets a chance to run its follow-up storage write. This was a real bug
     (background logs confirmed each club scraped correctly with distinct data, but the popup never
     showed updated results because it had already been torn down) — don't remove this write to "avoid
-    duplication" with `popup/index.ts`.
+    duplication" with `entrypoints/popup/main.ts`.
   - **THE ONE INJECTION PATTERN THAT ISN'T OBVIOUS — read before touching this file.** The parser
-    used to be a plain unbundled `.js` file injected by a hardcoded relative path string. Under
-    Vite/crxjs, every output file is bundled and content-hashed, so that approach can't work anymore
-    — but a naive fix (just `import`ing the parser normally) is actively wrong, not just
-    inconvenient. The fix has two parts:
-    1. **`src/content/easyspeak-parser.iife.ts`** is a thin entry that imports the pure parsing
-       functions from `shared/parsers/easyspeak-parser.ts` and does
-       `Object.assign(globalThis, { parseProfileLinks, parseMemberchart, parseLevelCell })`.
-    2. `background/api/easyspeak.ts` imports it with **crxjs's `?iife` query, never a bare import
-       and never the default `?script` query**:
-       ```ts
-       import parserFile from "../../content/easyspeak-parser.iife.ts?iife";
-       await chrome.scripting.executeScript({ target: { tabId }, files: [parserFile] });
-       ```
-       `parserFile` resolves at build time to the real, content-hashed output path (verify in
-       `dist/store/manifest.json`'s (or `dist/preview/manifest.json`'s) `web_accessible_resources`
-       and in the built background chunk if you ever doubt this — crxjs auto-populates the WAR
-       entry for this file, don't hand-write one).
+    is `src/entrypoints/easyspeak-parser.content.ts`, a WXT content-script entrypoint declared with
+    `registration: "runtime"` — meaning it's never auto-injected by a manifest match rule (`matches:
+    []`), only injected on demand via `browser.scripting`. It imports the pure parsing functions from
+    `shared/parsers/easyspeak-parser.ts` and does `Object.assign(globalThis, { parseProfileLinks,
+    parseMemberchart, parseLevelCell })` inside `main()`. `background/api/easyspeak.ts` injects it by
+    its **stable, predictable built path** — WXT bundles every content-script entrypoint as a plain
+    IIFE and outputs it at a fixed location derived from the entrypoint's filename, not content-hashed
+    (unlike a page/background bundle), so the path is safe to hardcode as a plain string constant:
+    ```ts
+    const PARSER_FILE = "/content-scripts/easyspeak-parser.js" as const;
+    await browser.scripting.executeScript({ target: { tabId }, files: [PARSER_FILE] });
+    ```
+    (Note the leading `/` — WXT's generated `PublicPath` type, which `files` is typed against, always
+    includes it; verify the exact string in `.wxt/types/paths.d.ts` after `wxt prepare` if this ever
+    drifts — a wrong path is a compile-time `ScriptPublicPath` type error, not a silent runtime miss.)
 
-       **Why `?iife` and not `?script`**: crxjs's default `?script` query wraps the target module in
-       an *async* loader that does `await import(...)` internally. `chrome.scripting.executeScript()`
-       resolves as soon as that outer wrapper's *synchronous* portion returns — which is *before* the
-       imported module body (and thus the `globalThis` assignment above) has actually run. The very
-       next line calls the named parser function by name in a second `executeScript` call; with the
-       default loader this would be a genuine, intermittent race — "function is not defined" some
-       fraction of the time, worse than a hard failure because it's load-bearing and non-deterministic.
-       `?iife` instead bundles a plain classic script that runs to completion synchronously (confirmed
-       by inspecting the built output: a single `(function(){...})()` ending in the `Object.assign`
-       call, no `import()`/`await` anywhere in it) — so the globals are guaranteed to exist the moment
-       the first `executeScript()` call resolves, exactly the invariant the old unbundled file gave
-       for free. If you ever see intermittent "not a function" errors from the second `executeScript`
-       call, check this first.
-  - **`shared/parsers/easyspeak-parser.ts`** — pure DOM-parsing functions, no `chrome.*` dependency
+    **Why this is safe without the old crxjs `?iife`-query workaround**: WXT's content-script IIFE
+    wraps `main()` in an async function, but `main()`'s entire synchronous body (the `Object.assign`
+    call) still runs to completion *before* that wrapper's first `await` suspends — so by the time
+    `chrome.scripting.executeScript()`'s classic-script injection resolves, the globals are already
+    set. The very next line calls the named parser function by name in a second `executeScript` call
+    (`func: (fnName) => (globalThis as any)[fnName]()`) — this two-step "inject globals, then call by
+    name" shape is plain `scripting` API behavior, unrelated to WXT or crxjs; if you ever see an
+    intermittent "not a function" error from that second call, it means this synchronous-body
+    guarantee broke (e.g. `main()` itself became `async` and did real work before its first `await`),
+    not a WXT bundling regression.
+  - **`shared/parsers/easyspeak-parser.ts`** — pure DOM-parsing functions, no `browser.*` dependency
     at all (this is what makes them both wrappable for injection via
-    `content/easyspeak-parser.iife.ts` *and* independently testable with `jsdom`). Each takes a
+    `entrypoints/easyspeak-parser.content.ts` *and* independently testable with `jsdom`). Each takes a
     `Document` defaulting to the global `document`, since in the real tab they're called with no
     arguments and operate on that tab's live page:
     - `parseProfileLinks(doc)` — extracts clubs from the "Connected to these Toastmaster clubs"
@@ -428,7 +470,7 @@ every level of comparison is a best-effort name-similarity match, not a join —
 corrects a match, that decision must survive future re-scrapes rather than being silently
 re-derived (and possibly un-derived) from names again.
 
-- **`shared/sync/conflicts.ts`** — name/path/member matching + override logic, zero `chrome.*`
+- **`shared/sync/conflicts.ts`** — name/path/member matching + override logic, zero `browser.*`
   dependency. **`shared/sync/delta.ts`** — the diff/summary half plus the `buildReport`
   orchestrator, which imports matching functions from `conflicts.ts` (never the reverse — see the
   layering rule at the top of this section). These two files used to be one (`lib/report.js`); the
@@ -463,15 +505,15 @@ re-derived (and possibly un-derived) from names again.
     synthetic key, and tagged `overridden: true` — this is what keeps an override from touching the
     global path-name lookup other members rely on.
   - `resolution.allowFuzzyMemberMatches` (default `true`) is **not** a persisted storage key — it's
-    a hardcoded per-caller behavior switch. `options/members.ts` relies on the default (`true`):
+    a hardcoded per-caller behavior switch. `entrypoints/members/main.ts` relies on the default (`true`):
     fuzzy suggestions are exactly what that view exists to surface and let a human confirm/reject.
-    `options/report.ts` explicitly passes `false`: Club Progress is meant to show only what's
+    `entrypoints/report/main.ts` explicitly passes `false`: Club Progress is meant to show only what's
     certain, so an unconfirmed fuzzy guess must never render there as if it were a fact. Setting it
     `false` simply drops fuzzy-confidence candidates from `matchMembers`'s candidate pool before
     `greedyAssign` runs — the pair falls through to the *same* leftover-handling code that already
     produces separate `basecamp-only`/`easyspeak-only` entries for anyone unassigned, so no separate
     "strict" rendering path exists anywhere downstream (the Next Level Summary table and its
-    per-row detail in `options/report.ts` all automatically reflect it for free). A
+    per-row detail in `entrypoints/report/main.ts` all automatically reflect it for free). A
     `memberLinks`-confirmed pair
     (even one originally confirmed from a fuzzy suggestion) is unaffected by this flag either way,
     since confirmed links are seeded as `preAssigned` before candidate scoring ever runs.
@@ -488,15 +530,15 @@ re-derived (and possibly un-derived) from names again.
     `presence: "both"`) member — is the exact definition backing the Members view's "Path issues"
     filter.
 - **`shared/resolution-store.ts`** — the only place that reads/writes the 6 persisted resolution
-  keys in `chrome.storage.local` (alongside the pre-existing `basecampData`/`basecampScrapedAt`/
+  keys in `browser.storage.local` (alongside the pre-existing `basecampData`/`basecampScrapedAt`/
   `easyspeakData`/`easyspeakScrapedAt` — all 10 keys, plus `easyspeakServer` and `iconStatus`, are
   enumerated in `shared/storage.ts`'s `LocalSchema`/`SessionSchema`, which is the single source of
-  truth for storage key names — **do not call `chrome.storage.*` directly from anywhere outside
-  `shared/storage.ts`**). Unlike `shared/sync/*`, this file is legitimately `chrome.*`-dependent
+  truth for storage key names — **do not call `browser.storage.*` directly from anywhere outside
+  `shared/storage.ts`**). Unlike `shared/sync/*`, this file is legitimately `browser.*`-dependent
   (pure storage I/O) so it isn't Vitest-testable — same as `background/api/basecamp.ts`/
   `background/api/easyspeak.ts`. Used from Club Review, Member Review, and Club Progress (plus
   `shared/sync-status-panel.ts`'s `loadMatchSummary()`, shared by the popup and Sync Data, for the
-  Matches count); never imported into `background/`, since none of this needs the service worker.
+  Matches count); never imported into `background/`, since none of this needs the background entrypoint.
   Every write is an upsert enforcing a
   1:1 invariant where applicable (e.g. confirming a link first strips any prior record touching
   either id). The Members view can now unlink/unbind everything this file can create (see below) —
@@ -544,9 +586,9 @@ re-derived (and possibly un-derived) from names again.
     entry canonicalization would otherwise produce. This is the "Force unbind" action in the Members
     view, letting the user then re-resolve the pair manually (bind to something else, or leave as
     orphan) instead of it snapping back together on every refresh.
-- **`options/report.html` + `options/report.ts`** — the comparison page, titled "Club Progress"
+- **`entrypoints/report/index.html` + `entrypoints/report/main.ts`** — the comparison page, titled "Club Progress"
   (reached from the popup's "Open Club Progress" button as a full tab, not a popup window —
-  `chrome.tabs.create({url: pageUrl(...)})`). Reads `basecampData`/`easyspeakData` straight from
+  `browser.tabs.create({url: pageUrl(...)})`). Reads `basecampData`/`easyspeakData` straight from
   storage (no live scraping) plus resolution data via `loadResolutionData()` — loading resolution
   here is required, not optional, otherwise this page's "Next Level Summary" would silently diverge
   from what the Members view shows for the same data. `#reportMeta` (`formatReportMeta()`) is a
@@ -574,9 +616,9 @@ re-derived (and possibly un-derived) from names again.
   Level Summary" heading — deliberately club-scoped rather than global, so reviewing one club's tab
   never shows another club's numbers. `renderClubTabs()` separately prefixes a warning-sign icon
   (`warningIconHtml()`, `shared/dom-utils.ts` — shared with
-  `options/members.ts`, see below; each page defines its own `.warning-icon`/`.conflict-warning`
+  `entrypoints/members/main.ts`, see below; each page defines its own `.warning-icon`/`.conflict-warning`
   CSS) onto any club tab whose pair has no counterpart on the other side, and appends a
-  `.tab-count` badge (same convention as `options/members.ts`'s own tab badges) showing that club's
+  `.tab-count` badge (same convention as `entrypoints/members/main.ts`'s own tab badges) showing that club's
   `needsAction()` count (`shared/sync/delta.ts` — fuzzy suggestion, unmatched, or a path issue),
   shown only when > 0 — this tab-level badge/icon is a fast at-a-glance signal across *all* clubs,
   complementary to (not replaced by) the active club's own detailed banner. Neither the tab badge
@@ -591,7 +633,7 @@ re-derived (and possibly un-derived) from names again.
   `LevelSummaryRow.memberKey`/`.pathKey`, added specifically so a row survives being re-sorted
   without losing its link back to the source `MemberReport`/`PathReport`) and is followed by an
   always-rendered `<tr class="detail-row">` sibling, hidden via a `.collapsed` class exactly like
-  `options/members.ts`'s own path-review detail rows. A single delegated `click` listener on
+  `entrypoints/members/main.ts`'s own path-review detail rows. A single delegated `click` listener on
   `tbody` (attached once, in `renderSummaryTable()`) resolves the clicked row via
   `closest("tr[data-row-key]")`, toggles its key in the module-level `expandedRowKeys: Set<string>`,
   and flips the sibling's `.collapsed` class directly — no full re-render needed for the toggle
@@ -603,7 +645,7 @@ re-derived (and possibly un-derived) from names again.
   and renders the member's presence/confidence badges plus the same level-by-level diff table
   (`renderLevelRow()`/`renderPathCompletionRow()`, unchanged) the old member cards used to show —
   reused, not reimplemented.
-- **`options/members.html` + `options/members.ts`** — the primary member-matching review workflow,
+- **`entrypoints/members/index.html` + `entrypoints/members/main.ts`** — the primary member-matching review workflow,
   titled "Member Review" (reached from the popup's "Member Review" button, and cross-linked with
   Club Review/Club Progress). Same storage-reads-only pattern as `report.ts`.
   `renderClubMatchWarning()` (`#conflictWarning`, called from `refresh()`) mirrors `report.ts`'s
@@ -619,7 +661,7 @@ re-derived (and possibly un-derived) from names again.
   first, alphabetical by **Basecamp name** — `sortName()`, falling back to the EasySpeak name only
   when a member has no Basecamp counterpart — within each group, even inside "All").
   `classifyMember()` (`shared/sync/delta.ts` — exported from there, alongside `memberKey()` and
-  `needsAction()`, specifically so `options/report.ts`'s club-tab badges and this page's own tab
+  `needsAction()`, specifically so `entrypoints/report/main.ts`'s club-tab badges and this page's own tab
   badges/filter chips agree on what "needs attention" means for the same club) tags are **not
   mutually exclusive**: a member can carry more than
   one at once (e.g. a manually-confirmed link that still has an unresolved path issue shows under
@@ -666,8 +708,8 @@ re-derived (and possibly un-derived) from names again.
   pair's own row and the newly-freed-up other-side row (if it isn't the same UI position) both land
   in the normal unmatched state with the identical search component; "Confirm"/"Bind for this member
   only"/manual "Link" writes all go straight through `shared/resolution-store.ts` with no
-  `background/`-side message type, since this is plain `chrome.storage.local` I/O any extension page
-  can do itself (unlike EasySpeak's tab-navigation, which genuinely needs the service worker's
+  `background/`-side message type, since this is plain `browser.storage.local` I/O any extension page
+  can do itself (unlike EasySpeak's tab-navigation, which genuinely needs the background entrypoint's
   lifetime across popup teardown — that constraint doesn't apply here). **Every write triggers a
   full `refresh()`** (re-read storage, rebuild the whole report, re-render) rather than a targeted
   DOM patch — simplest way to stay correct given how much a single decision can ripple (e.g. one
@@ -675,7 +717,7 @@ re-derived (and possibly un-derived) from names again.
   rebuild-and-reassign-`innerHTML` rendering style. A member with more than one simultaneous
   orphaned path pair renders one picker row per `basecamp-only` path (`<select>` over that member's
   `easyspeak-only` candidates) rather than assuming exactly one pair.
-- **`options/settings.html` + `options/settings.ts`** — titled "Setup". Just the demo/mock mode
+- **`entrypoints/settings/index.html` + `entrypoints/settings/main.ts`** — titled "Setup". Just the demo/mock mode
   toggle and the EasySpeak server picker (small, low-cardinality, edited rarely — no live-recompute
   loop like `members.ts`; each section just re-reads its own storage after a write). The mock mode
   card (`getMockMode()`/`setMockMode()`, `shared/settings-store.ts`) toggles whether "Extract
@@ -691,10 +733,10 @@ re-derived (and possibly un-derived) from names again.
   name lookup and path name lookup used to live on this page too — they moved to their own "Club
   Review" page (see below) since they're a different concern (reconciling scraped data) from this
   page's remaining "which source/mode" settings.
-- **`options/club-review.html` + `options/club-review.ts`** — titled "Club Review". Club-name
-  lookup and path-name lookup editors, split out of `options/settings.ts`. The club section is a
+- **`entrypoints/club-review/index.html` + `entrypoints/club-review/main.ts`** — titled "Club Review". Club-name
+  lookup and path-name lookup editors, split out of `entrypoints/settings/main.ts`. The club section is a
   review table (every club from both sources, not just already-pinned ones), same shape/vocabulary
-  as `options/members.ts`'s member-matching table: a status badge per club pair (Exact/Suggested/
+  as `entrypoints/members/main.ts`'s member-matching table: a status badge per club pair (Exact/Suggested/
   Linked manually/Unmatched) and Confirm/"Not this one"/Unlink actions, backed by `matchClubs()`
   (`shared/sync/conflicts.ts`, `allowFuzzy: true` — unlike `buildReport()`'s own `matchClubs()`
   call, this is the one place a fuzzy club-name suggestion is meant to be reviewed) and
@@ -711,8 +753,8 @@ re-derived (and possibly un-derived) from names again.
   three deployments) and `DEFAULT_EASYSPEAK_SERVER` (`"tmclub.eu"`) are the single source of truth
   for both the Setup dropdown and `getEasySpeakServer()`'s fallback (used whenever the stored
   value is absent or isn't one of the three known ids — defensive against a future removed/renamed
-  entry). Used from both `options/settings.ts` (for the dropdown) *and* `background/api/easyspeak.ts`
-  (because the actual URL construction that needs the chosen server happens in the service worker).
+  entry). Used from both `entrypoints/settings/main.ts` (for the dropdown) *and* `background/api/easyspeak.ts`
+  (because the actual URL construction that needs the chosen server happens in the background entrypoint).
 - **`shared/app-shell.ts`** — the shared branded header + primary nav (`renderAppShell()`),
   rendered via `innerHTML` into a `<div id="appShell">` placeholder on every options page (not the
   popup, which has its own static header). `NAV_ITEMS` fixes both the set of pages and their
@@ -730,60 +772,92 @@ re-derived (and possibly un-derived) from names again.
 When extending this codebase with a new data source, don't assume Basecamp's tab-less fetch pattern
 is the default template — check first whether the target site can be reached with a plain
 privileged `fetch()` (works if there's no bot protection distinguishing fetch from navigation) or
-needs EasySpeak's tab-navigation + `chrome.scripting` approach (required for anything behind
-Cloudflare or similar). And if it needs the latter, its parser must be injected the same `?iife` way
-`easyspeak-parser.iife.ts` is — see the injection-pattern bullet above.
+needs EasySpeak's tab-navigation + `browser.scripting` approach (required for anything behind
+Cloudflare or similar). And if it needs the latter, its parser must be a `registration: "runtime"`
+content-script entrypoint injected by its stable built path, the same way
+`entrypoints/easyspeak-parser.content.ts` is — see the injection-pattern bullet above.
 
 ## Build tooling
 
-Vite (`vite.config.ts`) + `@crxjs/vite-plugin` build `src/` into `dist/<target>/`. Two full
-manifests are hand-authored at the repo root (not `defineManifest()` — nothing here is
-computed/dynamic; a base+per-target-overlay-merge approach was deliberately rejected in favor of
-two complete, independently-readable files) — `manifest.store.json` (the Chrome Web Store
-submission candidate; this is the manifest that existed alone, as the repo's only manifest, before
-the preview/store split) and `manifest.preview.json` (for testers, installed outside the store;
-today differs from the store manifest only in `name`/`description` — its `name` carries a
-"(Preview)" suffix so it's visually distinguishable in `chrome://extensions` — but is expected to
-diverge further once debug-only tooling lands). `vite.config.ts` picks one via Vite's `mode`
-(`defineConfig(({ mode }) => ...)`, not a plain object — needed specifically to branch on this) and
-reads it with `readFileSync`+`JSON.parse` rather than a JSON import attribute (Node-version-sensitive
-syntax; the plain `fs` read sidesteps it): `mode === "preview"` reads `manifest.preview.json` into
-`dist/preview/`, anything else (including no `--mode` flag at all — `npm run dev`, `build:watch`)
-falls back to `manifest.store.json` into `dist/store/`, preserving this repo's original
-single-target behavior as the default. `npm run build` passes `--mode store` explicitly;
-`npm run build:preview` passes `--mode preview`. A few decisions worth knowing before changing the
-config:
+[WXT](https://wxt.dev) (`wxt.config.ts`) builds `src/` into `.output/<mode>/<browser>-mv<manifestVersion>/`
+— e.g. `.output/store/chrome-mv3/`, `.output/preview/firefox-mv2/`. There is no hand-authored
+`manifest.*.json` anymore (that was crxjs's pre-WXT convention) — `wxt.config.ts`'s `manifest`
+option is a function of `{ mode, browser, manifestVersion, command }` that generates the whole
+manifest per build, and WXT itself derives the Chrome/Firefox structural differences
+(`host_permissions` vs. folding hosts into `permissions`, `background.service_worker` vs.
+`background.scripts`, `action` vs. `browser_action`, MV3 vs. MV2) — don't hand-write manifest JSON
+again.
 
-- **`root: "src"`** — Vite's build root is `src/`, not the repo root, so `dist/<target>/popup/index.html`,
-  `dist/<target>/options/report.html`, etc. land without an `src/` prefix leaking into the runtime
-  URLs. Every extension-page path string lives in `shared/pages.ts`; if this `root` decision is
-  ever reversed, that's the one file to update. `publicDir`/`build.outDir` are both set explicitly
-  in `vite.config.ts` since their Vite defaults are relative to `root` (would otherwise become
-  `src/public`/`src/dist`); `build.outDir` is additionally derived from `target` now, not a fixed
-  path.
-- **`build.rollupOptions.input`** lists the eight extra HTML pages (five `options/*.html`, three
-  `status/*.html`) that aren't discoverable from either manifest alone. `popup/index.html` is
-  deliberately **not** listed there — crxjs picks it up automatically from the active manifest's
-  `action.default_popup`; double-listing it would be redundant, not just harmless, so don't add it.
-- The built service worker is a real ESM bundle, loaded via a thin generated
-  `dist/<target>/service-worker-loader.js` that crxjs writes (visible in the build output) — this is
-  normal, not a build error; the real background code is the hashed chunk it imports.
-- **Two release zips per version**, both cut in one run by `.github/workflows/release.yml`,
-  triggered manually from the Actions tab: it bumps `package.json` and both manifests' `version`
-  together, builds both targets, and attaches
-  `toastmasters-vpe-assistant-preview-v<version>.zip` (from `dist/preview/`) and
-  `toastmasters-vpe-assistant-store-v<version>-candidate.zip` (from `dist/store/`) to one GitHub
-  Release. The release note explicitly tells testers to install the preview zip and to ignore the
-  store-candidate zip (that one's for the maintainer's own Chrome Web Store submission).
-- `npm run dev` (`vite`) is useful for iterating on options/popup page markup with faster feedback,
-  but MV3 background/`chrome.scripting` behavior (the EasySpeak flow especially) should always get a
-  real `npm run build` + "Reload" in `chrome://extensions` before you trust it — crxjs's dev-mode
-  service worker is a loader that pulls the real worker via dynamic import, which registers
-  `chrome.runtime.onMessage` listeners asynchronously; an event fired in the very first tick after a
-  cold service-worker wake could theoretically be dropped in dev mode in a way production's
-  synchronous bundle wouldn't. In practice every message here is popup-click-initiated (worker
-  already warm), so this is a low-probability footgun, not a blocker — just don't debug a suspiciously
-  flaky message-not-received issue in dev mode before ruling this out.
+### Build modes × browsers
+
+Two independent axes, 4 combinations:
+- **Mode** (`--mode store` / `--mode preview`, mirroring the old two-manifest split): `store` is the
+  Chrome-Web-Store/AMO submission candidate; `preview` adds `alarms`/`notifications` permissions +
+  the `api.github.com` host permission + an "(Preview)" name/title suffix, for the update-checker
+  (see `entrypoints/background.ts` above). `wxt.config.ts`'s `manifest()` function branches on
+  `mode === "preview"` to add/omit all of this — there's no separate manifest file to keep in sync.
+- **Browser** (`-b chrome` / `-b firefox`, default `chrome`): WXT builds Chrome as MV3, Firefox as
+  MV2 (Firefox's stable, fully-supported target; `browser.scripting` — which the EasySpeak flow
+  leans on hardest — has worked there since Firefox 102). `browser_specific_settings.gecko.id` is
+  only added for the `firefox` build.
+
+`outDirTemplate: "{{mode}}/{{browser}}-mv{{manifestVersion}}"` in `wxt.config.ts` is what keeps all
+4 combinations in separate output directories — WXT's *default* template only varies by
+dev-vs-not, which would otherwise let a `--mode preview` build silently overwrite a `--mode store`
+build for the same browser.
+
+npm scripts, one pair per mode × browser: `build`/`build:firefox` (store), `build:preview`/
+`build:preview:firefox` (preview) — each runs `tsc --noEmit` first, then `wxt build`. Matching
+`zip`/`zip:firefox`/`zip:preview`/`zip:preview:firefox` scripts run `wxt zip` instead (build + zip
+in one step) — see `.github/workflows/release.yml` for the exact filenames each produces.
+`dev`/`dev:firefox` run `wxt`'s dev server (`-b firefox` auto-launches Firefox via `web-ext`, a WXT
+peer dependency).
+
+A few decisions worth knowing before changing the config:
+
+- **`srcDir: "src"`** — same role `root: "src"` played in the old `vite.config.ts`: keeps the
+  `src/` prefix out of runtime URLs. Every extension-page path string lives in `shared/pages.ts`.
+  `publicDir` (`public/`, unchanged) stays at the repo root by WXT's own default, so `public/icons/**`
+  needed no path changes migrating off crxjs.
+- **`entrypoints/` uses one-directory-per-page, not flat co-located files** — `entrypoints/report.html`
+  + `entrypoints/report.ts` as *siblings* does **not** work: WXT treats a same-named `.html`/`.ts`
+  pair at the top level of `entrypoints/` as two conflicting entrypoints named `report` and errors
+  with "Multiple entrypoints with the same name detected." The fix (already applied throughout) is
+  the directory form — `entrypoints/report/index.html` + `entrypoints/report/main.ts` — where only
+  `index.html` is the recognized entrypoint file and `main.ts` is just an ordinary sibling script the
+  HTML references via `<script type="module" src="./main.ts">`. Every unlisted page and the popup
+  follow this pattern; `entrypoints/background.ts` and `entrypoints/easyspeak-parser.content.ts` are
+  flat single files (their own type — background, content-script — is unambiguous from the filename
+  alone, so there's no `.html` sibling to collide with).
+- **Icon/image references from HTML must be absolute (`/icons/...`, `/images/...`), not
+  relative** — `public/` assets aren't visible to Vite's source-relative asset resolution (they're
+  copied verbatim to the output root, not bundled), so an `<img src="...">`/`<link href="...">`
+  pointing at one is left completely untouched by the build, string-for-string. Since every
+  unlisted page/popup entrypoint builds flat at the output root regardless of its *source* nesting
+  depth (`entrypoints/report/index.html` → `report.html`, not `report/index.html`), an absolute
+  `/icons/default/32.png` reference resolves correctly from every page uniformly; a relative
+  `../icons/...` would only happen to work at exactly one specific source nesting depth and silently
+  break if that depth ever changes. Genuinely-bundled assets (e.g. `shared/styles.css`, referenced
+  via `<link rel="stylesheet" href="../../shared/styles.css">`) are the opposite: they **must** be a
+  correct *source*-relative path so Vite's HTML asset pipeline can find, hash, and rewrite them —
+  WXT/Vite then rewrites a successfully-resolved reference to an absolute, content-hashed
+  `/assets/*.css` path automatically, so the output-depth mismatch that bites unprocessed `public/`
+  references doesn't apply here.
+- **`entrypoints/easyspeak-parser.content.ts` builds to a stable, predictable path**
+  (`content-scripts/easyspeak-parser.js`, no content hash) — this is what lets
+  `background/api/easyspeak.ts` hardcode it as a plain string constant instead of needing an import
+  trick; see the injection-pattern bullet earlier in this doc.
+- **Two zips for Firefox, one for Chrome** — `wxt zip -b firefox` also produces a companion
+  `*-sources-<mode>.zip`, since AMO review requires the full source tree for any submission built
+  with a bundler/minifier. `.github/workflows/release.yml` attaches all 6 resulting files (chrome ×
+  {store, preview}, firefox × {store, preview} + their 2 sources zips) to one GitHub Release.
+- `npm run dev`/`dev:firefox` are useful for iterating on options/popup page markup with faster
+  feedback, but MV3/MV2 background + `browser.scripting` behavior (the EasySpeak flow especially)
+  should always get a real build + reload before you trust it — same reasoning as the old crxjs
+  dev-server caveat this replaced: a cold background wake's very first event tick is the
+  lowest-confidence moment for dev-mode module loaders in general. In practice every message here is
+  popup-click-initiated (background already warm), so this is a low-probability footgun, not a
+  blocker.
 - **Node version note**: this project targets **Node 24** (`"engines": { "node": ">=24" }` in both
   `package.json` and `landing/package.json`, enforced nowhere automatically — `npm install` won't
   refuse an older Node on its own — but every CI workflow's `actions/setup-node` pins `node-version:
@@ -791,28 +865,41 @@ config:
   package's latest major (`vite@^6`, `vitest@^3`, `jsdom@^26`, `typescript@^5.9`) — those majors all
   require Node ≥20, and `typescript@7`'s `bin/tsc` additionally failed to load at all under Node 18 +
   `"type":"module"` (`ERR_UNKNOWN_FILE_EXTENSION` from Node's ESM loader, not a TypeScript bug).
-  Current pins: `vite@^8`, `vitest@^4`, `jsdom@^30`, `typescript@^7`, `@types/node@^24`. Note
-  `typescript@7` is not an incremental release — it's a from-scratch native (Go-based) compiler
+  Current pins: `vite@^8`, `vitest@^4`, `jsdom@^30`, `typescript@^7`, `@types/node@^24`, `wxt@^0.21`.
+  Note `typescript@7` is not an incremental release — it's a from-scratch native (Go-based) compiler
   rewrite that deliberately skips major version 6, so watch for it behaving subtly differently from
   the 5.x `tsc` this project used before (edge cases in type-checking, possible gaps vs. less common
   tsconfig flags) rather than assuming it's a drop-in replacement. If the project's Node version is
   ever bumped again, revisiting these pins to whatever's newest at that point follows the same
   pattern — but don't bump the packages without also bumping Node (and the `engines`/CI pins to
-  match), or `npm install`/`vite build`/`tsc` will break exactly as they did before this migration.
+  match), or `npm install`/`wxt build`/`tsc` will break exactly as they did before this migration.
+- **`tsconfig.json` extends `.wxt/tsconfig.json`** (generated by `wxt prepare`, which `postinstall`
+  runs automatically) for the `browser`/`defineBackground`/`defineContentScript`/`import.meta.env`
+  ambient types — `include` explicitly adds `.wxt/wxt.d.ts` too, since TypeScript's `extends` does
+  **not** merge `include` arrays (the extending config's `include` completely replaces the base's).
+  `noUncheckedIndexedAccess` — which WXT's generated base tsconfig turns on by default — is
+  explicitly overridden back to `false` in this project's own `compilerOptions`, to preserve the
+  pre-WXT strictness level rather than surfacing a wave of unrelated "possibly undefined" errors
+  project-wide; don't remove that override without fixing the resulting errors throughout
+  `shared/sync/*`/`shared/parsers/*`/`tests/*` first.
 
 ## Conventions
 
 - UI strings, comments, and README are in English; keep new user-facing text and comments
   consistent with that.
-- **TypeScript + Vite + `@crxjs/vite-plugin`, real ES module `import`/`export` everywhere.** This
-  reverses an earlier "no transpilation/bundling, no ES module imports across files, no npm
-  dependencies" convention — don't reintroduce plain `<script src>`/`importScripts` loading or
-  "port back to unbundled JS for simplicity"; that's the old architecture, not a simpler version of
-  the current one. `dist/` is a generated build artifact — gitignored, never hand-edited, never
-  committed.
-- `chrome.storage.*` is called only from `shared/storage.ts`; `shared/**` must never import from
+- **TypeScript + [WXT](https://wxt.dev), real ES module `import`/`export` everywhere, cross-browser
+  via the `browser` global (never `chrome.*` directly).** This reverses an earlier "no
+  transpilation/bundling" convention (long gone) and, more recently, replaced a Chrome-only Vite +
+  `@crxjs/vite-plugin` setup with WXT specifically to add Firefox support — don't reintroduce
+  hand-authored `manifest.*.json` files, a bare `vite.config.ts`, or direct `chrome.*` calls; that's
+  the old architecture, not a simpler version of the current one. `.output/` (and the generated
+  `.wxt/`) are build artifacts — gitignored, never hand-edited, never committed.
+- `browser.storage.*` is called only from `shared/storage.ts`; `shared/**` must never import from
   `background/**` (see the layering rule under "Architecture"); a dynamically-injected content
-  script must go through the `?iife` pattern documented above, never a hardcoded file path.
+  script must be a `registration: "runtime"` WXT content-script entrypoint (see the injection-pattern
+  bullet above), injected by its stable built path — not a manifest-declared `content_scripts` match
+  rule, and not the old crxjs `?iife`-import workaround (WXT bundles content scripts as IIFEs by
+  default, so that trick no longer applies at all).
 - `public/icons/*.png` were generated once via a scratchpad-only Node script (hand-written SVGs
   rasterized with `sharp`) — that tool isn't part of the repo and never will be; if the icon designs
   need to change, regenerate the PNGs the same throwaway way rather than adding an image-processing

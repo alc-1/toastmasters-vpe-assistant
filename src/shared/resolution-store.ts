@@ -3,7 +3,7 @@
 // Storage I/O for the 6 persisted name-resolution keys (memberLinks,
 // memberRejectedPairs, clubLookup, pathLookup, memberPathOverrides,
 // memberPathExclusions). Unlike shared/sync/*, this file is legitimately
-// chrome.*-dependent (pure storage I/O), so it isn't Vitest-testable — same
+// browser.*-dependent (pure storage I/O), so it isn't Vitest-testable — same
 // as background/api/*.ts. Used from the three options pages (report,
 // members, settings) — never from background/, since none of this needs the
 // service worker.

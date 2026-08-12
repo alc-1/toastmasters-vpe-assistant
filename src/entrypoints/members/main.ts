@@ -1,7 +1,7 @@
-// src/options/members.ts
+// src/entrypoints/members/main.ts
 //
 // DOM glue for the member-matching workflow: loads basecampData/easyspeakData
-// straight from chrome.storage.local (same as report.ts — no live scraping
+// straight from browser.storage.local (same as report — no live scraping
 // happens here), combines it with the persisted resolution decisions from
 // shared/resolution-store.ts, and renders one spreadsheet-style table per
 // club. Every write action (confirm/reject/link/bind) persists immediately
@@ -12,8 +12,8 @@
 // separate "unmatched" row), matching the rest of this codebase's
 // rebuild-and-reassign-innerHTML rendering style.
 
-import { escapeAttr, escapeHtml, warningIconHtml } from "../shared/dom-utils";
-import { local } from "../shared/storage";
+import { escapeAttr, escapeHtml, warningIconHtml } from "../../shared/dom-utils";
+import { local } from "../../shared/storage";
 import {
   confirmMemberLink,
   excludePathMatch,
@@ -28,11 +28,11 @@ import {
   unlinkMember,
   unmarkMemberOrphan,
   unmarkPathOrphan,
-} from "../shared/resolution-store";
-import { buildReport, classifyMember, memberKey, needsAction } from "../shared/sync/delta";
-import { renderAppShell, renderStepFooter } from "../shared/app-shell";
-import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
-import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport } from "../shared/types";
+} from "../../shared/resolution-store";
+import { buildReport, classifyMember, memberKey, needsAction } from "../../shared/sync/delta";
+import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
+import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
+import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport } from "../../shared/types";
 
 interface FilterDef {
   key: string;
@@ -72,7 +72,7 @@ init();
 // call init(), not refresh(): basecampData/easyspeakData are only cached
 // into module state inside init(), and refresh() alone would keep rendering
 // against that stale snapshot forever.
-chrome.storage.onChanged.addListener((_changes, area) => {
+browser.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") init();
 });
 

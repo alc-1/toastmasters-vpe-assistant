@@ -1,4 +1,4 @@
-// src/options/sync-data.ts
+// src/entrypoints/sync-data/main.ts
 //
 // Step 2 of the wizard: a Basecamp card and an EasySpeak card, plus a
 // completion summary once both imports are in. Reuses
@@ -6,19 +6,19 @@
 // for the actual scrape trigger + response handling (unchanged) — this file
 // only owns the card/badge/summary presentation layered on top of it.
 
-import { local, session } from "../shared/storage";
-import { sendMessage } from "../shared/send-message";
-import { renderAppShell, renderStepFooter } from "../shared/app-shell";
-import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
+import { local, session } from "../../shared/storage";
+import { sendMessage } from "../../shared/send-message";
+import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
+import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
 import {
   bindSourceEls,
   loadMatchSummary,
   onScrapeClick,
   renderScrapeResult,
   type SourceEls,
-} from "../shared/sync-status-panel";
-import { countBasecampMembers, countEasySpeakMembers } from "../shared/sync/delta";
-import type { BasecampScrape, EasySpeakScrape } from "../shared/types";
+} from "../../shared/sync-status-panel";
+import { countBasecampMembers, countEasySpeakMembers } from "../../shared/sync/delta";
+import type { BasecampScrape, EasySpeakScrape } from "../../shared/types";
 
 type BadgeTone = "danger" | "pending" | "success";
 
@@ -49,7 +49,7 @@ let importActionOccurred = false;
 
 // Attached once, at module load — see the identical reasoning in the header
 // comment this replaced: init()/refresh() can re-run on every
-// chrome.storage.onChanged event, and basecampEls.btn/easyspeakEls.btn are
+// browser.storage.onChanged event, and basecampEls.btn/easyspeakEls.btn are
 // never replaced by rendering, so re-attaching here would stack listeners.
 basecampEls.btn.addEventListener("click", async () => {
   setBadge(badgeBasecamp, "pending");
@@ -82,7 +82,7 @@ init();
 // handled separately below (renderProgress alone, not a full init()) since
 // those fire once per page fetched during a Basecamp import — far too often
 // to justify a full re-render.
-chrome.storage.onChanged.addListener((changes, area) => {
+browser.storage.onChanged.addListener((changes, area) => {
   if (area === "local") init();
   else if (area === "session" && changes.scrapeProgress) renderProgress();
 });
@@ -116,12 +116,12 @@ async function refresh() {
 }
 
 // Reads the live progress of a still-running Basecamp import (written by
-// background/scrape-progress.ts to chrome.storage.session) and renders it
+// background/scrape-progress.ts to browser.storage.session) and renders it
 // as a plain-text line — e.g. "Club 2 of 5 (Springfield) — 40 members out
 // of 70 loaded so far". currentClubMembersTotal comes straight from the
 // API's own per-club "count" field (see ScrapeProgress), so this is a real
 // fraction, not an estimate. Called once on page load/refresh and again on
-// every scrapeProgress change via the chrome.storage.onChanged listener
+// every scrapeProgress change via the browser.storage.onChanged listener
 // above; naturally blanks itself once the import finishes or errors, since
 // messaging.ts clears the stored progress at that point.
 async function renderProgress() {

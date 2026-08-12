@@ -6,12 +6,12 @@
 // updateCheck record — but the module itself has no build-mode branching,
 // since it's harmless dead weight if ever called against an empty record.
 //
-// chrome.tabs/chrome.action are callable from any extension context with the
-// relevant permission, not background-only, so openUpdateRelease() is called
-// directly from both the popup's Download button AND background's
-// chrome.notifications.onClicked handler — no message-passing round trip
+// browser.tabs/browser.action are callable from any extension context with
+// the relevant permission, not background-only, so openUpdateRelease() is
+// called directly from both the popup's Download button AND background's
+// browser.notifications.onClicked handler — no message-passing round trip
 // needed (unlike EasySpeak's tab-navigation flow, which genuinely needs the
-// service worker's lifetime across popup teardown).
+// background entrypoint's lifetime across popup teardown).
 //
 // This used to actually trigger the zip download itself via
 // chrome.downloads.download(), but that download was silently getting
@@ -43,7 +43,7 @@ export async function getDismissedUpdateVersion(): Promise<string | undefined> {
  */
 export async function dismissUpdate(version: string): Promise<void> {
   await local.set({ updateDismissedVersion: version });
-  await chrome.action.setBadgeText({ text: "" });
+  await browser.action.setBadgeText({ text: "" });
 }
 
 /**
@@ -52,6 +52,6 @@ export async function dismissUpdate(version: string): Promise<void> {
  * the OS notification itself) — never automatically.
  */
 export async function openUpdateRelease(info: UpdateCheckInfo): Promise<void> {
-  await chrome.tabs.create({ url: info.releaseUrl });
-  await chrome.action.setBadgeText({ text: "" });
+  await browser.tabs.create({ url: info.releaseUrl });
+  await browser.action.setBadgeText({ text: "" });
 }

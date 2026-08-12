@@ -1,28 +1,28 @@
 // src/shared/pages.ts
 //
-// Every extension-page relative path in one place, so chrome.runtime.getURL()
-// call sites never hardcode a path string directly. These are relative to
-// Vite's build root (src/ — see vite.config.ts's `root` option), which is
-// also how they land under dist/: dist/options/report.html, etc. If that
-// root decision is ever reversed, this is the one file to change.
+// Every extension-page path in one place, so browser.runtime.getURL()
+// call sites never hardcode a path string directly. These are WXT's stable,
+// flat output filenames for each unlisted-page entrypoint (see
+// src/entrypoints/) — e.g. entrypoints/report/index.html builds to
+// report.html at the extension root, regardless of build mode/browser.
 //
 // popup/index.html is deliberately not listed here — it's never opened via
-// chrome.runtime.getURL()/chrome.tabs.create(), only via manifest.json's
-// action.default_popup, which Chrome resolves itself.
+// browser.runtime.getURL()/browser.tabs.create(), only via manifest.json's
+// action.default_popup, which the browser resolves itself.
 
 export const PAGES = {
-  report: "options/report.html",
-  members: "options/members.html",
-  settings: "options/settings.html",
-  syncData: "options/sync-data.html",
-  clubReview: "options/club-review.html",
-  basecampAuth: "status/basecamp-auth.html",
-  easyspeakDone: "status/easyspeak-done.html",
-  welcome: "welcome/welcome.html",
+  report: "report.html",
+  members: "members.html",
+  settings: "settings.html",
+  syncData: "sync-data.html",
+  clubReview: "club-review.html",
+  basecampAuth: "basecamp-auth.html",
+  easyspeakDone: "easyspeak-done.html",
+  welcome: "welcome.html",
 } as const;
 
 export type PagePath = (typeof PAGES)[keyof typeof PAGES];
 
 export function pageUrl(page: PagePath): string {
-  return chrome.runtime.getURL(page);
+  return browser.runtime.getURL(`/${page}`);
 }

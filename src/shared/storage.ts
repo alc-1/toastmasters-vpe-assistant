@@ -1,13 +1,13 @@
 // src/shared/storage.ts
 //
-// Typed wrapper around chrome.storage.local / chrome.storage.session. The
-// schema interfaces below ARE the key registry — no chrome.storage.* call
+// Typed wrapper around browser.storage.local / browser.storage.session. The
+// schema interfaces below ARE the key registry — no browser.storage.* call
 // should exist anywhere outside this file, and no storage key string should
 // exist anywhere else in the codebase. That makes "keys must not change"
 // (existing users' data depends on them) a compile-time property rather than
 // a code-review convention.
 //
-// chrome.storage.session (not .local) is used for iconStatus specifically so
+// browser.storage.session (not .local) is used for iconStatus specifically so
 // a stuck "loading"/"error" status can never survive a browser restart and
 // permanently disable a toolbar button — see background/icon-state.ts.
 //
@@ -21,6 +21,7 @@
 // call site below (`local.get`/`value`/`set`/`remove`) keeps its existing,
 // unqualified key names; only the *real* underlying storage key changes.
 
+import type { Browser } from "wxt/browser";
 import type { AppShellPage } from "./app-shell";
 import type {
   BasecampScrape,
@@ -147,11 +148,11 @@ function ensureMigrated(): Promise<void> {
 }
 
 async function migrateLegacyData(): Promise<void> {
-  const current = await chrome.storage.local.get("activeProfile");
+  const current = await browser.storage.local.get("activeProfile");
   if (current.activeProfile) return; // already migrated, or a fresh install that already chose a profile
 
   const legacyKeys = [...PROFILE_SCOPED_KEYS, "mockMode", "easyspeakServer"];
-  const legacy = await chrome.storage.local.get(legacyKeys);
+  const legacy = await browser.storage.local.get(legacyKeys);
 
   const hasLegacyData = PROFILE_SCOPED_KEYS.some((key) => legacy[key] !== undefined);
   if (!hasLegacyData && legacy.mockMode === undefined && legacy.easyspeakServer === undefined) {
@@ -176,13 +177,13 @@ async function migrateLegacyData(): Promise<void> {
 
   // Write the new keys before removing the old ones, so a crash mid-migration
   // leaves (at worst) harmless orphaned legacy keys rather than losing data.
-  await chrome.storage.local.set(toWrite);
-  await chrome.storage.local.remove(toRemove);
+  await browser.storage.local.set(toWrite);
+  await browser.storage.local.remove(toRemove);
 }
 
 async function resolveEffectiveProfileId(): Promise<ProfileId> {
   await ensureMigrated();
-  const { activeProfile } = await chrome.storage.local.get("activeProfile");
+  const { activeProfile } = await browser.storage.local.get("activeProfile");
   return (activeProfile as ProfileId | undefined) ?? DEFAULT_PROFILE_ID;
 }
 
@@ -192,7 +193,7 @@ async function getForProfile<K extends keyof LocalSchema & string>(
 ): Promise<Partial<Pick<LocalSchema, K>>> {
   if (keys.length === 0) return {};
   const realKeys = keys.map((key) => toRealKey(key, profileId));
-  const raw = await chrome.storage.local.get(realKeys);
+  const raw = await browser.storage.local.get(realKeys);
   const out: Partial<Record<string, unknown>> = {};
   keys.forEach((key, i) => {
     const real = realKeys[i];
@@ -206,7 +207,7 @@ async function setForProfileImpl(profileId: ProfileId, values: Partial<LocalSche
   for (const [key, value] of Object.entries(values)) {
     toWrite[toRealKey(key, profileId)] = value;
   }
-  await chrome.storage.local.set(toWrite);
+  await browser.storage.local.set(toWrite);
 }
 
 export const local = {
@@ -224,7 +225,7 @@ export const local = {
   },
   async remove(keys: (keyof LocalSchema & string)[]): Promise<void> {
     const profileId = await resolveEffectiveProfileId();
-    await chrome.storage.local.remove(keys.map((key) => toRealKey(key, profileId)));
+    await browser.storage.local.remove(keys.map((key) => toRealKey(key, profileId)));
   },
   /**
    * Writes into an EXPLICIT profile's bucket rather than resolving the
@@ -251,11 +252,11 @@ export const local = {
   async clearProfile(profileId: ProfileId): Promise<void> {
     await ensureMigrated();
     const realKeys = PROFILE_SCOPED_KEYS.map((key) => toRealKey(key, profileId));
-    await chrome.storage.local.remove(realKeys);
+    await browser.storage.local.remove(realKeys);
   },
 };
 
-function area<S extends object>(getArea: () => chrome.storage.StorageArea) {
+function area<S extends object>(getArea: () => Browser.storage.StorageArea) {
   return {
     async get<K extends keyof S & string>(keys: K[]): Promise<Partial<Pick<S, K>>> {
       return (await getArea().get(keys)) as Partial<Pick<S, K>>;
@@ -273,4 +274,4 @@ function area<S extends object>(getArea: () => chrome.storage.StorageArea) {
   };
 }
 
-export const session = area<SessionSchema>(() => chrome.storage.session);
+export const session = area<SessionSchema>(() => browser.storage.session);

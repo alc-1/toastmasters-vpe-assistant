@@ -31,15 +31,21 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build (store)
+      - name: Build (store, Chrome)
         run: npm run build
 
-      - name: Verify store build has no update-checker references
+      - name: Build (store, Firefox)
+        run: npm run build:firefox
+
+      - name: Verify store builds have no update-checker references
         run: |
-          if grep -r "api.github.com" dist/store/; then
-            echo "::error::Store build must not reference the GitHub releases API"
+          if grep -r "api.github.com" .output/store/; then
+            echo "::error::Store builds must not reference the GitHub releases API"
             exit 1
           fi
 
-      - name: Build (preview)
+      - name: Build (preview, Chrome)
         run: npm run build:preview
+
+      - name: Build (preview, Firefox)
+        run: npm run build:preview:firefox

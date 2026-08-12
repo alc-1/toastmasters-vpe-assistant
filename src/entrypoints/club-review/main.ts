@@ -1,13 +1,14 @@
-// src/options/club-review.ts
+// src/entrypoints/club-review/main.ts
 //
 // DOM glue for the club/path name lookup editors. Club/path lookups are
 // small, low-cardinality tables edited rarely (near-once per club, or when
 // a new Pathways path/localization spelling shows up) — unlike
-// options/members.ts there's no live-recompute-and-rerender loop tied to
-// matching; each section just re-reads its own storage after a write.
+// entrypoints/members/main.ts there's no live-recompute-and-rerender loop
+// tied to matching; each section just re-reads its own storage after a
+// write.
 
-import { escapeAttr, escapeHtml } from "../shared/dom-utils";
-import { local } from "../shared/storage";
+import { escapeAttr, escapeHtml } from "../../shared/dom-utils";
+import { local } from "../../shared/storage";
 import {
   getClubLookup,
   getClubRejectedPairs,
@@ -17,11 +18,11 @@ import {
   removeClubPin,
   setPathAliases,
   deletePathCanonical,
-} from "../shared/resolution-store";
-import { matchClubs, type ClubGroup, type ClubMatchPair } from "../shared/sync/conflicts";
-import { renderAppShell, renderStepFooter } from "../shared/app-shell";
-import { computeStepperInfo, markStepVisited } from "../shared/stepper-info";
-import type { BasecampScrape, EasySpeakScrape, PathLookup } from "../shared/types";
+} from "../../shared/resolution-store";
+import { matchClubs, type ClubGroup, type ClubMatchPair } from "../../shared/sync/conflicts";
+import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
+import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
+import type { BasecampScrape, EasySpeakScrape, PathLookup } from "../../shared/types";
 
 let basecampData: BasecampScrape | null = null;
 let easyspeakData: EasySpeakScrape | null = null;
@@ -33,7 +34,7 @@ init();
 // must call init(), not the individual refreshers: basecampData/
 // easyspeakData (needed by the club-pin add-form) are only cached into
 // module state inside init().
-chrome.storage.onChanged.addListener((_changes, area) => {
+browser.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") init();
 });
 
@@ -53,7 +54,7 @@ async function init() {
 
 // ---------------------------------------------------------------------------
 // Club name lookup — a review table (every club from both sources, not just
-// already-pinned ones), same shape/vocabulary as options/members.ts's
+// already-pinned ones), same shape/vocabulary as entrypoints/members/main.ts's
 // member-matching table: a status badge per club pair (Exact/Suggested/
 // Linked manually/Unmatched) and Confirm/"Not this one"/Unlink actions.
 // ---------------------------------------------------------------------------

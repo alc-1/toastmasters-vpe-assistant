@@ -6,8 +6,8 @@
 // statusBasecamp, summaryBasecamp, rawDataBasecamp, and the EasySpeak
 // equivalents, plus a shared #statusSummary root) and both drive it through
 // this module instead of duplicating the rendering/formatting/scrape-click
-// code. Deliberately chrome.*-dependent (chrome.storage via shared/storage.ts,
-// chrome.runtime.sendMessage via shared/send-message.ts) — same category of
+// code. Deliberately browser.*-dependent (browser.storage via shared/storage.ts,
+// browser.runtime.sendMessage via shared/send-message.ts) — same category of
 // exception as shared/resolution-store.ts/shared/settings-store.ts.
 //
 // Page-specific behavior stays out of this file: popup/index.ts still owns

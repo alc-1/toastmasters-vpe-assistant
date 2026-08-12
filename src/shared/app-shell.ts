@@ -192,8 +192,8 @@ export function renderStepFooter(active: AppShellPage, info?: StepperInfo): stri
  * hrefs meant for options-page-to-options-page navigation), a popup click
  * must open a full tab instead of navigating the popup document itself — so
  * steps are rendered as inert `href="#"` anchors tagged `data-page-key`, and
- * the caller (popup/index.ts) wires up the actual chrome.tabs.create() click
- * handling via shared/pages.ts, which this chrome.*-free file must not
+ * the caller (entrypoints/popup/main.ts) wires up the actual browser.tabs.create()
+ * click handling via shared/pages.ts, which this browser.*-free file must not
  * import directly.
  */
 export function renderVerticalStepper(info: StepperInfo): string {

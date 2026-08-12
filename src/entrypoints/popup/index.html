@@ -2,9 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Toastmasters VPE Assistant</title>
-  <link rel="icon" type="image/png" href="../icons/default/32.png">
-  <link rel="stylesheet" href="../shared/styles.css">
+  <!-- Deliberately no <title> here: WXT reads a popup entrypoint's <title>
+       tag as the manifest's action.default_title (the toolbar tooltip),
+       overriding wxt.config.ts's manifest.action.default_title — which
+       needs to vary by build mode (the "(Preview)" suffix). wxt.config.ts
+       stays the single source of truth for that string instead. -->
+  <link rel="icon" type="image/png" href="/icons/default/32.png">
+  <link rel="stylesheet" href="../../shared/styles.css">
   <style>
     body {
       width: 360px;
@@ -45,7 +49,7 @@
 <body>
   <header class="app-header">
     <div class="app-header__brand">
-      <img class="app-header__logo" src="../icons/default/48.png" width="48" height="48" alt="" />
+      <img class="app-header__logo" src="/icons/default/48.png" width="48" height="48" alt="" />
       <div class="app-header__text">
         <div class="app-header__title">Toastmasters VPE Assistant</div>
         <div class="app-header__subtitle">One place to understand your club’s member progress.</div>
@@ -56,6 +60,6 @@
   <div id="updateBannerRoot"></div>
   <div id="popupStepperRoot"></div>
 
-  <script type="module" src="./index.ts"></script>
+  <script type="module" src="./main.ts"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 // src/background/api/basecamp.ts
 //
 // Basecamp Toastmasters scraping logic. Runs in the extension's privileged
-// service-worker context: fetch() calls to hosts covered by manifest.json's
+// background context: fetch() calls to hosts covered by manifest.json's
 // host_permissions carry the user's existing session cookie automatically
 // via credentials: "include", bypassing normal cross-site cookie
 // restrictions. Data fetching itself never needs a tab. A tab is opened only
@@ -11,7 +11,7 @@
 // closed outright, so the user gets explicit confirmation that auth
 // succeeded and that the scrape is continuing in the background. That page
 // itself auto-closes the tab a few seconds later (cancellable) — see
-// status/countdown.ts, shared with EasySpeak's equivalent confirmation page.
+// shared/countdown.ts, shared with EasySpeak's equivalent confirmation page.
 //
 // The active profile (shared/settings-store.ts's resolveActiveProfile()) is
 // captured first, before any of the above — see the top of scrapeAllClubs().
@@ -122,7 +122,7 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
  * @returns the new tab's id
  */
 async function ensureBasecampDashboardTab(): Promise<number> {
-  const tab = await chrome.tabs.create({ active: true });
+  const tab = await browser.tabs.create({ active: true });
   return tab.id!;
 }
 
@@ -134,7 +134,7 @@ async function ensureBasecampDashboardTab(): Promise<number> {
  * APPROVALS_URL (the auth page, any SSO hop) is simply ignored under one
  * flat timeout, and an already-authenticated visit resolves immediately.
  *
- * Listeners are registered before chrome.tabs.update() is called, not
+ * Listeners are registered before browser.tabs.update() is called, not
  * after — same race avoidance as navigateAndWaitForRealPage() in
  * background/api/easyspeak.ts: update()'s resolved promise only confirms
  * the navigation was requested, not that it started.
@@ -148,16 +148,16 @@ function waitForLoginRedirect(tabId: number, timeoutMs = BASECAMP_LOGIN_TIMEOUT_
       if (settled) return;
       settled = true;
       clearTimeout(timeoutId);
-      chrome.tabs.onUpdated.removeListener(onUpdated);
-      chrome.tabs.onRemoved.removeListener(onRemoved);
+      browser.tabs.onUpdated.removeListener(onUpdated);
+      browser.tabs.onRemoved.removeListener(onRemoved);
       action();
     }
 
     async function checkTab() {
       if (settled) return;
-      let tab: chrome.tabs.Tab;
+      let tab: Browser.tabs.Tab;
       try {
-        tab = await chrome.tabs.get(tabId);
+        tab = await browser.tabs.get(tabId);
       } catch {
         return; // tab gone; onRemoved will handle settling
       }
@@ -166,7 +166,7 @@ function waitForLoginRedirect(tabId: number, timeoutMs = BASECAMP_LOGIN_TIMEOUT_
       finish(resolve);
     }
 
-    function onUpdated(updatedTabId: number, changeInfo: chrome.tabs.OnUpdatedInfo) {
+    function onUpdated(updatedTabId: number, changeInfo: Browser.tabs.OnUpdatedInfo) {
       if (updatedTabId === tabId && changeInfo.status === "complete") checkTab();
     }
 
@@ -177,9 +177,9 @@ function waitForLoginRedirect(tabId: number, timeoutMs = BASECAMP_LOGIN_TIMEOUT_
     }
 
     timeoutId = setTimeout(() => finish(() => reject(new Error(BASECAMP_LOGIN_TIMEOUT_MESSAGE))), timeoutMs);
-    chrome.tabs.onUpdated.addListener(onUpdated);
-    chrome.tabs.onRemoved.addListener(onRemoved);
-    chrome.tabs.update(tabId, { url: APPROVALS_URL }).catch((err) => finish(() => reject(err)));
+    browser.tabs.onUpdated.addListener(onUpdated);
+    browser.tabs.onRemoved.addListener(onRemoved);
+    browser.tabs.update(tabId, { url: APPROVALS_URL }).catch((err) => finish(() => reject(err)));
   });
 }
 
@@ -194,7 +194,7 @@ function waitForLoginRedirect(tabId: number, timeoutMs = BASECAMP_LOGIN_TIMEOUT_
 async function waitForBasecampLogin(): Promise<void> {
   const tabId = await ensureBasecampDashboardTab();
   await waitForLoginRedirect(tabId);
-  await chrome.tabs.update(tabId, { url: pageUrl("status/basecamp-auth.html") });
+  await browser.tabs.update(tabId, { url: pageUrl("basecamp-auth.html") });
 }
 
 /**
@@ -230,7 +230,7 @@ async function fetchClubProgressPaginated(uuid: string, onPage?: (fetchedCount: 
 
 /**
  * Basecamp's progress records embed a "user" object carrying a photo/email
- * we have no use for and don't want sitting in chrome.storage.local. Drops
+ * we have no use for and don't want sitting in browser.storage.local. Drops
  * them from a shallow copy rather than mutating the API response in place.
  */
 function stripUnneededUserFields(member: BasecampMember): BasecampMember {

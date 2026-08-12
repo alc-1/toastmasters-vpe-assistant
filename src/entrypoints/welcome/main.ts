@@ -1,13 +1,13 @@
-// src/welcome/welcome.ts
+// src/entrypoints/welcome/main.ts
 //
-// DOM glue for the one-time welcome tab opened by background/index.ts's
+// DOM glue for the one-time welcome tab opened by entrypoints/background.ts's
 // onInstalled listener (reason === "install" only, never on update/reload).
 // Its only job is pointing a first-time user at the toolbar-pinning step
 // Chrome doesn't surface on its own, then handing off to the existing Setup
 // step — "Get started" navigates this same tab there rather than opening a
 // second one.
 
-import { PAGES, pageUrl } from "../shared/pages";
+import { PAGES, pageUrl } from "../../shared/pages";
 
 document.getElementById("pinMockup")!.innerHTML = renderPinMockup();
 
@@ -27,7 +27,7 @@ function renderPinMockup(): string {
     </div>
     <div class="dropdown-mock">
       <div class="dropdown-mock__row">
-        <img class="dropdown-mock__logo" src="../icons/default/32.png" alt="" />
+        <img class="dropdown-mock__logo" src="/icons/default/32.png" alt="" />
         <span class="dropdown-mock__name">Toastmasters VPE Assistant</span>
         <span class="dropdown-mock__pin">
           ${pinIconHtml()}

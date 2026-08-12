@@ -1,8 +1,8 @@
 // src/background/scrape-progress.ts
 //
 // Tracks incremental progress for a still-running scrape, written to
-// chrome.storage.session (see shared/storage.ts's SessionSchema) so an open
-// Sync Data page can render live updates via chrome.storage.onChanged.
+// browser.storage.session (see shared/storage.ts's SessionSchema) so an open
+// Sync Data page can render live updates via browser.storage.onChanged.
 // Kept separate from icon-state.ts: that file's docblock is specific to
 // icon animation/setInterval ownership — progress tracking is an unrelated
 // concern that just happens to share the same storage area.

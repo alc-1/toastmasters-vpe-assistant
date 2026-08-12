@@ -342,7 +342,7 @@ export interface UpdateCheckInfo {
 }
 
 // Incremental progress for a still-running scrape, written to
-// chrome.storage.session (see shared/storage.ts's SessionSchema) so a page
+// browser.storage.session (see shared/storage.ts's SessionSchema) so a page
 // can render live updates. clubsTotal/currentClubIndex are real counts
 // (Basecamp's /api/members/roles response gives the full club list
 // upfront); currentClubMembersTotal comes from the current club's own
