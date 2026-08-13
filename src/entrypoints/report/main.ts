@@ -370,7 +370,8 @@ function renderSummaryBody(state: SummaryTableState) {
       // row has no sibling <tr> at all, so .table tbody tr:nth-child(2n)'s
       // plain odd/even striping (shared/styles.css) lines up with the
       // visible rows instead of counting hidden detail rows too.
-      return key === state.expandedRowKey ? renderSummaryRow(row, key) + renderDetailRow(row) : renderSummaryRow(row, key);
+      const isExpanded = key === state.expandedRowKey;
+      return isExpanded ? renderSummaryRow(row, key, isExpanded) + renderDetailRow(row) : renderSummaryRow(row, key, isExpanded);
     })
     .join("");
 }
@@ -380,7 +381,7 @@ function rowKey(row: LevelSummaryRow): string {
 }
 
 
-function renderSummaryRow(row: LevelSummaryRow, key: string) {
+function renderSummaryRow(row: LevelSummaryRow, key: string, isExpanded: boolean) {
   const muted = row.currentLevelLabel === "Completed" || row.currentLevelLabel === "Not in Basecamp";
   // realMissing === 0 means the level's requirements are already satisfied
   // in EasySpeak, just not yet reported in Basecamp — it can be taken
@@ -391,9 +392,18 @@ function renderSummaryRow(row: LevelSummaryRow, key: string) {
   // Only the exceptions (Basecamp-only / EasySpeak-only) are actionable —
   // a "both"-presence path renders no badge at all.
   const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span>`;
+  // A vector chevron that rotates in place on expand/collapse, rather than
+  // swapping between two glyphs — see warningIconHtml() in dom-utils.ts for
+  // why this codebase prefers inline SVG over relying on a system emoji/
+  // glyph font at small sizes.
+  const chevron = `
+    <span class="row-chevron${isExpanded ? " expanded" : ""}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </span>
+  `;
   return `
     <tr class="${rowClass}" data-row-key="${escapeAttr(key)}">
-      <td>${escapeHtml(row.memberName)}</td>
+      <td>${chevron}${escapeHtml(row.memberName)}</td>
       <td>${escapeHtml(row.pathName)}${pathBadge}</td>
       <td>${escapeHtml(row.currentLevelLabel)}</td>
       <td class="numeric">${row.theoreticalMissing ?? "—"}</td>

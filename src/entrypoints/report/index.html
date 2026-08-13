@@ -35,6 +35,20 @@
     table.summary tr[data-row-key] {
       cursor: pointer;
     }
+    .row-chevron {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      margin-right: 6px;
+      color: var(--gray-600);
+      vertical-align: middle;
+      transition: transform 0.15s ease, color 0.15s ease;
+    }
+    .row-chevron.expanded {
+      transform: rotate(90deg);
+      color: var(--primary);
+    }
     table.summary tr.detail-row {
       background: var(--info-bg);
     }
