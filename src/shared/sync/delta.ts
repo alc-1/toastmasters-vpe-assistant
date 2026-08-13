@@ -30,6 +30,7 @@ import type {
   LevelSummaryCore,
   LevelSummaryGroup,
   LevelSummaryRow,
+  LevelUpStatus,
 } from "../types";
 
 /**
@@ -344,6 +345,21 @@ function buildClubPairReport(
 // level-by-level table per path to work them out by hand.
 // ---------------------------------------------------------------------------
 
+function speechWord(n: number): string {
+  return n === 1 ? "speech" : "speeches";
+}
+
+// Rank order backing LevelSummaryCore.statusSortRank — the default (asc) sort
+// order for the Status column.
+const STATUS_SORT_RANK: Record<LevelUpStatus, number> = {
+  ready: 0,
+  "ready-if-reported": 1,
+  "needs-reporting": 2,
+  "in-progress": 3,
+  "not-tracked": 4,
+  completed: 5,
+};
+
 export function computeLevelSummary(path: PathReport): LevelSummaryCore {
   if (path.presence === "easyspeak-only") {
     return {
@@ -354,6 +370,9 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
       theoreticalMissing: null,
       unreportedInBasecamp: null,
       realMissing: null,
+      status: "not-tracked",
+      statusDetail: "Only in EasySpeak, not yet in Basecamp",
+      statusSortRank: STATUS_SORT_RANK["not-tracked"],
     };
   }
 
@@ -375,6 +394,9 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
       theoreticalMissing: null,
       unreportedInBasecamp: null,
       realMissing: null,
+      status: "completed",
+      statusDetail: "Path completed",
+      statusSortRank: STATUS_SORT_RANK.completed,
     };
   }
 
@@ -382,8 +404,13 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
 
   if (currentLevel === 5) {
     // Level 5 approved but Path Completion itself isn't done yet — Path
-    // Completion has no EasySpeak equivalent to compare against at all.
+    // Completion has no EasySpeak equivalent to compare against at all, so
+    // there's no discrepancy/pendingValidation data to check here; status
+    // can only ever be "ready" or "in-progress".
     const theoreticalMissing = path.pathCompletion?.missing ?? 0;
+    const status: LevelUpStatus = theoreticalMissing === 0 ? "ready" : "in-progress";
+    const statusDetail =
+      theoreticalMissing === 0 ? "All requirements reported" : `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining`;
     return {
       currentLevel,
       currentLevelSortValue: currentLevel,
@@ -392,6 +419,9 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
       theoreticalMissing,
       unreportedInBasecamp: 0,
       realMissing: theoreticalMissing,
+      status,
+      statusDetail,
+      statusSortRank: STATUS_SORT_RANK[status],
     };
   }
 
@@ -399,6 +429,28 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
   const theoreticalMissing = nextLevel.basecampMissing ?? 0;
   const unreportedInBasecamp = nextLevel.easyspeak ? Math.max(0, nextLevel.discrepancy ?? 0) : 0;
   const realMissing = Math.max(0, theoreticalMissing - unreportedInBasecamp);
+
+  // Precedence: the reporting-gap cases are checked first; plain
+  // progress/ready are the fallback.
+  let status: LevelUpStatus;
+  if (unreportedInBasecamp > 0) {
+    status = realMissing === 0 ? "ready-if-reported" : "needs-reporting";
+  } else if (theoreticalMissing === 0) {
+    status = "ready";
+  } else {
+    status = "in-progress";
+  }
+
+  // Detail always leads with the official Basecamp-only gap
+  // (theoreticalMissing); when some of that gap is only unreported (not
+  // actually still to do), a second clause shows what's left once it's
+  // reported.
+  const statusDetail =
+    status === "ready"
+      ? "All requirements reported"
+      : unreportedInBasecamp > 0
+        ? `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining → ${realMissing} remaining if reported`
+        : `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining`;
 
   return {
     currentLevel,
@@ -408,6 +460,9 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
     theoreticalMissing,
     unreportedInBasecamp,
     realMissing,
+    status,
+    statusDetail,
+    statusSortRank: STATUS_SORT_RANK[status],
   };
 }
 
@@ -472,7 +527,23 @@ export function compareLevelSummaryRows(a: LevelSummaryRow, b: LevelSummaryRow, 
   if (bv == null) return -1;
 
   const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), undefined, { sensitivity: "base" });
-  return direction === "asc" ? cmp : -cmp;
+  if (cmp !== 0) return direction === "asc" ? cmp : -cmp;
+
+  // Sorting by Status: rows tied on status get a fixed, status-specific
+  // secondary order (not the raw statusDetail text, which would sort
+  // alphabetically) — always applied the same way regardless of the
+  // Status column's own asc/desc toggle, same as the presence grouping
+  // above.
+  if (key === "statusSortRank") {
+    if (a.status === "needs-reporting" && b.status === "needs-reporting") {
+      return (a.realMissing ?? 0) - (b.realMissing ?? 0);
+    }
+    if (a.status === "in-progress" && b.status === "in-progress") {
+      return (a.realMissing ?? 0) - (b.realMissing ?? 0);
+    }
+  }
+
+  return 0;
 }
 
 /**

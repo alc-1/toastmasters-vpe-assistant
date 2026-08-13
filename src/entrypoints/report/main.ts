@@ -12,7 +12,7 @@ import { loadResolutionData } from "../../shared/resolution-store";
 import { buildLevelSummary, buildReport, compareLevelSummaryRows, isMemberReadyForNextLevel, memberKey, needsAction } from "../../shared/sync/delta";
 import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
-import type { ClubPairReport, LevelSummaryRow, MemberReport, PathReport } from "../../shared/types";
+import type { ClubPairReport, LevelSummaryRow, LevelUpStatus, MemberReport, PathReport } from "../../shared/types";
 
 refresh();
 
@@ -184,11 +184,33 @@ interface SummaryColumn {
 const SUMMARY_COLUMNS: SummaryColumn[] = [
   { key: "memberName", label: "Member", colClass: "col-member" },
   { key: "pathName", label: "Path", colClass: "col-path" },
-  { key: "currentLevelSortValue", label: "Current Level", colClass: "col-level" },
-  { key: "theoreticalMissing", label: "To Next Lvl (Basecamp)", colClass: "col-basecamp" },
-  { key: "unreportedInBasecamp", label: "Unreported (Basecamp)", colClass: "col-unreported" },
-  { key: "realMissing", label: "To Next Lvl (Real)", colClass: "col-real" },
+  { key: "currentLevelSortValue", label: "Level", colClass: "col-level" },
+  { key: "statusSortRank", label: "Status", colClass: "col-status" },
+  { key: "statusDetail", label: "Detail", colClass: "col-detail" },
 ];
+
+// Small inline SVGs (stroke="currentColor" so each tints to match its badge's
+// own text color for free, no extra CSS) — same convention as
+// shared/dom-utils.ts's warningIconHtml()/documentIconHtml(), just sized for
+// a small badge pill and only ever used on this page, so kept local rather
+// than added to that shared file.
+const ICON_CHECKMARK = `<svg class="status-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const ICON_LIGHTNING = `<svg class="status-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+
+interface StatusBadgeInfo {
+  label: string;
+  tone: string;
+  icon: string;
+}
+
+const STATUS_BADGE: Record<LevelUpStatus, StatusBadgeInfo> = {
+  ready: { label: "Ready", tone: "badge-success", icon: ICON_CHECKMARK },
+  "ready-if-reported": { label: "Ready if reported", tone: "badge-pending", icon: ICON_LIGHTNING },
+  "in-progress": { label: "In progress", tone: "badge-info", icon: "" },
+  "needs-reporting": { label: "Needs reporting", tone: "badge-pending", icon: "" },
+  completed: { label: "Completed", tone: "badge-success", icon: "" },
+  "not-tracked": { label: "Not tracked", tone: "badge-muted", icon: "" },
+};
 
 interface ClubSection {
   clubKey: string;
@@ -224,14 +246,14 @@ const mainTable: SummaryTableState = {
   rootId: "summaryTableRoot",
   emptyMessage: "No Pathways paths found.",
   rows: [],
-  sort: { key: "realMissing", direction: "asc" },
+  sort: { key: "statusSortRank", direction: "asc" },
   expandedRowKey: null,
 };
 const pendingTable: SummaryTableState = {
   rootId: "pendingReviewTableRoot",
   emptyMessage: "No members pending review.",
   rows: [],
-  sort: { key: "realMissing", direction: "asc" },
+  sort: { key: "statusSortRank", direction: "asc" },
   expandedRowKey: null,
 };
 
@@ -382,12 +404,11 @@ function rowKey(row: LevelSummaryRow): string {
 
 
 function renderSummaryRow(row: LevelSummaryRow, key: string, isExpanded: boolean) {
-  const muted = row.currentLevelLabel === "Completed" || row.currentLevelLabel === "Not in Basecamp";
-  // realMissing === 0 means the level's requirements are already satisfied
-  // in EasySpeak, just not yet reported in Basecamp — it can be taken
-  // anytime, so flag it in bold. realMissing is null (never 0) whenever
-  // muted is true, so the two classes never collide.
-  const ready = row.realMissing === 0;
+  const muted = row.status === "completed" || row.status === "not-tracked";
+  // "ready"/"ready-if-reported" both mean the level's requirements are
+  // already satisfied in EasySpeak — the level can be taken (or the report
+  // filed) anytime, so flag it in bold.
+  const ready = row.status === "ready" || row.status === "ready-if-reported";
   const rowClass = [muted && "muted-row", ready && "ready-row"].filter(Boolean).join(" ");
   // Only the exceptions (Basecamp-only / EasySpeak-only) are actionable —
   // a "both"-presence path renders no badge at all.
@@ -401,14 +422,14 @@ function renderSummaryRow(row: LevelSummaryRow, key: string, isExpanded: boolean
       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
     </span>
   `;
+  const statusInfo = STATUS_BADGE[row.status];
   return `
     <tr class="${rowClass}" data-row-key="${escapeAttr(key)}">
       <td>${chevron}${escapeHtml(row.memberName)}</td>
       <td>${escapeHtml(row.pathName)}${pathBadge}</td>
       <td>${escapeHtml(row.currentLevelLabel)}</td>
-      <td class="numeric">${row.theoreticalMissing ?? "—"}</td>
-      <td class="numeric">${row.unreportedInBasecamp ?? "—"}</td>
-      <td class="numeric">${row.realMissing ?? "—"}</td>
+      <td><span class="badge ${statusInfo.tone}">${statusInfo.icon}${escapeHtml(statusInfo.label)}</span></td>
+      <td>${escapeHtml(row.statusDetail)}</td>
     </tr>
   `;
 }
@@ -449,7 +470,6 @@ function renderRowDetail(row: LevelSummaryRow): string {
         <th>Missing (ES)</th>
         <th>Missing (BC)</th>
         <th>Discrepancy</th>
-        <th>Pending validation</th>
       </tr>
       ${path.levels.map(renderLevelRow).join("")}
       ${renderPathCompletionRow(path.pathCompletion)}
@@ -496,7 +516,6 @@ function renderLevelRow(level: PathReport["levels"][number]) {
       <td>${level.easyspeakMissing ?? "—"}</td>
       <td>${level.basecampMissing ?? "—"}</td>
       <td>${level.discrepancy ?? "—"}</td>
-      <td>${level.pendingValidation ? "Yes" : "No"}</td>
     </tr>
   `;
 }
@@ -511,7 +530,6 @@ function renderPathCompletionRow(pathCompletion: PathReport["pathCompletion"]) {
       <td>—</td>
       <td>—</td>
       <td>${pathCompletion.missing}</td>
-      <td>—</td>
       <td>—</td>
     </tr>
   `;

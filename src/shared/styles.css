@@ -933,7 +933,9 @@ body {
 /* ---------------------------------------------------------------------- */
 
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-size: var(--text-xs);
   font-weight: 600;
   padding: 2px 6px;
@@ -941,6 +943,12 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+/* Club Progress's Status badges (report/main.ts) — icon-less badges just
+   have no .status-icon child, so this doesn't affect them. */
+.badge .status-icon {
+  flex-shrink: 0;
 }
 
 .badge-both,
@@ -979,6 +987,11 @@ body {
 .badge-pending {
   background: var(--warning-bg);
   color: var(--warning-text);
+}
+
+.badge-info {
+  background: var(--info-bg);
+  color: var(--info);
 }
 
 .badge-danger {

@@ -18,6 +18,7 @@ import {
   buildReport,
   classifyMember,
   compareLevelSummaryRows,
+  computeLevelSummary,
   computeMatchSummary,
   hasFlaggedPaths,
   hasOrphanedPaths,
@@ -26,7 +27,7 @@ import {
   isMemberResolved,
   needsAction,
 } from "../src/shared/sync/delta";
-import type { BasecampScrape, ClubPairReport, EasySpeakScrape, LevelSummaryRow, MemberReport, PathReport } from "../src/shared/types";
+import type { BasecampScrape, ClubPairReport, EasySpeakScrape, LevelDiff, LevelSummaryRow, MemberReport, PathReport } from "../src/shared/types";
 
 const DATA_DIR = fileURLToPath(new URL("../test-data/report/", import.meta.url));
 const basecampData: BasecampScrape = JSON.parse(readFileSync(DATA_DIR + "basecampData.sample.json", "utf8"));
@@ -673,6 +674,9 @@ describe("compareLevelSummaryRows", () => {
       theoreticalMissing: 1,
       unreportedInBasecamp: 0,
       realMissing: 1,
+      status: "in-progress",
+      statusDetail: "1 speech remaining",
+      statusSortRank: 3,
       ...overrides,
     };
   }
@@ -710,6 +714,131 @@ describe("compareLevelSummaryRows", () => {
     const sorted = [basecampOnlyRow, bothWithNull, bothWithValue].sort((a, b) => compareLevelSummaryRows(a, b, "realMissing", "asc"));
 
     expect(sorted.map((r) => r.pathKey)).toEqual(["both-value", "both-null", "basecamp-only"]);
+  });
+
+  it("when sorting by Status, breaks ties among 'needs-reporting' rows by smallest remaining-count-once-reported first", () => {
+    const many = makeRow({ pathKey: "many", status: "needs-reporting", statusSortRank: 2, realMissing: 4 });
+    const few = makeRow({ pathKey: "few", status: "needs-reporting", statusSortRank: 2, realMissing: 1 });
+    const some = makeRow({ pathKey: "some", status: "needs-reporting", statusSortRank: 2, realMissing: 2 });
+
+    const sorted = [many, few, some].sort((a, b) => compareLevelSummaryRows(a, b, "statusSortRank", "asc"));
+
+    expect(sorted.map((r) => r.pathKey)).toEqual(["few", "some", "many"]);
+  });
+
+  it("when sorting by Status, breaks ties among 'in-progress' rows by smallest speeches-remaining count first", () => {
+    const many = makeRow({ pathKey: "many", status: "in-progress", statusSortRank: 3, realMissing: 4 });
+    const few = makeRow({ pathKey: "few", status: "in-progress", statusSortRank: 3, realMissing: 1 });
+    const some = makeRow({ pathKey: "some", status: "in-progress", statusSortRank: 3, realMissing: 2 });
+
+    const sorted = [many, few, some].sort((a, b) => compareLevelSummaryRows(a, b, "statusSortRank", "asc"));
+
+    expect(sorted.map((r) => r.pathKey)).toEqual(["few", "some", "many"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeLevelSummary — the Status/Detail badges shown in Club Progress's
+// "Next Level Summary"/"Pending review" tables. Levels/paths below are
+// constructed directly (not via diffLevel()) to isolate computeLevelSummary's
+// own branching logic from the LevelDiff fixtures feeding it.
+// ---------------------------------------------------------------------------
+
+describe("computeLevelSummary status", () => {
+  function makeLevel(level: number, overrides: Partial<LevelDiff> = {}): LevelDiff {
+    return {
+      level,
+      easyspeak: null,
+      basecamp: null,
+      easyspeakMissing: null,
+      basecampMissing: null,
+      discrepancy: null,
+      pendingValidation: false,
+      ...overrides,
+    };
+  }
+
+  function makePath(overrides: Partial<PathReport> = {}): PathReport {
+    return {
+      canonicalKey: "path",
+      displayName: "Path",
+      basecampPathName: "Path",
+      easyspeakPathLabel: "Path",
+      presence: "both",
+      nonPathway: false,
+      overridden: false,
+      orphaned: false,
+      flagged: false,
+      completedHistory: false,
+      levels: [],
+      pathCompletion: null,
+      ...overrides,
+    };
+  }
+
+  it("is 'ready' when nothing is missing per Basecamp itself", () => {
+    const path = makePath({ levels: [makeLevel(1)] });
+    const summary = computeLevelSummary(path);
+    expect(summary.status).toBe("ready");
+    expect(summary.statusDetail).toBe("All requirements reported");
+  });
+
+  it("is 'in-progress' when speeches remain and nothing else is flagged", () => {
+    const path = makePath({ levels: [makeLevel(1, { basecamp: { completed: 2, total: 5, approved: false }, basecampMissing: 3 })] });
+    const summary = computeLevelSummary(path);
+    expect(summary.status).toBe("in-progress");
+    expect(summary.statusDetail).toBe("3 speeches remaining");
+  });
+
+  it("is 'needs-reporting' when EasySpeak is ahead of Basecamp but a real gap remains", () => {
+    const path = makePath({
+      levels: [
+        makeLevel(1, {
+          easyspeak: { needed: 5, done: 3 },
+          basecamp: { completed: 1, total: 5, approved: false },
+          easyspeakMissing: 2,
+          basecampMissing: 4,
+          discrepancy: 2,
+        }),
+      ],
+    });
+    const summary = computeLevelSummary(path);
+    expect(summary.status).toBe("needs-reporting");
+    expect(summary.statusDetail).toBe("4 speeches remaining → 2 remaining if reported");
+  });
+
+  it("is 'ready-if-reported' when reporting the unreported speeches would close the gap", () => {
+    const path = makePath({
+      levels: [
+        makeLevel(1, {
+          easyspeak: { needed: 5, done: 5 },
+          basecamp: { completed: 3, total: 5, approved: false },
+          easyspeakMissing: 0,
+          basecampMissing: 2,
+          discrepancy: 2,
+        }),
+      ],
+    });
+    const summary = computeLevelSummary(path);
+    expect(summary.status).toBe("ready-if-reported");
+    expect(summary.statusDetail).toBe("2 speeches remaining → 0 remaining if reported");
+  });
+
+  it("is 'completed' once Level 5 and Path Completion are both done", () => {
+    const path = makePath({
+      levels: [makeLevel(5, { basecamp: { completed: 5, total: 5, approved: true } })],
+      pathCompletion: { completed: 1, total: 1, missing: 0 },
+    });
+    const summary = computeLevelSummary(path);
+    expect(summary.status).toBe("completed");
+    expect(summary.statusDetail).toBe("Path completed");
+  });
+
+  it("is 'not-tracked' for an EasySpeak-only path", () => {
+    const path = makePath({ presence: "easyspeak-only" });
+    const summary = computeLevelSummary(path);
+    expect(summary.status).toBe("not-tracked");
+    expect(summary.statusDetail).toBe("Only in EasySpeak, not yet in Basecamp");
   });
 });
 

@@ -79,11 +79,10 @@
       margin-bottom: 30px;
     }
     table.summary col.col-member { width: 15%; }
-    table.summary col.col-path { width: 35%; }
-    table.summary col.col-level { width: 12%; }
-    table.summary col.col-basecamp { width: 12%; }
-    table.summary col.col-unreported { width: 12%; }
-    table.summary col.col-real { width: 14%; }
+    table.summary col.col-path { width: 30%; }
+    table.summary col.col-level { width: 5%; }
+    table.summary col.col-status { width: 15%; }
+    table.summary col.col-detail { width: 25%; }
     table.summary th, table.summary td {
       overflow: hidden;
       text-overflow: ellipsis;
@@ -120,9 +119,10 @@
     Click a row to reveal its level-by-level detail.
   </p>
   <p class="help-text">
-    "To Next Lvl (Basecamp)"  : Amount of speeches missing to complete the current level.<br>
-    "Unreported (Basecamp)"   : Amount of speeches done in EasySpeak and not reported in Basecamp.<br>
-    "To Next Lvl (Real)"      : Amount of speeches to do to complete the current level, considering what's unreported at this point in time.
+    "Status": <strong>Ready</strong> — all requirements reported, the level can be taken now.
+    <strong>Ready if reported</strong> — done in EasySpeak, just needs reporting in Basecamp to be ready.
+    <strong>In progress</strong> — still working through the level's speeches.
+    <strong>Needs reporting</strong> — some speeches done in EasySpeak aren't yet reported in Basecamp.
   </p>
   <div id="summaryTableRoot"></div>
 

@@ -169,6 +169,13 @@ export interface ReportResult {
   clubPairs: ClubPairReport[];
 }
 
+// One glanceable status per member+path row, replacing the raw
+// theoreticalMissing/unreportedInBasecamp/realMissing numbers in the Club
+// Progress UI (see computeLevelSummary() in shared/sync/delta.ts for the
+// derivation rules and precedence). "completed"/"not-tracked" cover paths
+// with no active level gap at all (fully done, or EasySpeak-only).
+export type LevelUpStatus = "ready" | "ready-if-reported" | "in-progress" | "needs-reporting" | "completed" | "not-tracked";
+
 export interface LevelSummaryCore {
   currentLevel: number | null;
   currentLevelSortValue: number | null;
@@ -177,6 +184,12 @@ export interface LevelSummaryCore {
   theoreticalMissing: number | null;
   unreportedInBasecamp: number | null;
   realMissing: number | null;
+  status: LevelUpStatus;
+  statusDetail: string;
+  // Lower = more urgent — lets the Status column sort meaningfully even
+  // though `status` itself is a string (mirrors currentLevelSortValue next
+  // to currentLevelLabel above).
+  statusSortRank: number;
 }
 
 export interface LevelSummaryRow extends LevelSummaryCore {
