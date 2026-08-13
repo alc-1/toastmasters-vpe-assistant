@@ -17,6 +17,7 @@ import {
   buildLevelSummary,
   buildReport,
   classifyMember,
+  compareLevelSummaryRows,
   computeMatchSummary,
   hasFlaggedPaths,
   hasOrphanedPaths,
@@ -25,7 +26,7 @@ import {
   isMemberResolved,
   needsAction,
 } from "../src/shared/sync/delta";
-import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport, PathReport } from "../src/shared/types";
+import type { BasecampScrape, ClubPairReport, EasySpeakScrape, LevelSummaryRow, MemberReport, PathReport } from "../src/shared/types";
 
 const DATA_DIR = fileURLToPath(new URL("../test-data/report/", import.meta.url));
 const basecampData: BasecampScrape = JSON.parse(readFileSync(DATA_DIR + "basecampData.sample.json", "utf8"));
@@ -647,6 +648,68 @@ describe("buildReport (synthetic fixtures)", () => {
     const graceRow = riversideSummary.rows.find((r) => r.memberName === "Grace Thompson")!;
     expect(graceRow.currentLevelLabel).toBe("Level 2");
     expect(graceRow.nextLevelLabel).toBe("Level 3");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// compareLevelSummaryRows — Club Progress's "Next Level Summary" table sort
+// ---------------------------------------------------------------------------
+
+describe("compareLevelSummaryRows", () => {
+  function makeRow(overrides: Partial<LevelSummaryRow>): LevelSummaryRow {
+    return {
+      memberKey: "member",
+      pathKey: "path",
+      memberName: "Member",
+      memberPresence: "both",
+      matchConfidence: "exact",
+      pathName: "Path",
+      pathPresence: "both",
+      pendingReview: false,
+      currentLevel: 1,
+      currentLevelSortValue: 1,
+      currentLevelLabel: "Level 1",
+      nextLevelLabel: "Level 2",
+      theoreticalMissing: 1,
+      unreportedInBasecamp: 0,
+      realMissing: 1,
+      ...overrides,
+    };
+  }
+
+  it("groups both-presence rows first, then Basecamp-only, then EasySpeak-only, regardless of the sorted column's values", () => {
+    // realMissing is deliberately set so a naive column-only sort would put
+    // these in the opposite order (easyspeak-only first) — presence grouping
+    // must win regardless.
+    const bothRow = makeRow({ pathKey: "both", pathPresence: "both", realMissing: 3 });
+    const basecampOnlyRow = makeRow({ pathKey: "basecamp-only", pathPresence: "basecamp-only", realMissing: 2 });
+    const easyspeakOnlyRow = makeRow({ pathKey: "easyspeak-only", pathPresence: "easyspeak-only", realMissing: 1 });
+
+    const sorted = [easyspeakOnlyRow, basecampOnlyRow, bothRow].sort((a, b) => compareLevelSummaryRows(a, b, "realMissing", "asc"));
+
+    expect(sorted.map((r) => r.pathPresence)).toEqual(["both", "basecamp-only", "easyspeak-only"]);
+  });
+
+  it("sorts by the picked column within a shared presence group", () => {
+    const rowA = makeRow({ pathKey: "a", pathPresence: "both", realMissing: 3 });
+    const rowB = makeRow({ pathKey: "b", pathPresence: "both", realMissing: 1 });
+    const rowC = makeRow({ pathKey: "c", pathPresence: "both", realMissing: 2 });
+
+    const asc = [rowA, rowB, rowC].sort((a, b) => compareLevelSummaryRows(a, b, "realMissing", "asc"));
+    expect(asc.map((r) => r.pathKey)).toEqual(["b", "c", "a"]);
+
+    const desc = [rowA, rowB, rowC].sort((a, b) => compareLevelSummaryRows(a, b, "realMissing", "desc"));
+    expect(desc.map((r) => r.pathKey)).toEqual(["a", "c", "b"]);
+  });
+
+  it("sorts a null value in the picked column last within its own presence group, not globally last", () => {
+    const bothWithNull = makeRow({ pathKey: "both-null", pathPresence: "both", realMissing: null });
+    const bothWithValue = makeRow({ pathKey: "both-value", pathPresence: "both", realMissing: 1 });
+    const basecampOnlyRow = makeRow({ pathKey: "basecamp-only", pathPresence: "basecamp-only", realMissing: 0 });
+
+    const sorted = [basecampOnlyRow, bothWithNull, bothWithValue].sort((a, b) => compareLevelSummaryRows(a, b, "realMissing", "asc"));
+
+    expect(sorted.map((r) => r.pathKey)).toEqual(["both-value", "both-null", "basecamp-only"]);
   });
 });
 

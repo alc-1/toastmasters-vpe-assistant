@@ -9,7 +9,7 @@
 import { escapeAttr, escapeHtml, warningIconHtml } from "../../shared/dom-utils";
 import { local } from "../../shared/storage";
 import { loadResolutionData } from "../../shared/resolution-store";
-import { buildLevelSummary, buildReport, isMemberReadyForNextLevel, memberKey, needsAction } from "../../shared/sync/delta";
+import { buildLevelSummary, buildReport, compareLevelSummaryRows, isMemberReadyForNextLevel, memberKey, needsAction } from "../../shared/sync/delta";
 import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
 import type { ClubPairReport, LevelSummaryRow, MemberReport, PathReport } from "../../shared/types";
@@ -362,7 +362,7 @@ function updateSummaryHeaders(state: SummaryTableState) {
 function renderSummaryBody(state: SummaryTableState) {
   const root = document.getElementById(state.rootId)!;
   const tbody = root.querySelector("table.summary tbody")!;
-  const sorted = [...state.rows].sort((a, b) => compareSummaryRows(a, b, state.sort.key, state.sort.direction));
+  const sorted = [...state.rows].sort((a, b) => compareLevelSummaryRows(a, b, state.sort.key, state.sort.direction));
   tbody.innerHTML = sorted
     .map((row) => {
       const key = rowKey(row);
@@ -379,19 +379,6 @@ function rowKey(row: LevelSummaryRow): string {
   return `${row.memberKey}::${row.pathKey}`;
 }
 
-// Nulls (e.g. "Not in Basecamp"/"Completed" rows with no speech counts to
-// compare) always sort last, regardless of ascending/descending — they're
-// "not applicable", not a real ranking value.
-function compareSummaryRows(a: LevelSummaryRow, b: LevelSummaryRow, key: keyof LevelSummaryRow, direction: "asc" | "desc") {
-  const av = a[key];
-  const bv = b[key];
-  if (av == null && bv == null) return 0;
-  if (av == null) return 1;
-  if (bv == null) return -1;
-
-  const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), undefined, { sensitivity: "base" });
-  return direction === "asc" ? cmp : -cmp;
-}
 
 function renderSummaryRow(row: LevelSummaryRow, key: string) {
   const muted = row.currentLevelLabel === "Completed" || row.currentLevelLabel === "Not in Basecamp";

@@ -445,6 +445,36 @@ export function buildLevelSummary(report: ReportResult): LevelSummaryGroup[] {
   });
 }
 
+// Both-presence rows first, then Basecamp-only, then EasySpeak-only — fixed
+// regardless of the column sort/direction the VPE picks in the Next Level
+// Summary table, since scanning by "is this actionable in both systems"
+// comes before anything else.
+const PATH_PRESENCE_RANK: Record<Presence, number> = { both: 0, "basecamp-only": 1, "easyspeak-only": 2 };
+
+/**
+ * Comparator backing Club Progress's "Next Level Summary" table sort:
+ * groups rows by pathPresence (both, then Basecamp-only, then
+ * EasySpeak-only) ahead of whichever column/direction the user picked, so
+ * that grouping stays stable no matter how the table is otherwise sorted.
+ * Nulls in the picked column (e.g. "Not in Basecamp"/"Completed" rows with
+ * no speech counts to compare) always sort last within their presence
+ * group, regardless of ascending/descending — they're "not applicable", not
+ * a real ranking value.
+ */
+export function compareLevelSummaryRows(a: LevelSummaryRow, b: LevelSummaryRow, key: keyof LevelSummaryRow, direction: "asc" | "desc"): number {
+  const presenceCmp = PATH_PRESENCE_RANK[a.pathPresence] - PATH_PRESENCE_RANK[b.pathPresence];
+  if (presenceCmp !== 0) return presenceCmp;
+
+  const av = a[key];
+  const bv = b[key];
+  if (av == null && bv == null) return 0;
+  if (av == null) return 1;
+  if (bv == null) return -1;
+
+  const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), undefined, { sensitivity: "base" });
+  return direction === "asc" ? cmp : -cmp;
+}
+
 /**
  * A member with at least one Pathways path exactly one level (or Path
  * Completion) away from being reported complete in Basecamp — nothing
