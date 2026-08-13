@@ -382,11 +382,17 @@ function rowKey(row: LevelSummaryRow): string {
 
 function renderSummaryRow(row: LevelSummaryRow, key: string) {
   const muted = row.currentLevelLabel === "Completed" || row.currentLevelLabel === "Not in Basecamp";
+  // realMissing === 0 means the level's requirements are already satisfied
+  // in EasySpeak, just not yet reported in Basecamp — it can be taken
+  // anytime, so flag it in bold. realMissing is null (never 0) whenever
+  // muted is true, so the two classes never collide.
+  const ready = row.realMissing === 0;
+  const rowClass = [muted && "muted-row", ready && "ready-row"].filter(Boolean).join(" ");
   // Only the exceptions (Basecamp-only / EasySpeak-only) are actionable —
   // a "both"-presence path renders no badge at all.
   const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span>`;
   return `
-    <tr class="${muted ? "muted-row" : ""}" data-row-key="${escapeAttr(key)}">
+    <tr class="${rowClass}" data-row-key="${escapeAttr(key)}">
       <td>${escapeHtml(row.memberName)}</td>
       <td>${escapeHtml(row.pathName)}${pathBadge}</td>
       <td>${escapeHtml(row.currentLevelLabel)}</td>

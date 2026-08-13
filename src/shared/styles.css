@@ -918,6 +918,12 @@ body {
   font-style: italic;
 }
 
+/* A level's requirements are already satisfied in EasySpeak but not yet
+   reported in Basecamp (realMissing === 0) — it can be taken anytime. */
+.table tr.ready-row {
+  font-weight: 700;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Badges — grouped into exactly the 4 statuses the Member Matching table  */
 /* distinguishes (Exact/green, Resolved Manually/blue, Unmatched/red, Needs */
