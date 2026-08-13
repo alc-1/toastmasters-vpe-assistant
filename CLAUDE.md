@@ -851,6 +851,11 @@ A few decisions worth knowing before changing the config:
   `*-sources-<mode>.zip`, since AMO review requires the full source tree for any submission built
   with a bundler/minifier. `.github/workflows/release.yml` attaches all 6 resulting files (chrome ×
   {store, preview}, firefox × {store, preview} + their 2 sources zips) to one GitHub Release.
+  `SOURCE_CODE_REVIEW.md` at the repo root (a plain, non-dot file, so it's picked up for free by
+  WXT's default `includeSources: ["**/*"]`) exists specifically to ride along in that sources zip
+  — it tells an AMO reviewer the two commands (`npm i`, `npm run zip:firefox`) needed to reproduce
+  the submitted build from source. Don't move/rename it without checking it still lands inside
+  `wxt.config.ts`'s `zip.sourcesRoot` (the project root, unset/default today).
 - `npm run dev`/`dev:firefox` are useful for iterating on options/popup page markup with faster
   feedback, but MV3/MV2 background + `browser.scripting` behavior (the EasySpeak flow especially)
   should always get a real build + reload before you trust it — same reasoning as the old crxjs

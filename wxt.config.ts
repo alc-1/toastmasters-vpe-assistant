@@ -48,8 +48,17 @@ export default defineConfig({
 
       // Required for AMO submission (listed) — placeholder id, confirm the
       // exact string with the maintainer before the first real submission.
+      // data_collection_permissions is Mozilla's data-collection-consent requirement (mzl.la/firefox-builtin-data-consent);
+      // "none" is accurate since nothing is transmitted off-device — revisit if that ever changes.
       browser_specific_settings:
-        browser === "firefox" ? { gecko: { id: "vpe-assistant@toastmasters-vpe-assistant.app" } } : undefined,
+        browser === "firefox"
+          ? {
+              gecko: {
+                id: "vpe-assistant@toastmasters-vpe-assistant.app",
+                data_collection_permissions: { required: ["none"] },
+              },
+            }
+          : undefined,
     };
   },
 });
