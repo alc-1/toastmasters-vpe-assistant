@@ -478,9 +478,16 @@ export function diffLevel(level: number, esLevel: EasySpeakLevel | null, bcLevel
   const basecampMissing = basecamp ? Math.max(0, basecamp.total - basecamp.completed) : null;
   const discrepancy = easyspeak && basecamp ? easyspeak.done - basecamp.completed : null;
 
-  const easyspeakDone = easyspeak ? easyspeak.done >= easyspeak.needed : false;
+  // Basecamp is the source of truth for how many speeches a level needs —
+  // EasySpeak's own needed-count (esLevel.needed) is never trusted to decide
+  // "done". Instead, EasySpeak's done-count is compared against Basecamp's
+  // own total: if EasySpeak already has at least as many speeches logged as
+  // Basecamp requires, the level is pending validation even before Basecamp
+  // catches up, since it's Basecamp's requirement that's authoritative, not
+  // EasySpeak's idea of what's needed.
   const basecampDone = basecamp ? basecamp.completed >= basecamp.total : false;
-  const pendingValidation = !!(basecamp && !basecamp.approved && (basecampDone || easyspeakDone));
+  const easyspeakMeetsBasecampRequirement = basecamp && easyspeak ? easyspeak.done >= basecamp.total : false;
+  const pendingValidation = !!(basecamp && !basecamp.approved && (basecampDone || easyspeakMeetsBasecampRequirement));
 
   return { level, easyspeak, basecamp, easyspeakMissing, basecampMissing, discrepancy, pendingValidation };
 }
