@@ -454,7 +454,7 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
     status === "ready"
       ? "All requirements reported"
       : unreportedInBasecamp > 0
-        ? `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining → ${realMissing} remaining if reported`
+        ? `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining → ${realMissing} if reported`
         : `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining`;
 
   return {

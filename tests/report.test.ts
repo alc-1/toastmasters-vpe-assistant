@@ -848,7 +848,7 @@ describe("computeLevelSummary status", () => {
     });
     const summary = computeLevelSummary(path);
     expect(summary.status).toBe("needs-reporting");
-    expect(summary.statusDetail).toBe("4 speeches remaining → 2 remaining if reported");
+    expect(summary.statusDetail).toBe("4 speeches remaining → 2 if reported");
   });
 
   it("is 'ready-if-reported' when reporting the unreported speeches would close the gap", () => {
@@ -865,7 +865,7 @@ describe("computeLevelSummary status", () => {
     });
     const summary = computeLevelSummary(path);
     expect(summary.status).toBe("ready-if-reported");
-    expect(summary.statusDetail).toBe("2 speeches remaining → 0 remaining if reported");
+    expect(summary.statusDetail).toBe("2 speeches remaining → 0 if reported");
   });
 
   it("is 'completed' once Level 5 and Path Completion are both done", () => {

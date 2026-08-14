@@ -440,9 +440,18 @@ function renderSummaryRow(row: LevelSummaryRow, key: string, isExpanded: boolean
       <td>${escapeHtml(row.pathName)}${pathBadge}</td>
       <td>${escapeHtml(row.currentLevelLabel)}</td>
       <td><span class="badge ${statusInfo.tone}" title="${escapeAttr(statusInfo.description)}">${statusInfo.icon}${escapeHtml(statusInfo.label)}</span></td>
-      <td>${escapeHtml(row.statusDetail)}</td>
+      <td>${renderStatusDetail(row.statusDetail)}</td>
     </tr>
   `;
+}
+
+// statusDetail's "→ N if reported" clause (see computeLevelSummary() in
+// shared/sync/delta.ts) is a projection, not a fact yet — italicized to
+// flag that distinction at a glance.
+function renderStatusDetail(detail: string): string {
+  const arrowIndex = detail.indexOf(" → ");
+  if (arrowIndex === -1) return escapeHtml(detail);
+  return `${escapeHtml(detail.slice(0, arrowIndex))} → <em>${escapeHtml(detail.slice(arrowIndex + 3))}</em>`;
 }
 
 function renderDetailRow(row: LevelSummaryRow): string {
