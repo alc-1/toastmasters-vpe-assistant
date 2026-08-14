@@ -13,11 +13,6 @@
       font-size: var(--text-xl);
       margin: 0 0 4px;
     }
-    .club-summary {
-      font-size: var(--text-sm);
-      color: var(--gray-600);
-      margin-bottom: 10px;
-    }
     table.members {
       margin-bottom: 20px;
     }
@@ -87,11 +82,7 @@
   <div id="conflictWarning" aria-live="polite"></div>
   <div id="clubTabs" class="tabs"></div>
   <div id="filterChips" class="toolbar"></div>
-  <p class="help-text">
-    "To do" combines Suggested, Unmatched, and Path issues below. A Suggested match is a computer
-    guess awaiting your Confirm/Reject — until confirmed, it won't show as matched on the
-    Club Progress page.
-  </p>
+  <input type="text" id="memberSearch" class="search-input" placeholder="Search by member or path name…">
   <div id="membersRoot"></div>
 
   <div id="stepFooter"></div>

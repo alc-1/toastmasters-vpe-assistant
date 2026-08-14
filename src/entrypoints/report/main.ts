@@ -22,6 +22,14 @@ browser.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") refresh();
 });
 
+// Wired up once here, not inside refresh() (which can re-run on every
+// storage change) — #summarySearch is a static element, so attaching this
+// listener inside a re-run function would stack up duplicate listeners.
+document.getElementById("summarySearch")!.addEventListener("input", (e) => {
+  activeSearchQuery = (e.target as HTMLInputElement).value.trim().toLowerCase();
+  renderActiveClub();
+});
+
 async function refresh() {
   await markStepVisited("report");
   const stepperInfo = await computeStepperInfo();
@@ -270,6 +278,7 @@ const pendingTable: SummaryTableState = {
 
 let clubSections: ClubSection[] = [];
 let activeClubKey: string | null = null;
+let activeSearchQuery = "";
 
 // The active club's members, keyed by memberKey() — lets a Next Level
 // Summary row's expanded detail look up its member/path without threading
@@ -332,9 +341,17 @@ function renderActiveClub() {
   activeMembers = new Map((clubPair?.members ?? []).map((m) => [memberKey(m), m]));
   renderConflictWarning(clubPair);
   renderKpiRow(clubPair);
-  const rows = section ? section.rows : [];
+  const rows = (section ? section.rows : []).filter((r) => matchesSearch(r, activeSearchQuery));
   renderSummaryTable(mainTable, rows.filter((r) => !r.pendingReview));
   renderSummaryTable(pendingTable, rows.filter((r) => r.pendingReview));
+}
+
+// Matches a row's member or path name — the search box is meant to find "a
+// member or a path", and LevelSummaryRow already denormalizes both names
+// directly onto the row, so no need to cross-reference MemberReport/PathReport.
+function matchesSearch(row: LevelSummaryRow, query: string): boolean {
+  if (!query) return true;
+  return row.memberName.toLowerCase().includes(query) || row.pathName.toLowerCase().includes(query);
 }
 
 // ---------------------------------------------------------------------------

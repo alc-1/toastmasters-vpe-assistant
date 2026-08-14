@@ -62,6 +62,7 @@ interface ClubSection {
 let clubSections: ClubSection[] = [];
 let activeClubKey: string | null = null;
 let activeFilter = "todo";
+let activeSearchQuery = "";
 
 // Persists across refresh() calls (but not page reloads) so expanding a
 // path-issue row survives an unrelated action elsewhere in the table.
@@ -76,6 +77,14 @@ init();
 // against that stale snapshot forever.
 browser.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") init();
+});
+
+// Wired up once here, not inside init()/refresh() (which can re-run on every
+// storage change) — #memberSearch is a static element, so attaching this
+// listener inside a re-run function would stack up duplicate listeners.
+document.getElementById("memberSearch")!.addEventListener("input", (e) => {
+  activeSearchQuery = (e.target as HTMLInputElement).value.trim().toLowerCase();
+  renderActiveClub();
 });
 
 async function init() {
@@ -223,6 +232,15 @@ function matchesFilter(member: MemberReport, filterKey: string): boolean {
   return classifyMember(member).includes(filterKey);
 }
 
+// Matches a member's name(s) on either source, or any of their paths' names
+// — the search box is meant to find "a member or a path", not just a member.
+function matchesSearch(member: MemberReport, query: string): boolean {
+  if (!query) return true;
+  const names = [member.basecampName, member.easyspeakName, member.name];
+  if (names.some((n) => n?.toLowerCase().includes(query))) return true;
+  return member.paths.some((p) => [p.displayName, p.basecampPathName, p.easyspeakPathLabel].some((n) => n?.toLowerCase().includes(query)));
+}
+
 // Basecamp is the source of truth, so it's the primary sort key — falling
 // back to the EasySpeak name only for an easyspeak-only member with no
 // Basecamp counterpart to sort by.
@@ -314,13 +332,12 @@ function renderActiveClub() {
 }
 
 function renderClubMembers(clubPair: ClubPairReport): string {
-  const matchNote = buildClubMatchNote(clubPair);
-  const filtered = clubPair.members.filter((m) => matchesFilter(m, activeFilter));
+  const filtered = clubPair.members.filter((m) => matchesFilter(m, activeFilter) && matchesSearch(m, activeSearchQuery));
   const sorted = [...filtered].sort(compareMembers);
   const pools = buildCandidatePools(clubPair);
 
   if (sorted.length === 0) {
-    return `<div class="club-summary">${matchNote}</div><p class="empty-state">No members match this filter.</p>`;
+    return `<p class="empty-state">No members match this filter.</p>`;
   }
 
   const datalists = `
@@ -335,7 +352,6 @@ function renderClubMembers(clubPair: ClubPairReport): string {
   const rows = sorted.map((member) => renderMemberRows(member, pools)).join("");
 
   return `
-    <div class="club-summary">${matchNote}</div>
     ${datalists}
     <table class="table members">
       <thead>
@@ -350,21 +366,6 @@ function renderClubMembers(clubPair: ClubPairReport): string {
       <tbody>${rows}</tbody>
     </table>
   `;
-}
-
-function buildClubMatchNote(clubPair: ClubPairReport): string {
-  const { basecampClubName, easyspeakClubName, matchScore, clubMatchForced, members } = clubPair;
-  let note: string;
-  if (basecampClubName && easyspeakClubName) {
-    const scoreText = clubMatchForced ? "pinned in Setup" : `match ${Math.round((matchScore ?? 0) * 100)}%`;
-    note = `${escapeHtml(basecampClubName)} / ${escapeHtml(easyspeakClubName)} — ${scoreText}`;
-  } else if (basecampClubName) {
-    note = `${escapeHtml(basecampClubName)} (no EasySpeak counterpart found)`;
-  } else {
-    note = `${escapeHtml(easyspeakClubName ?? "")} (no Basecamp counterpart found)`;
-  }
-  const todo = members.filter(needsAction).length;
-  return `${note} · ${members.length} member(s), ${todo} need review`;
 }
 
 // A member is worth expanding for path review whenever it's actually

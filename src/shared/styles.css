@@ -1136,6 +1136,18 @@ body {
   background: var(--surface);
 }
 
+.search-input {
+  display: block;
+  font-size: var(--text-sm);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  max-width: 280px;
+  box-sizing: border-box;
+  margin-bottom: var(--space-3);
+}
+
 /* ---------------------------------------------------------------------- */
 /* Popup-only: compact status summary rows                                */
 /* ---------------------------------------------------------------------- */
