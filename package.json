@@ -2,7 +2,7 @@
   "name": "toastmasters-vpe-assistant",
   "private": true,
   "license": "MIT",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "type": "module",
   "engines": {
     "node": ">=24"
