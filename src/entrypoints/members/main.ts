@@ -639,9 +639,9 @@ function renderPathBindDetail(member: MemberReport): string {
             <div class="path-pair-row">
               <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
               ${bindControls}
+              <button class="secondary" data-action="mark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as completed</button>
               <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
               <button class="secondary" data-action="flag-path" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Flag for later</button>
-              <button class="secondary" data-action="mark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as completed</button>
             </div>
           `;
           })
@@ -654,9 +654,9 @@ function renderPathBindDetail(member: MemberReport): string {
       bcOrphans
         .map(
           (bcPath) => `
-            <div class="path-pair-row">
+            <div class="path-pair-row" title="Bind it from the EasySpeak side above, or leave it as is — it doesn't block Club Progress.">
               <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName ?? "")}</span>
-              <button class="secondary" data-action="flag-path" data-member-key="${key}" data-side="basecamp" data-path="${escapeAttr(bcPath.basecampPathName ?? "")}">Flag for later</button>
+              <span class="muted-text">No counterpart found</span>
             </div>
           `
         )
