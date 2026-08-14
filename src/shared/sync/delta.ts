@@ -207,6 +207,17 @@ export function hasFlaggedPaths(member: { paths?: PathReport[] }): boolean {
 }
 
 /**
+ * A member-scoped "Mark as completed" took effect for this member (see the
+ * `manuallyCompleted` tag matchPaths() sets — set by markPathCompleted() in
+ * shared/resolution-store.ts). A genuine resolution like hasPathOverride()/
+ * hasPathOrphan(), not a deferral like hasFlaggedPaths(), so it feeds
+ * classifyMember()'s "resolved-manually" tag the same way those two do.
+ */
+export function hasManuallyCompletedPaths(member: { paths?: PathReport[] }): boolean {
+  return (member.paths ?? []).some((p) => p.manuallyCompleted);
+}
+
+/**
  * The predicate behind the popup's quick "Matches: X/Y" stat
  * (popup/index.ts): a member counts once its identity is *settled* —
  * matchConfidence "exact" (certain, automatic) or "confirmed" (human-
@@ -261,7 +272,8 @@ export function classifyMember(member: MemberReport): string[] {
   if (member.presence !== "both" && member.matchConfidence !== "confirmed") tags.push("unmatched");
   if (member.hasOrphanedPaths) tags.push("path-issues");
   if (hasFlaggedPaths(member)) tags.push("flagged");
-  if (member.matchConfidence === "confirmed" || hasPathOverride(member) || hasPathOrphan(member)) tags.push("resolved-manually");
+  if (member.matchConfidence === "confirmed" || hasPathOverride(member) || hasPathOrphan(member) || hasManuallyCompletedPaths(member))
+    tags.push("resolved-manually");
   return tags;
 }
 
