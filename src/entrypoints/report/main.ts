@@ -201,15 +201,26 @@ interface StatusBadgeInfo {
   label: string;
   tone: string;
   icon: string;
+  description: string;
 }
 
 const STATUS_BADGE: Record<LevelUpStatus, StatusBadgeInfo> = {
-  ready: { label: "Ready", tone: "badge-success", icon: ICON_CHECKMARK },
-  "ready-if-reported": { label: "Ready if reported", tone: "badge-pending", icon: ICON_LIGHTNING },
-  "in-progress": { label: "On track", tone: "badge-info", icon: "" },
-  "needs-reporting": { label: "Needs reporting", tone: "badge-pending", icon: "" },
-  completed: { label: "Completed", tone: "badge-success", icon: "" },
-  "not-tracked": { label: "Not tracked", tone: "badge-muted", icon: "" },
+  ready: { label: "Ready", tone: "badge-success", icon: ICON_CHECKMARK, description: "All requirements reported, the level can be taken now." },
+  "ready-if-reported": {
+    label: "Ready if reported",
+    tone: "badge-pending",
+    icon: ICON_LIGHTNING,
+    description: "Done in EasySpeak, just needs reporting in Basecamp to be ready.",
+  },
+  "in-progress": { label: "On track", tone: "badge-info", icon: "", description: "Still working through the level's speeches." },
+  "needs-reporting": {
+    label: "Needs reporting",
+    tone: "badge-pending",
+    icon: "",
+    description: "Some speeches done in EasySpeak aren't yet reported in Basecamp.",
+  },
+  completed: { label: "Completed", tone: "badge-success", icon: "", description: "Path completed." },
+  "not-tracked": { label: "Not tracked", tone: "badge-muted", icon: "", description: "Only in EasySpeak, not yet in Basecamp." },
 };
 
 interface ClubSection {
@@ -428,7 +439,7 @@ function renderSummaryRow(row: LevelSummaryRow, key: string, isExpanded: boolean
       <td>${chevron}${escapeHtml(row.memberName)}</td>
       <td>${escapeHtml(row.pathName)}${pathBadge}</td>
       <td>${escapeHtml(row.currentLevelLabel)}</td>
-      <td><span class="badge ${statusInfo.tone}">${statusInfo.icon}${escapeHtml(statusInfo.label)}</span></td>
+      <td><span class="badge ${statusInfo.tone}" title="${escapeAttr(statusInfo.description)}">${statusInfo.icon}${escapeHtml(statusInfo.label)}</span></td>
       <td>${escapeHtml(row.statusDetail)}</td>
     </tr>
   `;
