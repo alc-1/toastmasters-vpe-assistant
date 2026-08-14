@@ -11,6 +11,11 @@ on:
           - patch
           - minor
           - major
+      submit_to_chrome_web_store:
+        description: "Submit to Chrome Web Store?"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -138,3 +143,16 @@ jobs:
 
             ---
             **Something not working?** [Open an issue here](../../issues) and describe what you see — happy to help.
+
+      - name: Submit to Chrome Web Store
+        if: ${{ inputs.submit_to_chrome_web_store }}
+        env:
+          # v1.1 (client ID/secret/refresh token) is deprecated and shuts down
+          # October 15th, 2026 — v2 (service account) is what publish-browser-extension
+          # itself recommends, so that's what this pipeline uses.
+          CHROME_API_VERSION: v2
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+        run: npx wxt submit --chrome-zip .output/${{ steps.zip.outputs.chrome_store_zip }}
