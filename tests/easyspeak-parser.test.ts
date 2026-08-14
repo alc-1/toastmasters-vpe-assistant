@@ -71,11 +71,20 @@ describe("parseMemberchart", () => {
 
   it("keeps one entry per path row for a multi-path member, including the \"''\" placeholder name row", () => {
     const carlaRows = members.filter((m) => m.memberId === "505");
-    expect(carlaRows).toHaveLength(2);
+    expect(carlaRows).toHaveLength(3);
     expect(carlaRows[0].name).toBe("Carla Ivanova");
     expect(carlaRows[0].path).toBe("Visionary Communication");
     expect(carlaRows[1].name).toBe("''");
     expect(carlaRows[1].path).toBe("Team Collaboration");
+  });
+
+  it("attributes a 3rd+ path row with no <a> link at all to the preceding member, instead of dropping it", () => {
+    // Real EasySpeak markup only reliably links the first path row for a
+    // multi-path member — a 3rd row can drop the <a> entirely, leaving a
+    // bare placeholder <span>. That row must still be captured, attributed
+    // to whichever member the previous row belonged to (table order).
+    const carlaRows = members.filter((m) => m.memberId === "505");
+    expect(carlaRows[2]).toMatchObject({ memberId: "505", name: "''", path: "Dynamic Leadership" });
   });
 
   it("throws when the roster table can't be found", () => {

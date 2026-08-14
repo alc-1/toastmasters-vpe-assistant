@@ -84,6 +84,14 @@ export function parseMemberchart(doc: Document = document): MemberchartParseResu
   const rows = Array.from(table.querySelectorAll("tr")).filter((tr) => tr.querySelector("td"));
 
   const members: MemberchartParseResult["members"] = [];
+  // EasySpeak only reliably links the *first* path row for a multi-path
+  // member — a 2nd row usually repeats the same u=<id> link around its "''"
+  // placeholder name, but a 3rd+ row sometimes drops the <a> entirely,
+  // leaving a bare <span>&nbsp;...''</span> with no id anywhere in it. Such
+  // a row must still be attributed to the member whose row precedes it
+  // (table order), not silently dropped — dropping it was losing that
+  // member's 3rd/4th/... path entirely, not just its displayed name.
+  let lastMemberId: string | null = null;
   for (const row of rows) {
     const cells = Array.from(row.children).filter((el): el is HTMLTableCellElement => el.tagName === "TD");
     // Expected columns: Name, Action, Last spoke, 1, 2, 3, 4, 5, Path.
@@ -94,14 +102,22 @@ export function parseMemberchart(doc: Document = document): MemberchartParseResu
     const pathCell = cells[cells.length - 1];
 
     const link = nameCell.querySelector("a");
-    if (!link) continue;
+    let memberId: string | null;
+    let name: string;
+    if (link) {
+      // Some members are linked via onclick (javascript:void(0) href)
+      // instead of a direct href — check both for the "u=<id>" member id.
+      const idSource = `${link.getAttribute("href") || ""} ${link.getAttribute("onclick") || ""}`;
+      const idMatch = idSource.match(/u=(\d+)/);
+      memberId = idMatch ? idMatch[1] : lastMemberId;
+      name = (link.textContent || "").trim();
+    } else {
+      memberId = lastMemberId;
+      name = (nameCell.textContent || "").trim();
+    }
+    if (!memberId) continue;
+    lastMemberId = memberId;
 
-    // Some members are linked via onclick (javascript:void(0) href) instead
-    // of a direct href — check both for the "u=<id>" member id.
-    const idSource = `${link.getAttribute("href") || ""} ${link.getAttribute("onclick") || ""}`;
-    const idMatch = idSource.match(/u=(\d+)/);
-    const memberId = idMatch ? idMatch[1] : null;
-    const name = (link.textContent || "").trim();
     const path = (pathCell.textContent || "").trim();
 
     const levels = levelCells.map((td, index) => ({
