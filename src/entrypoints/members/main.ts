@@ -533,11 +533,13 @@ function getEsOrphans(member: MemberReport): PathReport[] {
   );
 }
 
-// The bind picker's candidate pool, id-keyed by position in getEsOrphans()'s
+// The bind picker's candidate pool, id-keyed by position in getBcOrphans()'s
 // result — same "(#id)" type-ahead convention as candidateOptionValue()/
-// parseCandidateSelection() use for member-name linking.
-function esOrphanCandidates(member: MemberReport): Candidate[] {
-  return getEsOrphans(member).map((p, index) => ({ id: index, name: p.easyspeakPathLabel ?? "" }));
+// parseCandidateSelection() use for member-name linking. The picker itself
+// lives on the EasySpeak-only rows (Basecamp is the source of truth, so an
+// EasySpeak path is what gets bound to a Basecamp one, not the reverse).
+function bcOrphanCandidates(member: MemberReport): Candidate[] {
+  return getBcOrphans(member).map((p, index) => ({ id: index, name: p.basecampPathName ?? "" }));
 }
 
 function renderPathBindDetail(member: MemberReport): string {
@@ -611,33 +613,35 @@ function renderPathBindDetail(member: MemberReport): string {
     );
   }
 
-  if (bcOrphans.length > 0) {
+  if (esOrphans.length > 0) {
     // A blank type-ahead (mirrors renderNameCell()'s member-search input,
     // see candidateOptionValue()/parseCandidateSelection()) instead of a
     // <select> — a plain <select> with no placeholder option implicitly
     // selects its first entry, letting "Bind for this member only" bind the
     // wrong pair if clicked without an explicit choice.
     const pathDatalistId = `dl-path-${key}`;
-    const candidates = esOrphanCandidates(member);
+    const candidates = bcOrphanCandidates(member);
     const pathDatalist =
       candidates.length > 0
         ? `<datalist id="${pathDatalistId}">${candidates.map((c) => `<option value="${escapeAttr(candidateOptionValue(c))}">`).join("")}</datalist>`
         : "";
     sections.push(
       pathDatalist +
-        bcOrphans
-          .map((bcPath, bcIndex) => {
+        esOrphans
+          .map((esPath, esIndex) => {
             const bindControls =
               candidates.length > 0
                 ? `<span>&harr;</span>
-                 <input type="text" class="link-search" list="${pathDatalistId}" data-role="path-bind-input" data-member-key="${key}" placeholder="Search EasySpeak paths…" aria-label="Choose a path to bind this member's orphaned path to" autocomplete="off">
-                 <button data-action="bind-path" data-member-key="${key}" data-bc-index="${bcIndex}" disabled>Bind for this member only</button>`
+                 <input type="text" class="link-search" list="${pathDatalistId}" data-role="path-bind-input" data-member-key="${key}" placeholder="Search Basecamp paths…" aria-label="Choose a path to bind this member's orphaned path to" autocomplete="off">
+                 <button data-action="bind-path" data-member-key="${key}" data-es-index="${esIndex}" disabled>Bind for this member only</button>`
                 : "";
             return `
             <div class="path-pair-row">
-              <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName ?? "")}</span>
+              <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
               ${bindControls}
-              <button class="secondary" data-action="flag-path" data-member-key="${key}" data-side="basecamp" data-path="${escapeAttr(bcPath.basecampPathName ?? "")}">Flag for later</button>
+              <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
+              <button class="secondary" data-action="flag-path" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Flag for later</button>
+              <button class="secondary" data-action="mark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as completed</button>
             </div>
           `;
           })
@@ -645,16 +649,14 @@ function renderPathBindDetail(member: MemberReport): string {
     );
   }
 
-  if (esOrphans.length > 0) {
+  if (bcOrphans.length > 0) {
     sections.push(
-      esOrphans
+      bcOrphans
         .map(
-          (esPath) => `
+          (bcPath) => `
             <div class="path-pair-row">
-              <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
-              <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
-              <button class="secondary" data-action="flag-path" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Flag for later</button>
-              <button class="secondary" data-action="mark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as completed</button>
+              <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName ?? "")}</span>
+              <button class="secondary" data-action="flag-path" data-member-key="${key}" data-side="basecamp" data-path="${escapeAttr(bcPath.basecampPathName ?? "")}">Flag for later</button>
             </div>
           `
         )
@@ -815,16 +817,16 @@ function onTogglePaths(key: string) {
 
 async function onBindPath(btn: HTMLButtonElement) {
   const key = btn.dataset.memberKey!;
-  const bcIndex = Number(btn.dataset.bcIndex);
+  const esIndex = Number(btn.dataset.esIndex);
   const member = findMemberByKey(key);
   if (!member) return;
 
   const bcOrphans = getBcOrphans(member);
   const esOrphans = getEsOrphans(member);
-  const bcPath = bcOrphans[bcIndex];
+  const esPath = esOrphans[esIndex];
   const input = btn.closest(".path-pair-row")!.querySelector<HTMLInputElement>('[data-role="path-bind-input"]')!;
-  const match = parseCandidateSelection(input.value, esOrphanCandidates(member));
-  const esPath = match ? esOrphans[Number(match.id)] : undefined;
+  const match = parseCandidateSelection(input.value, bcOrphanCandidates(member));
+  const bcPath = match ? bcOrphans[Number(match.id)] : undefined;
   if (!bcPath || !esPath) return;
 
   await setMemberPathOverride(member.basecampUserId!, member.easyspeakMemberId!, bcPath.basecampPathName!, esPath.easyspeakPathLabel!);
@@ -837,7 +839,7 @@ function onPathBindInputChange(input: HTMLInputElement) {
   const row = input.closest(".path-pair-row")!;
   const bindBtn = row.querySelector<HTMLButtonElement>('[data-action="bind-path"]');
   if (!member || !bindBtn) return;
-  bindBtn.disabled = !parseCandidateSelection(input.value, esOrphanCandidates(member));
+  bindBtn.disabled = !parseCandidateSelection(input.value, bcOrphanCandidates(member));
 }
 
 async function onMarkPathOrphan(btn: HTMLButtonElement) {
