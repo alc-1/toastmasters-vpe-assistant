@@ -28,6 +28,7 @@ import type {
   LevelDiff,
   MemberLink,
   MemberOrphan,
+  MemberPathCompletion,
   MemberPathExclusion,
   MemberPathFlag,
   MemberPathOrphan,
@@ -540,6 +541,10 @@ export interface MatchPathsResult {
  *   the matching single-sided PathReport with `flagged: true` — a third,
  *   non-resolving state alongside orphaned — see flagPath() in
  *   shared/resolution-store.ts.
+ * @param memberPathCompletions member-scoped "manually marked done" decisions
+ *   for an easyspeak-only path, already pre-filtered by the caller to this
+ *   member pair. Tags the matching PathReport with `manuallyCompleted: true`
+ *   — see markPathCompleted() in shared/resolution-store.ts.
  */
 export function matchPaths(
   basecampPerson: BasecampPerson | null,
@@ -548,7 +553,8 @@ export function matchPaths(
   pathAliasLookup: Map<string, string> = PATH_ALIAS_LOOKUP,
   memberExclusions: MemberPathExclusion[] = [],
   memberPathOrphans: MemberPathOrphan[] = [],
-  memberPathFlags: MemberPathFlag[] = []
+  memberPathFlags: MemberPathFlag[] = [],
+  memberPathCompletions: MemberPathCompletion[] = []
 ): MatchPathsResult {
   const bcPaths = [...(basecampPerson?.paths ?? [])];
   const esPaths = [...(easyspeakPerson?.paths ?? [])];
@@ -576,6 +582,7 @@ export function matchPaths(
       orphaned: false,
       flagged: false,
       completedHistory: false,
+      manuallyCompleted: false,
       levels: diffLevels(es, bc),
       pathCompletion: buildPathCompletion(bc),
     });
@@ -589,6 +596,7 @@ export function matchPaths(
     memberPathFlags.some((f) => f.basecampPathName === pathName && f.easyspeakPathLabel === null);
   const isEasyspeakFlagged = (pathLabel: string) =>
     memberPathFlags.some((f) => f.easyspeakPathLabel === pathLabel && f.basecampPathName === null);
+  const isEasyspeakCompleted = (pathLabel: string) => memberPathCompletions.some((c) => c.easyspeakPathLabel === pathLabel);
 
   const bcByKey = new Map<string, BasecampPersonPath>();
   for (const p of bcPaths) {
@@ -629,6 +637,7 @@ export function matchPaths(
         orphaned: isBasecampOrphaned(bc.path_name),
         flagged: isBasecampFlagged(bc.path_name),
         completedHistory: false,
+        manuallyCompleted: false,
         levels: diffLevels(null, bc),
         pathCompletion: buildPathCompletion(bc),
       });
@@ -643,6 +652,7 @@ export function matchPaths(
         orphaned: isEasyspeakOrphaned(es.path),
         flagged: isEasyspeakFlagged(es.path),
         completedHistory: isCompletedEasySpeakHistory(es, nonPathway),
+        manuallyCompleted: isEasyspeakCompleted(es.path),
         levels: nonPathway ? [] : diffLevels(es, null),
         pathCompletion: null,
       });
@@ -666,6 +676,7 @@ export function matchPaths(
       orphaned,
       flagged,
       completedHistory: presence === "easyspeak-only" && es ? isCompletedEasySpeakHistory(es, nonPathway) : false,
+      manuallyCompleted: presence === "easyspeak-only" && es ? isEasyspeakCompleted(es.path) : false,
       levels: nonPathway ? [] : diffLevels(es, bc),
       pathCompletion: buildPathCompletion(bc),
     });

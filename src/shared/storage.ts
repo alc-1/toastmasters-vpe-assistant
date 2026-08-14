@@ -32,6 +32,7 @@ import type {
   IconStatuses,
   MemberLink,
   MemberOrphan,
+  MemberPathCompletion,
   MemberPathExclusion,
   MemberPathFlag,
   MemberPathOrphan,
@@ -72,6 +73,7 @@ export interface LocalSchema {
   memberPathExclusions: MemberPathExclusion[];
   memberPathOrphans: MemberPathOrphan[];
   memberPathFlags: MemberPathFlag[];
+  memberPathCompletions: MemberPathCompletion[];
   // Which of the five options-page stepper steps this profile has reached at
   // least once — see shared/stepper-info.ts's markStepVisited()/getVisitedSteps().
   // Drives the "locked until reached via Next" gating in shared/app-shell.ts,
@@ -108,6 +110,7 @@ const PROFILE_SCOPED_KEYS = [
   "memberPathExclusions",
   "memberPathOrphans",
   "memberPathFlags",
+  "memberPathCompletions",
   "visitedSteps",
 ] as const satisfies readonly (keyof LocalSchema)[];
 

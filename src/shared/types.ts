@@ -130,6 +130,11 @@ export interface PathReport {
   // entirely while EasySpeak keeps the full history. Read-only history, not
   // an actionable orphan (see hasOrphanedPaths()/renderPathBindDetail()).
   completedHistory: boolean;
+  // User-set counterpart to completedHistory, for an easyspeak-only path the
+  // "all levels done" heuristic doesn't catch (partial/stale EasySpeak level
+  // data, or a VPE's own external knowledge). See
+  // MemberPathCompletion/markPathCompleted() in shared/resolution-store.ts.
+  manuallyCompleted: boolean;
   levels: LevelDiff[];
   pathCompletion: PathCompletion | null;
 }
@@ -295,6 +300,17 @@ export interface MemberPathFlag {
   flaggedAt: number;
 }
 
+/** EasySpeak-side only — this status only applies to an easyspeak-only
+ *  (unbound) path, so there's no basecampPathName/XOR shape to support. See
+ *  PathReport.manuallyCompleted/markPathCompleted() in
+ *  shared/resolution-store.ts. */
+export interface MemberPathCompletion {
+  basecampUserId: number;
+  easyspeakMemberId: string;
+  easyspeakPathLabel: string;
+  completedAt: number;
+}
+
 /** Exactly buildReport()'s 4th param shape — omitting it entirely reproduces
  * plain automatic matching, unchanged. */
 export interface ResolutionData {
@@ -307,6 +323,7 @@ export interface ResolutionData {
   memberPathExclusions?: MemberPathExclusion[];
   memberPathOrphans?: MemberPathOrphan[];
   memberPathFlags?: MemberPathFlag[];
+  memberPathCompletions?: MemberPathCompletion[];
   pathAliasLookup?: Map<string, string>;
   /** Default true (Members view). report.ts passes false so an unconfirmed
    * fuzzy guess never renders there as if it were a fact. */

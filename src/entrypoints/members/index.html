@@ -63,13 +63,19 @@
     .path-pair-row {
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 10px;
       margin: 6px 0;
       font-size: var(--text-sm);
     }
-    .path-pair-row select {
-      font-size: var(--text-sm);
-      padding: 2px;
+    /* input.link-search's width: 100% is correct in its usual table-cell
+       context (the input is the cell's only content) but would otherwise
+       blow out this flex row, squeezing every sibling button — constrain it
+       to a fixed-ish share of the row instead. */
+    .path-pair-row input.link-search {
+      width: auto;
+      flex: 1 1 220px;
+      min-width: 160px;
     }
   </style>
 </head>

@@ -308,6 +308,21 @@ describe("matchPaths", () => {
     expect(bcOnly.flagged).toBe(true);
     expect(esOnly.flagged).toBe(false);
   });
+
+  it("tags an easyspeak-only path manuallyCompleted from a memberPathCompletions entry", () => {
+    const easyspeakPerson = {
+      memberId: "e1",
+      name: "Test Member",
+      paths: [{ path: "Team Collaboration", levels: [{ level: 1, needed: 3, done: 1 }] }],
+    };
+
+    const { paths } = matchPaths(null, easyspeakPerson, [], undefined, [], [], [], [
+      { basecampUserId: 1, easyspeakMemberId: "e1", easyspeakPathLabel: "Team Collaboration", completedAt: 0 },
+    ]);
+
+    const esOnly = paths.find((p) => p.presence === "easyspeak-only")!;
+    expect(esOnly.manuallyCompleted).toBe(true);
+  });
 });
 
 
@@ -622,6 +637,7 @@ describe("buildReport (synthetic fixtures)", () => {
         orphaned: false,
         flagged: true,
         completedHistory: false,
+        manuallyCompleted: false,
         levels: [],
         pathCompletion: null,
       },
@@ -636,11 +652,38 @@ describe("buildReport (synthetic fixtures)", () => {
         orphaned: false,
         flagged: false,
         completedHistory: false,
+        manuallyCompleted: false,
         levels: [],
         pathCompletion: null,
       },
     ];
     expect(hasOrphanedPaths({ paths })).toBe(true);
+  });
+
+  it("marks an easyspeak-only path manuallyCompleted, clears hasOrphanedPaths, and excludes it from the Next Level Summary", () => {
+    const completed = buildReport(
+      basecampData,
+      easyspeakData,
+      {},
+      {
+        memberPathCompletions: [{ basecampUserId: 9005, easyspeakMemberId: "305", easyspeakPathLabel: "Team Collaboration", completedAt: 0 }],
+      }
+    );
+    const club = findClubPair(completed, { basecampClubName: "Riverside Toastmasters", easyspeakClubName: "Riverside Toastmasters" });
+    const helena = findMember(club, { basecampName: "Helena Voss", easyspeakName: "Helena Voss" });
+    const completedPath = helena.paths.find((p: PathReport) => p.easyspeakPathLabel === "Team Collaboration")!;
+    expect(completedPath.manuallyCompleted).toBe(true);
+
+    // The Basecamp-only "Strategic Relationships" side is still unresolved,
+    // but hasOrphanedPaths requires a real candidate on BOTH sides — with the
+    // EasySpeak side manually completed there's nothing left to pair it
+    // against, so the member stops flagging as a path issue (same two-sided
+    // gate completedHistory already relies on).
+    expect(hasOrphanedPaths(helena)).toBe(false);
+
+    const summary = buildLevelSummary(completed);
+    const riversideSummary = summary.find((s) => s.clubName === "Riverside Toastmasters")!;
+    expect(riversideSummary.rows.some((r) => r.memberName === "Helena Voss" && r.pathName === "Team Collaboration")).toBe(false);
   });
 
   it("computes a level summary reflecting Basecamp-approved progress", () => {
@@ -770,6 +813,7 @@ describe("computeLevelSummary status", () => {
       orphaned: false,
       flagged: false,
       completedHistory: false,
+      manuallyCompleted: false,
       levels: [],
       pathCompletion: null,
       ...overrides,

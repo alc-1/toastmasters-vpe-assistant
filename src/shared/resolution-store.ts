@@ -19,6 +19,7 @@ import type {
   ClubRejectedPair,
   MemberLink,
   MemberOrphan,
+  MemberPathCompletion,
   MemberPathExclusion,
   MemberPathFlag,
   MemberPathOrphan,
@@ -30,7 +31,7 @@ import type {
 } from "./types";
 
 /**
- * Reads all 9 keys and shapes them into exactly what buildReport()'s
+ * Reads all 10 keys and shapes them into exactly what buildReport()'s
  * (shared/sync/delta.ts) 4th "resolution" param expects.
  */
 export async function loadResolutionData(): Promise<Required<Omit<ResolutionData, "allowFuzzyMemberMatches">>> {
@@ -45,6 +46,7 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     "memberPathExclusions",
     "memberPathOrphans",
     "memberPathFlags",
+    "memberPathCompletions",
   ]);
   const pathLookup = await ensurePathLookupSeeded(stored.pathLookup);
 
@@ -58,6 +60,7 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     memberPathExclusions: stored.memberPathExclusions ?? [],
     memberPathOrphans: stored.memberPathOrphans ?? [],
     memberPathFlags: stored.memberPathFlags ?? [],
+    memberPathCompletions: stored.memberPathCompletions ?? [],
     pathAliasLookup: buildPathAliasLookup(pathLookup),
   };
 }
@@ -312,6 +315,33 @@ export async function unflagPath(
       )
   );
   await local.set({ memberPathFlags: filtered });
+}
+
+/**
+ * Manually marks an easyspeak-only (unbound) path as done — for a path the
+ * automatic completedHistory heuristic (all levels reported done) doesn't
+ * catch. Stops the path counting toward hasOrphanedPaths() and excludes it
+ * from Club Progress's "Next Level Summary" — the same treatment
+ * completedHistory already gets (see PathReport.manuallyCompleted).
+ */
+export async function markPathCompleted(basecampUserId: number, easyspeakMemberId: string, easyspeakPathLabel: string): Promise<void> {
+  const memberPathCompletions = await local.value("memberPathCompletions");
+  const existing = memberPathCompletions ?? [];
+  const already = existing.some(
+    (c) => c.basecampUserId === basecampUserId && c.easyspeakMemberId === easyspeakMemberId && c.easyspeakPathLabel === easyspeakPathLabel
+  );
+  if (already) return;
+  const entry: MemberPathCompletion = { basecampUserId, easyspeakMemberId, easyspeakPathLabel, completedAt: Date.now() };
+  await local.set({ memberPathCompletions: [...existing, entry] });
+}
+
+/** The "Unmark completed" action — returns the path to the normal orphan/bind-picker state. */
+export async function unmarkPathCompleted(basecampUserId: number, easyspeakMemberId: string, easyspeakPathLabel: string): Promise<void> {
+  const memberPathCompletions = await local.value("memberPathCompletions");
+  const filtered = (memberPathCompletions ?? []).filter(
+    (c) => !(c.basecampUserId === basecampUserId && c.easyspeakMemberId === easyspeakMemberId && c.easyspeakPathLabel === easyspeakPathLabel)
+  );
+  await local.set({ memberPathCompletions: filtered });
 }
 
 /** @param basecampClubName / easyspeakClubName denormalized, for Settings display only */

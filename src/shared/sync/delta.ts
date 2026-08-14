@@ -150,7 +150,7 @@ export function countEasySpeakMembers(data: EasySpeakScrape): number {
 export function hasOrphanedPaths(member: { paths?: PathReport[] }): boolean {
   const paths = member.paths ?? [];
   const basecampCandidates = paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway);
-  const easyspeakCandidates = paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.completedHistory);
+  const easyspeakCandidates = paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.completedHistory && !p.manuallyCompleted);
   if (basecampCandidates.length === 0 || easyspeakCandidates.length === 0) return false;
   return basecampCandidates.some((p) => !p.orphaned && !p.flagged) || easyspeakCandidates.some((p) => !p.orphaned && !p.flagged);
 }
@@ -277,6 +277,7 @@ function buildClubPairReport(
   const memberPathExclusions = resolution.memberPathExclusions ?? [];
   const memberPathOrphans = resolution.memberPathOrphans ?? [];
   const memberPathFlags = resolution.memberPathFlags ?? [];
+  const memberPathCompletions = resolution.memberPathCompletions ?? [];
   const pathAliasLookup = resolution.pathAliasLookup ?? PATH_ALIAS_LOOKUP;
   const allowFuzzy = resolution.allowFuzzyMemberMatches ?? true;
 
@@ -296,6 +297,9 @@ function buildClubPairReport(
     const flagsForMember = memberPathFlags.filter(
       (f) => f.basecampUserId === basecamp?.userId && f.easyspeakMemberId === easyspeak?.memberId
     );
+    const completionsForMember = memberPathCompletions.filter(
+      (c) => c.basecampUserId === basecamp?.userId && c.easyspeakMemberId === easyspeak?.memberId
+    );
     const { paths, easyspeakNoActivePath } = matchPaths(
       basecamp,
       easyspeak,
@@ -303,7 +307,8 @@ function buildClubPairReport(
       pathAliasLookup,
       exclusionsForMember,
       pathOrphansForMember,
-      flagsForMember
+      flagsForMember,
+      completionsForMember
     );
     const member: MemberReport = {
       basecampUserId: basecamp?.userId ?? null,
@@ -468,17 +473,18 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
 
 /**
  * @returns one group per club (same order as report.clubPairs), each with
- *   one row per member+path (excluding non-Pathways paths and completed
- *   EasySpeak-only history — see PathReport.completedHistory) — grouped
- *   rather than a flat list so the UI can show one club at a time behind
- *   tabs instead of mixing every club's members into a single list.
+ *   one row per member+path (excluding non-Pathways paths, completed
+ *   EasySpeak-only history, and manually-completed paths — see
+ *   PathReport.completedHistory/manuallyCompleted) — grouped rather than a
+ *   flat list so the UI can show one club at a time behind tabs instead of
+ *   mixing every club's members into a single list.
  */
 export function buildLevelSummary(report: ReportResult): LevelSummaryGroup[] {
   return report.clubPairs.map((club, index) => {
     const rows: LevelSummaryRow[] = [];
     for (const member of club.members) {
       for (const path of member.paths) {
-        if (path.nonPathway || path.completedHistory) continue;
+        if (path.nonPathway || path.completedHistory || path.manuallyCompleted) continue;
         rows.push({
           memberKey: memberKey(member),
           pathKey: path.canonicalKey,
