@@ -637,7 +637,6 @@ function renderPathBindDetail(member: MemberReport): string {
             <div class="path-pair-row">
               <span><strong>Basecamp:</strong> ${escapeHtml(bcPath.basecampPathName ?? "")}</span>
               ${bindControls}
-              <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="basecamp" data-path="${escapeAttr(bcPath.basecampPathName ?? "")}">Mark as orphan</button>
               <button class="secondary" data-action="flag-path" data-member-key="${key}" data-side="basecamp" data-path="${escapeAttr(bcPath.basecampPathName ?? "")}">Flag for later</button>
             </div>
           `;
