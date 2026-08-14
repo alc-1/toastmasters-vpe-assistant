@@ -207,7 +207,7 @@ describe("matchPaths", () => {
 
     expect(completedPath.completedHistory).toBe(true);
     expect(activePath.completedHistory).toBe(false);
-    expect(hasOrphanedPaths({ paths })).toBe(false);
+    expect(hasOrphanedPaths({ presence: "both", paths })).toBe(false);
   });
 
   it("tags a completed easyspeak-only path with real, fully-satisfied counts (not needed=0) as completedHistory", () => {
@@ -247,7 +247,7 @@ describe("matchPaths", () => {
     const completedPath = paths.find((p) => p.presence === "easyspeak-only")!;
 
     expect(completedPath.completedHistory).toBe(true);
-    expect(hasOrphanedPaths({ paths })).toBe(false);
+    expect(hasOrphanedPaths({ presence: "both", paths })).toBe(false);
   });
 
   it("does not tag an easyspeak-only path with real remaining work as completedHistory", () => {
@@ -284,7 +284,33 @@ describe("matchPaths", () => {
     const easyspeakOnly = paths.find((p) => p.presence === "easyspeak-only")!;
 
     expect(easyspeakOnly.completedHistory).toBe(false);
-    expect(hasOrphanedPaths({ paths })).toBe(true);
+    expect(hasOrphanedPaths({ presence: "both", paths })).toBe(true);
+  });
+
+  it("flags an unresolved easyspeak-only path even when there's no basecamp-only candidate at all", () => {
+    // A member with no Basecamp record for this path whatsoever (not just a
+    // mismatched one) must still surface as an actionable path issue — this
+    // is the one-sided case renderPathBindDetail() already offers Bind/Mark
+    // as orphan/Flag/Mark as completed actions for, so it must count toward
+    // "To do" too, not only be reachable via "All".
+    const basecampPerson = { userId: 1, name: "Test Member", paths: [] };
+    const easyspeakPerson = {
+      memberId: "e1",
+      name: "Test Member",
+      paths: [
+        {
+          path: "Strategic Relationships",
+          levels: [
+            { level: 1, needed: 2, done: 1 },
+            { level: 2, needed: 3, done: 0 },
+          ],
+        },
+      ],
+    };
+
+    const { paths } = matchPaths(basecampPerson, easyspeakPerson);
+    expect(paths.every((p) => p.presence === "easyspeak-only")).toBe(true);
+    expect(hasOrphanedPaths({ presence: "both", paths })).toBe(true);
   });
 
   it("tags the flagged side's PathReport with flagged: true and leaves every other path false", () => {
@@ -617,14 +643,12 @@ describe("buildReport (synthetic fixtures)", () => {
   });
 
   it("does not let a flagged path on one side mask a genuine, unrelated unresolved mismatch on the other", () => {
-    // Regression test for the corrected hasOrphanedPaths() gating: Owen Bright
-    // (basecamp-only, fuzzy-excluded here) has no path data of its own to flag,
-    // so build a synthetic member shape directly instead — one flagged
-    // basecamp-only path plus a separate, unrelated unresolved easyspeak-only
-    // path (different canonical key). The naive "exclude flagged from the
-    // candidate-list filters" approach would empty out basecampCandidates and
-    // incorrectly report false; the correct fix only excludes it from the
-    // final unresolved check.
+    // hasOrphanedPaths() only looks at the EasySpeak-only side, so a flagged
+    // Basecamp-only path never has any bearing on it — this pins that down
+    // with a synthetic member shape: one flagged basecamp-only path plus a
+    // separate, unrelated, unresolved easyspeak-only path (different
+    // canonical key). The unresolved easyspeak-only path alone must still
+    // report true, regardless of the unrelated basecamp-only path's state.
     const paths: PathReport[] = [
       {
         canonicalKey: "flagged-path",
@@ -657,7 +681,7 @@ describe("buildReport (synthetic fixtures)", () => {
         pathCompletion: null,
       },
     ];
-    expect(hasOrphanedPaths({ paths })).toBe(true);
+    expect(hasOrphanedPaths({ presence: "both", paths })).toBe(true);
   });
 
   it("marks an easyspeak-only path manuallyCompleted, clears hasOrphanedPaths, and excludes it from the Next Level Summary", () => {
@@ -675,10 +699,12 @@ describe("buildReport (synthetic fixtures)", () => {
     expect(completedPath.manuallyCompleted).toBe(true);
 
     // The Basecamp-only "Strategic Relationships" side is still unresolved,
-    // but hasOrphanedPaths requires a real candidate on BOTH sides — with the
-    // EasySpeak side manually completed there's nothing left to pair it
-    // against, so the member stops flagging as a path issue (same two-sided
-    // gate completedHistory already relies on).
+    // but hasOrphanedPaths() only looks at the EasySpeak-only side — with
+    // "Team Collaboration" manually completed there's no unresolved
+    // EasySpeak-only candidate left, so the member stops flagging as a path
+    // issue regardless of the Basecamp-only leftover (same reasoning
+    // completedHistory already relies on: a Basecamp-only path with nothing
+    // on the EasySpeak side isn't itself actionable).
     expect(hasOrphanedPaths(helena)).toBe(false);
 
     const summary = buildLevelSummary(completed);

@@ -127,32 +127,47 @@ export function countEasySpeakMembers(data: EasySpeakScrape): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Definition backing the Members view's "Path issues" filter: a member with
- * at least one Pathways path orphaned on each side (both sides picked a
- * path the other doesn't have) even though the member link itself is fine —
- * exactly the case a member-scoped path-bind override/orphan-mark exists to
- * fix. Gating on both sides ever having a real (non-nonPathway) candidate —
- * regardless of whether some of those candidates have since been resolved —
- * is what distinguishes a genuine two-sided mismatch from a harmless
- * one-sided leftover (e.g. a member who simply hasn't started an equivalent
- * path on the other system yet, or an easyspeak-only path tagged
- * `completedHistory`, read-only history Basecamp no longer tracks because
- * it's done). Once that gate is satisfied, this stays true until *every*
- * real candidate on *both* sides is individually resolved (`orphaned` or
- * folded into a "both"-presence pair) — resolving only the smaller side
- * must not flip a member with several outstanding items on the other side
- * to "done". A `flagged` candidate (see hasFlaggedPaths()/flagPath()) is
- * excluded from the final "still unresolved" check the same way `orphaned`
- * is, without being removed from the two-sided-mismatch gate itself — so an
- * unrelated flagged path on one side never masks a genuine unresolved
- * mismatch on the other.
+ * Definition backing the Members view's "Path issues" filter: a member whose
+ * *identity* is already matched (`presence === "both"`) but who still has
+ * at least one *EasySpeak-only* Pathways path that isn't yet resolved
+ * (`orphaned`/`flagged`/`manuallyCompleted`/`completedHistory`) — the side
+ * `renderPathBindDetail()` actually gives a VPE actions for (bind, mark
+ * orphan, flag, mark completed). A Basecamp-only leftover with nothing on
+ * the EasySpeak side is deliberately *not* itself actionable — the member
+ * simply hasn't logged an equivalent path in EasySpeak yet, which
+ * `renderPathBindDetail()`'s own "doesn't block Club Progress" note reflects
+ * by rendering it with no action buttons at all — so it's excluded here.
+ * This intentionally does *not* require a Basecamp-only candidate to also
+ * exist: an EasySpeak-only path with no Basecamp counterpart at all is
+ * exactly as actionable as one that's mismatched against a specific
+ * Basecamp-only path (e.g. a name-alias gap, or a path never registered in
+ * Basecamp) — previously this was only flagged when a Basecamp-only
+ * candidate happened to exist too, silently hiding the one-sided case from
+ * "To do" even though it was fully reviewable from "All".
+ *
+ * The `presence === "both"` gate matters separately from the path-level
+ * check above: every path belonging to a member whose *identity* itself is
+ * still one-sided (unmatched, or identity-resolved via markMemberOrphan())
+ * is necessarily "easyspeak-only" too (there's no Basecamp person to pair
+ * against at all) — without this gate, a member the VPE already resolved by
+ * marking their whole identity as an Orphan would immediately reopen as a
+ * "path issue" with no way to close it (there's no counterpart identity left
+ * to bind or mark-orphan at the path level). That case is fully handled by
+ * matchConfidence/isMemberResolved instead; this function only judges
+ * mismatches *within* an already-matched pair.
+ *
+ * Once true, this stays true until *every* real EasySpeak-only candidate is
+ * individually resolved (`orphaned`/`flagged`/`manuallyCompleted`, or folded
+ * into a "both"-presence pair via a bind) — resolving only one of several
+ * still leaves the rest outstanding. A `flagged` candidate (see
+ * hasFlaggedPaths()/flagPath()) is excluded from this "still unresolved"
+ * check the same way `orphaned` is.
  */
-export function hasOrphanedPaths(member: { paths?: PathReport[] }): boolean {
+export function hasOrphanedPaths(member: { presence: Presence; paths?: PathReport[] }): boolean {
+  if (member.presence !== "both") return false;
   const paths = member.paths ?? [];
-  const basecampCandidates = paths.filter((p) => p.presence === "basecamp-only" && !p.nonPathway);
   const easyspeakCandidates = paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.completedHistory && !p.manuallyCompleted);
-  if (basecampCandidates.length === 0 || easyspeakCandidates.length === 0) return false;
-  return basecampCandidates.some((p) => !p.orphaned && !p.flagged) || easyspeakCandidates.some((p) => !p.orphaned && !p.flagged);
+  return easyspeakCandidates.some((p) => !p.orphaned && !p.flagged);
 }
 
 /**
