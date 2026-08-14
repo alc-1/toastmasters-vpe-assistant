@@ -542,6 +542,14 @@ function bcOrphanCandidates(member: MemberReport): Candidate[] {
   return getBcOrphans(member).map((p, index) => ({ id: index, name: p.basecampPathName ?? "" }));
 }
 
+// Speeches marked done across this one path's levels — shown next to an
+// unbound EasySpeak-only path so the VPE can tell a freshly-started path
+// (0 done) apart from one that's actually well underway or nearly complete,
+// before deciding whether to bind, mark as completed, or mark as orphan.
+function pathSpeechesDone(path: PathReport): number {
+  return path.levels.reduce((sum, level) => sum + (level.easyspeak?.done ?? 0), 0);
+}
+
 function renderPathBindDetail(member: MemberReport): string {
   const key = memberKey(member);
   const realPaths = member.paths.filter((p) => !p.nonPathway);
@@ -633,11 +641,13 @@ function renderPathBindDetail(member: MemberReport): string {
               candidates.length > 0
                 ? `<span>&harr;</span>
                  <input type="text" class="link-search" list="${pathDatalistId}" data-role="path-bind-input" data-member-key="${key}" placeholder="Search Basecamp paths…" aria-label="Choose a path to bind this member's orphaned path to" autocomplete="off">
-                 <button data-action="bind-path" data-member-key="${key}" data-es-index="${esIndex}" disabled>Bind for this member only</button>`
+                 <button data-action="bind-path" data-member-key="${key}" data-es-index="${esIndex}" disabled>Bind</button>`
                 : "";
+            const done = pathSpeechesDone(esPath);
             return `
             <div class="path-pair-row">
               <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
+              <span class="muted-text">${done} speech${done === 1 ? "" : "es"} done</span>
               ${bindControls}
               <button class="secondary" data-action="mark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as completed</button>
               <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
