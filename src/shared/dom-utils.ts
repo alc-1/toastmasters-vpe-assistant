@@ -36,6 +36,19 @@ export function warningIconHtml(title: string): string {
   `;
 }
 
+// Used by Club Progress's per-path levels table (report.ts) to mark a level
+// Basecamp has approved. Fixed fill (like warningIconHtml above, unlike
+// documentIconHtml's currentColor) since this is always the same "approved"
+// green regardless of context. The svg itself is aria-hidden — the wrapping
+// span's title/aria-label is what screen readers announce instead.
+export function approvedCheckIconHtml(title: string): string {
+  return `
+    <span class="approved-check" role="img" aria-label="${escapeAttr(title)}" title="${escapeAttr(title)}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" aria-hidden="true"><path fill="#157F5B" d="M10 0a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 18a8 8 0 1 1 8-8 8.01 8.01 0 0 1-8 8m4.59-12.42L8 12.17 5.41 9.59 4 11l4 4 8-8z"></path></svg>
+    </span>
+  `;
+}
+
 // Used by the Club Progress stepper step, which always shows this instead of
 // its step number/checkmark regardless of state — see shared/app-shell.ts.
 // stroke="currentColor" (not a fixed fill, unlike warningIconHtml above) so

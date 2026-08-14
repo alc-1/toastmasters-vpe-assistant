@@ -58,21 +58,44 @@
     table.levels {
       background: var(--surface);
       margin: 16px 0;
+      table-layout: fixed;
+      width: 100%;
     }
-    table.levels tr.pending {
+    table.levels th {
+      width: 14.2857%;
+    }
+    table.levels th:not(:first-child),
+    table.levels td:not(:first-child) {
+      text-align: center;
+    }
+    table.levels td.pending-cell {
       background: var(--warning-bg);
     }
-    table.levels tr.discrepancy {
-      background: var(--danger-bg);
+    table.levels tbody td:first-child,
+    table.levels tfoot td:first-child {
+      font-weight: 600;
     }
-    table.levels tr.completion-row {
+    table.levels tfoot td {
       font-style: italic;
       color: var(--gray-600);
+      background: var(--surface-alt);
+      border-top: 2px solid var(--border);
     }
-    .level-note {
+    table.levels td[title] {
       cursor: help;
-      color: var(--gray-600);
-      font-weight: bold;
+    }
+    table.levels td.check-cell {
+      text-align: center;
+      vertical-align: middle;
+    }
+    .approved-check {
+      display: inline-flex;
+      vertical-align: middle;
+    }
+    .approved-check svg {
+      display: block;
+      width: 20px;
+      height: 20px;
     }
     table.summary {
       table-layout: fixed;
@@ -121,7 +144,7 @@
   <p class="help-text">
     "Status": <strong>Ready</strong> — all requirements reported, the level can be taken now.
     <strong>Ready if reported</strong> — done in EasySpeak, just needs reporting in Basecamp to be ready.
-    <strong>In progress</strong> — still working through the level's speeches.
+    <strong>On track</strong> — still working through the level's speeches.
     <strong>Needs reporting</strong> — some speeches done in EasySpeak aren't yet reported in Basecamp.
   </p>
   <div id="summaryTableRoot"></div>

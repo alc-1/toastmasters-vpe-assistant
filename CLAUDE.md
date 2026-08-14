@@ -643,8 +643,7 @@ re-derived (and possibly un-derived) from names again.
   `activeMembers: Map<string, MemberReport>` (rebuilt in `renderActiveClub()` from the active
   club's `members[]`, keyed by `memberKey()`), finds the specific `PathReport` by `canonicalKey`,
   and renders the member's presence/confidence badges plus the same level-by-level diff table
-  (`renderLevelRow()`/`renderPathCompletionRow()`, unchanged) the old member cards used to show —
-  reused, not reimplemented.
+  (`renderLevelsTable()`, unchanged) the old member cards used to show — reused, not reimplemented.
 - **`entrypoints/members/index.html` + `entrypoints/members/main.ts`** — the primary member-matching review workflow,
   titled "Member Review" (reached from the popup's "Member Review" button, and cross-linked with
   Club Review/Club Progress). Same storage-reads-only pattern as `report.ts`.

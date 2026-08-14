@@ -6,13 +6,13 @@
 // result. Kept separate from shared/sync/* so the pure matching/diff logic
 // stays browser.*-free and independently testable.
 
-import { escapeAttr, escapeHtml, warningIconHtml } from "../../shared/dom-utils";
+import { approvedCheckIconHtml, escapeAttr, escapeHtml, warningIconHtml } from "../../shared/dom-utils";
 import { local } from "../../shared/storage";
 import { loadResolutionData } from "../../shared/resolution-store";
 import { buildLevelSummary, buildReport, compareLevelSummaryRows, isMemberReadyForNextLevel, memberKey, needsAction } from "../../shared/sync/delta";
 import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
-import type { ClubPairReport, LevelSummaryRow, LevelUpStatus, MemberReport, PathReport } from "../../shared/types";
+import type { ClubPairReport, LevelDiff, LevelSummaryRow, LevelUpStatus, MemberReport, PathReport } from "../../shared/types";
 
 refresh();
 
@@ -206,7 +206,7 @@ interface StatusBadgeInfo {
 const STATUS_BADGE: Record<LevelUpStatus, StatusBadgeInfo> = {
   ready: { label: "Ready", tone: "badge-success", icon: ICON_CHECKMARK },
   "ready-if-reported": { label: "Ready if reported", tone: "badge-pending", icon: ICON_LIGHTNING },
-  "in-progress": { label: "In progress", tone: "badge-info", icon: "" },
+  "in-progress": { label: "On track", tone: "badge-info", icon: "" },
   "needs-reporting": { label: "Needs reporting", tone: "badge-pending", icon: "" },
   completed: { label: "Completed", tone: "badge-success", icon: "" },
   "not-tracked": { label: "Not tracked", tone: "badge-muted", icon: "" },
@@ -461,19 +461,7 @@ function renderRowDetail(row: LevelSummaryRow): string {
   return `
     ${pathsHtml}
     ${noActivePathNote}
-    <table class="table levels">
-      <tr>
-        <th>Level</th>
-        <th>EasySpeak (done/needed)</th>
-        <th>Basecamp (completed/total)</th>
-        <th>Approved</th>
-        <th>Missing (ES)</th>
-        <th>Missing (BC)</th>
-        <th>Discrepancy</th>
-      </tr>
-      ${path.levels.map(renderLevelRow).join("")}
-      ${renderPathCompletionRow(path.pathCompletion)}
-    </table>
+    ${renderLevelsTable(path)}
   `;
 }
 
@@ -497,42 +485,96 @@ function presenceLabel(presence: string): string {
   return "EasySpeak only";
 }
 
-function renderLevelRow(level: PathReport["levels"][number]) {
-  const rowClass = level.pendingValidation ? "pending" : level.discrepancy ? "discrepancy" : "";
-  // Basecamp's Level 5 total is cumulated with its separate "Path
-  // Completion" entry before comparison (see diffLevels() in
-  // shared/sync/conflicts.ts) since EasySpeak counts both as one Level 5
-  // bucket — flagged here so the inflated total doesn't look like a bug.
-  const levelLabel =
-    level.level === 5
-      ? `5<span class="level-note" title="Basecamp total includes Path Completion, to match how EasySpeak counts Level 5">*</span>`
-      : String(level.level);
+// Every path always has exactly 5 LevelDiff entries (see diffLevels() in
+// shared/sync/conflicts.ts), so this fallback only guards against that
+// invariant ever drifting rather than being expected to fire in practice.
+const NULL_LEVEL_DIFF = (level: number): LevelDiff => ({
+  level,
+  easyspeak: null,
+  basecamp: null,
+  easyspeakMissing: null,
+  basecampMissing: null,
+  discrepancy: null,
+  pendingValidation: false,
+});
+
+function getLevel(path: PathReport, levelNumber: number): LevelDiff {
+  return path.levels.find((l) => l.level === levelNumber) ?? NULL_LEVEL_DIFF(levelNumber);
+}
+
+// EasySpeak's Level 5 total already folds in path-completion speeches (it
+// has no separate bucket for them), so its merged Level 5 + Path Completion
+// cell is cumulated to match how Basecamp splits the two apart — explained
+// via a title tooltip on that cell rather than a visible marker.
+const LEVEL5_NOTE_TITLE = "Easyspeak Level 5 counts toward both Basecamp Level 5 and Path Completion.";
+const APPROVED_CHECK = approvedCheckIconHtml("Approved");
+
+function renderLevelsTable(path: PathReport): string {
+  const levels = [1, 2, 3, 4, 5].map((n) => getLevel(path, n));
   return `
-    <tr class="${rowClass}">
-      <td>${levelLabel}</td>
-      <td>${level.easyspeak ? `${level.easyspeak.done}/${level.easyspeak.needed}` : "—"}</td>
-      <td>${level.basecamp ? `${level.basecamp.completed}/${level.basecamp.total}` : "—"}</td>
-      <td>${level.basecamp ? (level.basecamp.approved ? "Yes" : "No") : "—"}</td>
-      <td>${level.easyspeakMissing ?? "—"}</td>
-      <td>${level.basecampMissing ?? "—"}</td>
-      <td>${level.discrepancy ?? "—"}</td>
-    </tr>
+    <table class="table levels">
+      <thead>
+        <tr>
+          <th>Source</th>
+          <th>Level 1</th><th>Level 2</th><th>Level 3</th><th>Level 4</th>
+          <th>Level 5</th>
+          <th>Path Completion</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${renderBasecampRow(levels, path.pathCompletion)}
+        ${renderEasyspeakRow(levels)}
+      </tbody>
+      <tfoot>
+        ${renderDiscrepancyFooterRow(levels)}
+      </tfoot>
+    </table>
   `;
 }
 
-function renderPathCompletionRow(pathCompletion: PathReport["pathCompletion"]) {
-  if (!pathCompletion) return "";
-  return `
-    <tr class="completion-row">
-      <td>Path Completion<span class="level-note" title="Already included in the Level 5 total above">*</span></td>
-      <td>—</td>
-      <td>${pathCompletion.completed}/${pathCompletion.total}</td>
-      <td>—</td>
-      <td>—</td>
-      <td>${pathCompletion.missing}</td>
-      <td>—</td>
-    </tr>
-  `;
+function cellAttr(level: LevelDiff, extraClass?: string): string {
+  const classes = [level.pendingValidation ? "pending-cell" : "", extraClass ?? ""].filter(Boolean);
+  return classes.length ? ` class="${classes.join(" ")}"` : "";
+}
+
+function renderBasecampRow(levels: LevelDiff[], pathCompletion: PathReport["pathCompletion"]): string {
+  return `<tr><td>Basecamp</td>${levels.map(basecampCell).join("")}${basecampPathCompletionCell(pathCompletion)}</tr>`;
+}
+
+function basecampCell(level: LevelDiff): string {
+  const approved = !!level.basecamp?.approved;
+  const content = !level.basecamp ? "—" : approved ? APPROVED_CHECK : `${level.basecamp.completed} of ${level.basecamp.total}`;
+  return `<td${cellAttr(level, approved ? "check-cell" : undefined)}>${content}</td>`;
+}
+
+function basecampPathCompletionCell(pathCompletion: PathReport["pathCompletion"]): string {
+  // Never a checkmark: Basecamp's raw Path Completion entry has no `approved`
+  // field — completed >= total isn't the same claim as "approved".
+  return `<td>${pathCompletion ? `${pathCompletion.completed} of ${pathCompletion.total}` : "—"}</td>`;
+}
+
+function renderEasyspeakRow(levels: LevelDiff[]): string {
+  const [l1, l2, l3, l4, l5] = levels;
+  return `<tr><td>EasySpeak</td>${[l1, l2, l3, l4].map((l) => easyspeakCell(l)).join("")}${easyspeakCell(l5, 2, LEVEL5_NOTE_TITLE)}</tr>`;
+}
+
+function easyspeakCell(level: LevelDiff, colspan?: number, title?: string): string {
+  const span = colspan ? ` colspan="${colspan}"` : "";
+  const titleAttr = title ? ` title="${escapeAttr(title)}"` : "";
+  const content = !level.easyspeak ? "—" : level.basecamp?.approved === true ? "" : `${level.easyspeak.done} speeches done`;
+  return `<td${cellAttr(level)}${span}${titleAttr}>${content}</td>`;
+}
+
+function renderDiscrepancyFooterRow(levels: LevelDiff[]): string {
+  const [l1, l2, l3, l4, l5] = levels;
+  return `<tr><td>Reporting gap</td>${[l1, l2, l3, l4].map((l) => discrepancyCell(l)).join("")}${discrepancyCell(l5, 2)}</tr>`;
+}
+
+function discrepancyCell(level: LevelDiff, colspan?: number): string {
+  const span = colspan ? ` colspan="${colspan}"` : "";
+  if (!level.basecamp || !level.easyspeak || level.basecamp.approved) return `<td${span}>—</td>`;
+  const content = level.discrepancy && level.discrepancy > 0 ? `${level.discrepancy} to report` : "—";
+  return `<td${span}>${content}</td>`;
 }
 
 // Date-only (no time-of-day) — the exact second either extraction ran isn't
