@@ -6,7 +6,7 @@ const workflowSteps = [
   "Open EasySpeak",
   "Check members individually",
   "Compare records manually",
-  "Discover discrepancies",
+  "Figure out differences",
 ];
 
 export default function Problem() {

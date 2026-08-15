@@ -1,6 +1,6 @@
 import setupImg from "../assets/screenshot_sync_data.png";
 import dashboardImg from "../assets/screenshot_club_progress.png";
-import discrepancyImg from "../assets/screenshot_club_progress_detail.png";
+import memberProgressImg from "../assets/screenshot_club_progress_detail.png";
 import matchImg from "../assets/screenshot_member_review.png";
 
 export interface Screenshot {
@@ -30,9 +30,9 @@ export const screenshots: Screenshot[] = [
     image: matchImg,
   },
   {
-    id: "discrepancy",
-    title: "Discrepancy Detection",
-    caption: "Catch discrepancies between Basecamp and EasySpeak.",
-    image: discrepancyImg,
+    id: "member-progress",
+    title: "Follow Member Progress",
+    caption: "Get a clear picture of both Basecamp and EasySpeak in one place.",
+    image: memberProgressImg,
   },
 ];
