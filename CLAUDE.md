@@ -908,6 +908,23 @@ A few decisions worth knowing before changing the config:
   — it tells an AMO reviewer the two commands (`npm i`, `npm run zip:firefox`) needed to reproduce
   the submitted build from source. Don't move/rename it without checking it still lands inside
   `wxt.config.ts`'s `zip.sourcesRoot` (the project root, unset/default today).
+- **`.github/workflows/release.yml`** (manual `workflow_dispatch`, patch/minor/major bump choice) is
+  two jobs: `release` bumps `package.json`'s version, tags it, builds+zips all 4 combinations (via
+  `wxt zip`, which builds and zips in one step — see above) plus the Firefox sources zip, and creates
+  a GitHub Release attaching all 6 files with tester-facing install instructions in the release body
+  (kept in sync with whichever store the Chrome build is actually on — see below); then
+  `publish-store` (depends on `release`, its own job so a Chrome Web Store API failure never blocks
+  the GitHub Release itself) downloads the just-built Chrome store zip and runs `wxt submit
+  --chrome-zip ...` against the `chrome-web-store` GitHub Environment's secrets (`CHROME_EXTENSION_ID`/
+  `CHROME_PUBLISHER_ID`/a service-account client email + private key — `CHROME_API_VERSION: v2`,
+  since the older client-ID/secret/refresh-token v1.1 flow is deprecated and shuts down October 15,
+  2026). **The extension is live on the Chrome Web Store** (see README's Installation section for the
+  listing URL) — don't write or leave copy anywhere implying otherwise (a stale line to that effect
+  in `release.yml`'s own GitHub Release body template is a known leftover from before this job
+  existed, not a discovered-and-still-true fact; check `landing/src/data/releaseInfo.ts`'s
+  `CHROME_WEB_STORE_URL` for the canonical live listing link before writing install instructions
+  anywhere). Firefox has no equivalent auto-publish step — no AMO submission has happened yet, so a
+  Firefox install stays "Load Temporary Add-on" only (see README).
 - `npm run dev`/`dev:firefox` are useful for iterating on options/popup page markup with faster
   feedback, but MV3/MV2 background + `browser.scripting` behavior (the EasySpeak flow especially)
   should always get a real build + reload before you trust it — same reasoning as the old crxjs
