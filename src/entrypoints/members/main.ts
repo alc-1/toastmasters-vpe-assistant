@@ -262,11 +262,18 @@ function sortRank(member: MemberReport): number {
 
 // Each rank group above is sorted independently, by Basecamp name
 // descending (falling back to the EasySpeak name for an easyspeak-only
-// member — see sortName()).
+// member — see sortName()). Within the unmatched rank specifically, that
+// mixes basecamp-only and easyspeak-only members together purely by their
+// (differently-sourced) display name — so a basecamp-only member always
+// sorts ahead of an easyspeak-only one first, keeping Basecamp (the source
+// of truth) names grouped at the top of that rank rather than interleaved.
 function compareMembers(a: MemberReport, b: MemberReport): number {
   const aRank = sortRank(a);
   const bRank = sortRank(b);
   if (aRank !== bRank) return aRank - bRank;
+  const aHasBasecampName = a.basecampName != null;
+  const bHasBasecampName = b.basecampName != null;
+  if (aHasBasecampName !== bHasBasecampName) return aHasBasecampName ? -1 : 1;
   return sortName(b).localeCompare(sortName(a), undefined, { sensitivity: "base" });
 }
 

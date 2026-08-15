@@ -739,7 +739,10 @@ re-derived (and possibly un-derived) from names again.
   filter chips (All / To do / Suggested / Unmatched / Path issues / Linked manually — "To do" is the
   default view and means Suggested ∪ Unmatched ∪ Path issues) and a fixed sort (action-needed rows
   first, alphabetical by **Basecamp name** — `sortName()`, falling back to the EasySpeak name only
-  when a member has no Basecamp counterpart — within each group, even inside "All").
+  when a member has no Basecamp counterpart — within each group, even inside "All"; within the
+  unmatched group specifically, members with a Basecamp name sort ahead of easyspeak-only members
+  before the alphabetical tiebreak applies, so Basecamp names never get interleaved with
+  easyspeak-only ones).
   `classifyMember()` (`shared/sync/delta.ts` — exported from there, alongside `memberKey()` and
   `needsAction()`, specifically so `entrypoints/report/main.ts`'s club-tab badges and this page's own tab
   badges/filter chips agree on what "needs attention" means for the same club) tags are **not
