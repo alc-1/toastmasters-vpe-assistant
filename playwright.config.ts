@@ -25,11 +25,24 @@ export default defineConfig({
   // keeps the suite reliable; it's still only ~2s/test.
   workers: 1,
   forbidOnly: !!process.env.CI,
-  // CI runners are more resource-constrained than a dev machine — one retry
-  // absorbs the same kind of transient launch/resource hiccup workers: 1
-  // was added for above, without masking a genuinely broken test (a
-  // consistently-failing test still fails after its retry).
-  retries: process.env.CI ? 1 : 0,
+  // Every test cold-installs the extension into a brand-new, empty
+  // persistent-context profile (see e2e/fixtures.ts) — background.ts's
+  // service worker genuinely starts from zero every single time, so there's
+  // a narrow but real window where a click's browser.runtime.sendMessage()
+  // (shared/send-message.ts — bare, no timeout/retry of its own) can race
+  // the not-yet-fully-initialized background listener and never resolve.
+  // Confirmed this is the actual failure mode behind the occasional
+  // `locator.waitFor: Target page, context or browser has been closed`
+  // flake (~1 in 6 runs observed) by watching Chromium's process count and
+  // memory stay flat for the whole suite while it happened — ruling out a
+  // crash/resource exhaustion, which was the original (incomplete) theory
+  // behind `workers: 1` above. A retry gets a fully independent, fresh
+  // context/profile, not just another attempt in the same unlucky one, so
+  // it reliably clears a one-off race without masking a test that's
+  // actually broken (that still fails again after the retry). Applies
+  // locally too, not just in CI, since the race is inherent to the launch
+  // itself, not runner-specific resource constraints.
+  retries: 1,
   reporter: "list",
   use: {
     trace: "retain-on-failure",

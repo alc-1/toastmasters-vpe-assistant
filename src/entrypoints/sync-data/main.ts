@@ -89,6 +89,14 @@ const exportIdleLabel = exportBtn.textContent ?? "";
 // unavailable — see refresh() below.
 let selectedExportType: ExportType | null = null;
 
+// True only once the user has actually clicked an option themselves.
+// Distinguishes a deliberate choice (never silently overridden again) from
+// an automatic fallback pick (e.g. "basecamp" chosen only because "all"
+// wasn't available yet at the time) — refresh() upgrades the latter to
+// "all" the moment it becomes available, instead of leaving the selector
+// stuck on a narrower option once every source is actually loaded.
+let exportTypeUserPicked = false;
+
 const EXPORT_OPTION_DESC: Record<ExportType, string> = {
   all: "Aggregated data + sources + matches",
   basecamp: "Original Basecamp data",
@@ -126,6 +134,7 @@ function renderExportOptions(availability: Record<ExportType, boolean>) {
   root.querySelectorAll<HTMLInputElement>('input[name="exportType"]').forEach((input) => {
     input.addEventListener("change", () => {
       selectedExportType = input.value as ExportType;
+      exportTypeUserPicked = true;
       renderExportOptions(availability);
     });
   });
@@ -175,7 +184,25 @@ async function init() {
   await refresh();
 }
 
+// refresh() is triggered from two independent places: explicitly, right
+// after a scrape's onScrapeClick() resolves, and by the storage.onChanged
+// listener above, which fires the instant a scrape writes its data to
+// browser.storage.local — which happens *before* background/messaging.ts's
+// runScrape() flips the source's icon status to "success" and responds.
+// That means two overlapping refresh() calls can resolve out of order: an
+// earlier-triggered call (from the storage write) can still read a stale
+// "loading" status and finish *after* a later-triggered call already
+// rendered the correct "success" state, stomping the badge back to
+// "Importing" even though the data is already fully loaded (reproduced via
+// the e2e suite — every other section, which only depends on `cached` and
+// not `statuses`, still rendered correctly, only the loading-status-derived
+// badge text got stuck). refreshToken guards against this: a call only
+// applies its render once nothing newer has started meanwhile.
+let refreshToken = 0;
+
 async function refresh() {
+  const myToken = ++refreshToken;
+
   // Tells background this counts as "having seen" any finished (success/
   // error) result, reverting the toolbar icon to idle — a still-loading
   // source is left alone. Also gives us the current per-source status so a
@@ -184,13 +211,35 @@ async function refresh() {
 
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 
-  renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, statuses.basecamp === "loading", countBasecampMembers);
-  renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, statuses.easyspeak === "loading", countEasySpeakMembers);
+  if (myToken !== refreshToken) return; // a newer refresh() has since started — this one is stale
+
+  // `statuses` and `cached` are two sequential awaits, not one atomic
+  // snapshot — background/messaging.ts's runScrape() always writes the
+  // scraped data to storage.local *before* flipping the source's
+  // storage.session icon status to "success", so it's possible for this
+  // call's `cached` read (the later of the two) to already see the data
+  // while its earlier `statuses` read still said "loading", straddling the
+  // exact moment the scrape finished. Data presence is the more
+  // authoritative signal in that case — a source with data is never still
+  // loading, regardless of what a status flag captured a moment earlier
+  // says — so it always wins over a stale "loading".
+  const basecampLoading = statuses.basecamp === "loading" && !cached.basecampData;
+  const easyspeakLoading = statuses.easyspeak === "loading" && !cached.easyspeakData;
+
+  renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, basecampLoading, countBasecampMembers);
+  renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, easyspeakLoading, countEasySpeakMembers);
   await renderProgress();
 
   const exportAvailability = computeExportAvailability(cached.basecampData ?? null, cached.easyspeakData ?? null);
   if (!selectedExportType || !exportAvailability[selectedExportType]) {
     selectedExportType = (["all", "basecamp", "easyspeak"] as ExportType[]).find((t) => exportAvailability[t]) ?? null;
+    exportTypeUserPicked = false;
+  } else if (!exportTypeUserPicked && exportAvailability.all && selectedExportType !== "all") {
+    // The current selection is still valid, but was only ever an automatic
+    // fallback (e.g. "basecamp" picked back when EasySpeak hadn't been
+    // imported yet) — now that "all" is available, prefer it. A selection
+    // the user picked themselves is left alone even if "all" is available.
+    selectedExportType = "all";
   }
   renderExportOptions(exportAvailability);
 

@@ -38,6 +38,7 @@ export const test = base.extend<{
   context: BrowserContext;
   extensionId: string;
   pageUrl: (page: (typeof PAGES)[keyof typeof PAGES]) => string;
+  page: Page;
 }>({
   // eslint-disable-next-line no-empty-pattern
   context: async ({}, use) => {
@@ -67,6 +68,27 @@ export const test = base.extend<{
 
   pageUrl: async ({ extensionId }, use) => {
     await use((page) => `chrome-extension://${extensionId}/${page}`);
+  },
+
+  // Overrides Playwright's built-in `page` fixture (which would otherwise
+  // just do a plain context.newPage()) to also clean up dead weight: a
+  // brand-new, empty user-data-dir means the extension's onInstalled
+  // "install" listener (entrypoints/background.ts) fires on every single
+  // test, opening a welcome.html tab nothing here exercises, on top of the
+  // context's own initial blank tab. Every test already launches/tears down
+  // a full persistent Chromium + extension process — closing the extra tabs
+  // keeps each one as light as possible, which matters for this suite's
+  // reliability (a `Target page, context or browser has been closed` flake
+  // was traced back to resource pressure from these heavy launches).
+  page: async ({ context }, use) => {
+    const page = await context.newPage();
+    for (let i = 0; i < 10 && context.pages().length < 2; i++) {
+      await page.waitForTimeout(50);
+    }
+    for (const p of context.pages()) {
+      if (p !== page) await p.close().catch(() => {});
+    }
+    await use(page);
   },
 });
 

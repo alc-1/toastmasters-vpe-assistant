@@ -14,8 +14,7 @@ const PAGES_TO_CHECK: { name: string; page: (typeof PAGES)[keyof typeof PAGES]; 
 ];
 
 for (const { name, page: pagePath, contentRootSelector } of PAGES_TO_CHECK) {
-  test(`${name} renders demo data without console errors`, async ({ context, pageUrl }) => {
-    const page = await context.newPage();
+  test(`${name} renders demo data without console errors`, async ({ page, pageUrl }) => {
     await seedDemoData(page, pageUrl);
 
     const consoleErrors: string[] = [];

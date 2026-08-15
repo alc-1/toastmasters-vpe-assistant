@@ -135,13 +135,41 @@ exact `.output/store/chrome-mv3` this suite launches). The browser binary itself
 needs to launch at all, but a cache hit skips the (slow) download and only re-runs `playwright
 install-deps chromium` for those OS packages, which apt doesn't persist across runs either way.
 `playwright.config.ts` sets `workers: 1` unconditionally (launching several persistent extension
-contexts concurrently was
-observed to make one worker's browser process unresponsive — a real flake reproduced locally, not a
-hypothetical) plus `retries: 1` under `process.env.CI` only, as a safety margin for CI's more
-resource-constrained runners without masking a genuinely broken test. `playwright.config.ts` is
-deliberately standalone from `wxt.config.ts`/`vitest.config.ts`, same isolation reasoning as the
-`vitest.config.ts` bullet above, and `e2e/**/*.spec.ts` lives outside `tests/` so Vitest's own
-`include` glob never picks it up.
+contexts concurrently was observed to make one worker's browser process unresponsive — a real flake
+reproduced locally, not a hypothetical) and `retries: 1` unconditionally, locally too, not just in
+CI, as a general safety net against real-browser-launch flakiness — cheap, since a retry gets a fully
+independent fresh context rather than another attempt in the same unlucky one.
+`e2e/fixtures.ts`'s `page` fixture also closes the extra tabs a fresh install always opens (the
+context's own initial blank tab, plus `entrypoints/welcome/` from `onInstalled`'s "install" branch)
+before handing the page to a test, since every test already launches/tears down a full persistent
+Chromium + extension process and there's no reason to make that heavier than it needs to be.
+
+This suite is also what caught a real, previously-invisible bug in `entrypoints/sync-data/main.ts`'s
+`refresh()` (not a test-infra issue at all — a `locator.waitFor: Target page, context or browser has
+been closed` timeout kept reproducing waiting on `#badgeEasySpeak` specifically, and its captured
+page snapshot showed the "Data Import Complete" banner and Export card already correctly reflecting
+both sources loaded while that one badge alone stayed stuck on "Importing"). Root cause: `refresh()`
+awaits `sendMessage({type: "POPUP_OPENED"})` (→ `statuses`) and `local.get(...)` (→ `cached`)
+*sequentially*, not as one atomic snapshot, while `background/messaging.ts`'s `runScrape()` always
+writes the scraped data to `storage.local` *before* flipping that source's `storage.session` icon
+status to `"success"`. A call whose two reads straddle that exact instant can see `cached` already
+holding the finished data while its earlier `statuses` read still says `"loading"` — a single call's
+own two-reads-at-different-times inconsistency, not (only) a race between overlapping `refresh()`
+invocations (`browser.storage.onChanged` also triggers `refresh()` independently the moment the
+`local` write lands, well before that status flip — see the layering note in that entrypoint's own
+comments). Fixed with two mechanisms, both still in place: a `refreshToken` counter so a stale,
+later-resolving `refresh()` call never overwrites a fresher one's render, and — the fix that actually
+closed the gap — treating data presence as authoritative over a possibly-stale loading flag
+(`basecampLoading = statuses.basecamp === "loading" && !cached.basecampData`, same for EasySpeak): a
+source with its data already in storage is never still "loading," regardless of what a status flag
+captured a moment earlier claims. Verified by running the suite repeatedly with `retries: 0` (to
+stop retries from masking a still-partially-fixed bug) until it stayed consistently green. If a
+similar "stuck on a transient status despite the underlying data already being ready" symptom shows
+up on another page sharing this same `POPUP_OPENED`/`storage.local` pattern, look here first.
+
+`playwright.config.ts` is deliberately standalone from `wxt.config.ts`/`vitest.config.ts`, same
+isolation reasoning as the `vitest.config.ts` bullet above, and `e2e/**/*.spec.ts` lives outside
+`tests/` so Vitest's own `include` glob never picks it up.
 
 ## Architecture
 
