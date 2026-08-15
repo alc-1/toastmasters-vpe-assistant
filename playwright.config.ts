@@ -6,8 +6,9 @@
 // built extension (see e2e/fixtures.ts), it doesn't build one itself — run
 // `npm run build` first (the fixture throws a clear error if you forget).
 //
-// Local-only for now: not wired into .github/workflows/ci.yml yet, so a
-// flaky/failing e2e run never blocks a push/PR. Run with `npm run test:e2e`.
+// Wired into .github/workflows/ci.yml, right after the store/Chrome build
+// step (the exact .output/store/chrome-mv3 this suite launches). Run
+// locally with `npm run test:e2e` (after `npm run build`).
 
 import { defineConfig } from "@playwright/test";
 
@@ -24,7 +25,11 @@ export default defineConfig({
   // keeps the suite reliable; it's still only ~2s/test.
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // CI runners are more resource-constrained than a dev machine — one retry
+  // absorbs the same kind of transient launch/resource hiccup workers: 1
+  // was added for above, without masking a genuinely broken test (a
+  // consistently-failing test still fails after its retry).
+  retries: process.env.CI ? 1 : 0,
   reporter: "list",
   use: {
     trace: "retain-on-failure",

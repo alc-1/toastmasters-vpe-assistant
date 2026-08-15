@@ -72,9 +72,11 @@ these.
 Background errors surface via the response returned to the popup (`{ ok: false, error }`), not the
 console — check `entrypoints/popup/main.ts`'s status line first when debugging a failed scrape.
 
-`.github/workflows/ci.yml` runs `test` then all 4 build combinations (store/preview × chrome/firefox)
-on every push/PR to `main` — a green run there is not a substitute for the manual walkthrough above,
-which is the only thing that exercises the real `browser.*` flows, **on both browsers** — Firefox's
+`.github/workflows/ci.yml` runs `test` (Vitest), then the store/Chrome build, then the Playwright
+`test:e2e` suite (see below) against that build, then the remaining 3 build combinations
+(store/preview × chrome/firefox) on every push/PR to `main` — a green run there is not a substitute
+for the manual walkthrough above, which is the only thing that exercises the real `browser.*` flows,
+**on both browsers** — Firefox's
 non-persistent MV2 background page has a similar but not necessarily identical idle-suspension model
 to Chrome's MV3 service worker, so don't assume a flow that works on Chrome automatically works on
 Firefox too, especially the EasySpeak scrape's multi-minute login-wait timeouts.
@@ -125,11 +127,16 @@ both import buttons on Sync Data — this hits the same `"demo"` profile short-c
 `shared/mock/mockData.ts`), so no real network/login/Cloudflare flow is ever involved, and results
 are deterministic. Currently covers the Sync Data → Export card flow (selector availability/auto-
 select + an actual file download) and a render/console-error smoke check on Report/Members/Club
-Review. **Local-only for now** — not wired into `.github/workflows/ci.yml`, so a failing/flaky e2e
-run never blocks a push/PR; don't assume CI gates on it. `playwright.config.ts` is deliberately
-standalone from `wxt.config.ts`/`vitest.config.ts`, same isolation reasoning as the `vitest.config.ts`
-bullet above, and `e2e/**/*.spec.ts` lives outside `tests/` so Vitest's own `include` glob never
-picks it up.
+Review. Wired into `.github/workflows/ci.yml`, right after the "Build (store, Chrome)" step (the
+exact `.output/store/chrome-mv3` this suite launches) — `npx playwright install --with-deps
+chromium` fetches the browser there, since CI starts from a clean runner every time. `playwright.config.ts`
+sets `workers: 1` unconditionally (launching several persistent extension contexts concurrently was
+observed to make one worker's browser process unresponsive — a real flake reproduced locally, not a
+hypothetical) plus `retries: 1` under `process.env.CI` only, as a safety margin for CI's more
+resource-constrained runners without masking a genuinely broken test. `playwright.config.ts` is
+deliberately standalone from `wxt.config.ts`/`vitest.config.ts`, same isolation reasoning as the
+`vitest.config.ts` bullet above, and `e2e/**/*.spec.ts` lives outside `tests/` so Vitest's own
+`include` glob never picks it up.
 
 ## Architecture
 
