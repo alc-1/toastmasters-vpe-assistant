@@ -113,6 +113,24 @@ Firefox too, especially the EasySpeak scrape's multi-minute login-wait timeouts.
   status page — all genuinely `browser.*`-dependent (tabs, scripting, storage) with no pure logic
   worth isolating.
 
+`npm run test:e2e` (Playwright, config in `playwright.config.ts`, specs in `e2e/`) drives a real
+**built** extension in a persistent Chromium context (`e2e/fixtures.ts`'s `context` fixture —
+`chromium.launchPersistentContext()` with `--load-extension=.output/store/chrome-mv3`), the same way
+a human tester loads it via "Load unpacked". Requires `npm run build` first (the fixture throws a
+clear error if `.output/store/chrome-mv3/manifest.json` is missing) and, once ever, `npx playwright
+install chromium` to fetch the browser binary — neither is run automatically. Every spec seeds data
+via `e2e/fixtures.ts`'s `seedDemoData()`: it drives Setup's "Try with demo data" card, then clicks
+both import buttons on Sync Data — this hits the same `"demo"` profile short-circuit in
+`background/api/basecamp.ts`/`background/api/easyspeak.ts` described above (see Architecture,
+`shared/mock/mockData.ts`), so no real network/login/Cloudflare flow is ever involved, and results
+are deterministic. Currently covers the Sync Data → Export card flow (selector availability/auto-
+select + an actual file download) and a render/console-error smoke check on Report/Members/Club
+Review. **Local-only for now** — not wired into `.github/workflows/ci.yml`, so a failing/flaky e2e
+run never blocks a push/PR; don't assume CI gates on it. `playwright.config.ts` is deliberately
+standalone from `wxt.config.ts`/`vitest.config.ts`, same isolation reasoning as the `vitest.config.ts`
+bullet above, and `e2e/**/*.spec.ts` lives outside `tests/` so Vitest's own `include` glob never
+picks it up.
+
 ## Architecture
 
 WXT imposes structure only on **entrypoints** — background, popup, and every other page/script

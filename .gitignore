@@ -3,3 +3,5 @@ node_modules/
 dist/
 .output/
 .wxt/
+test-results/
+playwright-report/
