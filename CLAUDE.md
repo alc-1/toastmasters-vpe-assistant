@@ -72,7 +72,8 @@ these.
 Background errors surface via the response returned to the popup (`{ ok: false, error }`), not the
 console — check `entrypoints/popup/main.ts`'s status line first when debugging a failed scrape.
 
-`.github/workflows/ci.yml` runs `test` (Vitest), then the store/Chrome build, then the Playwright
+`.github/workflows/ci.yml` runs `test` (Vitest), then `lint:css` (stylelint against
+`src/shared/styles.css` only — see below), then the store/Chrome build, then the Playwright
 `test:e2e` suite (see below) against that build, then the remaining 3 build combinations
 (store/preview × chrome/firefox) on every push/PR to `main` — a green run there is not a substitute
 for the manual walkthrough above, which is the only thing that exercises the real `browser.*` flows,
@@ -82,6 +83,15 @@ to Chrome's MV3 service worker, so don't assume a flow that works on Chrome auto
 Firefox too, especially the EasySpeak scrape's multi-minute login-wait timeouts.
 
 `npm run typecheck` (`tsc --noEmit`, no `wxt build`) is the fast way to check types alone.
+
+`npm run lint:css` (stylelint, config in `stylelint.config.js`) checks `src/shared/styles.css`
+only — per-page inline `<style>` blocks aren't covered (would need `postcss-html` syntax support,
+not added). `stylelint-config-standard`'s selector-naming/blank-line/color-notation opinions are
+disabled in that config, since they conflict with this file's established conventions (BEM `__`/`--`
+class names, declarations grouped without blank lines) rather than indicating an actual mistake —
+don't re-enable them without reformatting the file to match, and don't treat a clean `lint:css` run
+as a full CSS style-guide check, just a catch for genuine errors (typos, invalid values, unknown
+at-rules).
 
 `npm test` (Vitest) runs the real automated suite in `tests/`, against fixtures in `test-data/`:
 - `tests/easyspeak-parser.test.ts` exercises the pure, DOM-based HTML-parsing logic in
@@ -697,8 +707,8 @@ re-derived (and possibly un-derived) from names again.
   Level Summary" heading — deliberately club-scoped rather than global, so reviewing one club's tab
   never shows another club's numbers. `renderClubTabs()` separately prefixes a warning-sign icon
   (`warningIconHtml()`, `shared/dom-utils.ts` — shared with
-  `entrypoints/members/main.ts`, see below; each page defines its own `.warning-icon`/`.conflict-warning`
-  CSS) onto any club tab whose pair has no counterpart on the other side, and appends a
+  `entrypoints/members/main.ts`, see below; `.warning-icon`/`.conflict-warning` are defined once,
+  centrally, in `shared/styles.css`) onto any club tab whose pair has no counterpart on the other side, and appends a
   `.tab-count` badge (same convention as `entrypoints/members/main.ts`'s own tab badges) showing that club's
   `needsAction()` count (`shared/sync/delta.ts` — fuzzy suggestion, unmatched, or a path issue),
   shown only when > 0 — this tab-level badge/icon is a fast at-a-glance signal across *all* clubs,
@@ -850,7 +860,8 @@ re-derived (and possibly un-derived) from names again.
   `div.textContent` → `div.innerHTML` round-trip only entity-encodes what's needed for *text-node*
   content and does not escape a literal `"`, so it can't safely go inside a double-quoted attribute.
   Also `warningIconHtml(title)` — the shared warning-triangle SVG used by both `report.ts` and
-  `members.ts` (each page still owns its own `.warning-icon`/`.conflict-warning` CSS).
+  `members.ts` (`.warning-icon`/`.conflict-warning` are defined once, centrally, in
+  `shared/styles.css`, not per-page).
 
 When extending this codebase with a new data source, don't assume Basecamp's tab-less fetch pattern
 is the default template — check first whether the target site can be reached with a plain

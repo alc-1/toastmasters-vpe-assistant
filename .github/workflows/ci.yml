@@ -31,6 +31,9 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Lint CSS
+        run: npm run lint:css
+
       - name: Build (store, Chrome)
         run: npm run build
 

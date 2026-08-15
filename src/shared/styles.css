@@ -6,16 +6,15 @@
  * Vite dedupes it into one hashed dist/assets/*.css chunk shared across all
  * pages, the same way shared JS modules already are.
  *
- * The :root custom properties below are the original hand-written token
- * system and are mirrored 1:1 in tailwind.config.ts's theme.extend (colors/
- * fontSize/spacing/borderRadius) — component rules in @layer components
- * below use Tailwind's @apply against those same tokens rather than var()
- * directly, so this file stays the single source of truth for the palette
- * while Tailwind's utility classes become available for any new/one-off
- * markup. The custom properties themselves are kept (not just a build
- * artifact of the migration) because each page's own residual <style> block
- * for genuinely page-unique layout (popup's fixed width, report's <col>
- * widths, status pages' centered layout) still references them directly.
+ * The :root custom properties below are resolved from tailwind.config.ts's
+ * theme.extend (colors/fontSize/spacing/borderRadius) via Tailwind's theme()
+ * CSS function, rather than a second set of hand-written literals — that
+ * config is the single source of truth for every value; this block only
+ * exists so each page's own residual <style> block for genuinely page-unique
+ * layout (popup's fixed width, report's <col> widths, status pages' centered
+ * layout) can keep referencing plain var(--*) instead of needing @apply
+ * itself. Component rules in @layer components below use Tailwind's @apply
+ * directly against the same underlying config.
  *
  * Toastmasters brand system: Loyal Blue is the primary brand color and also
  * doubles as the "info" accent (badges/hovers that used to be True Maroon
@@ -28,12 +27,13 @@
  */
 
 :root {
-  /* Toastmasters brand — physical hex values */
-  --tm-navy: #004165; /* Loyal Blue */
-  --tm-navy-hover: #003654;
-  --tm-navy-active: #002e47;
-  --tm-silver: #a9b2b1; /* Cool Gray */
-  --tm-yellow: #f2df74; /* Happy Yellow — app-header__title only, nowhere else */
+  /* Toastmasters brand — resolved from tailwind.config.ts's navy/yellow/
+     silver color scales via theme(), not restated as literals. */
+  --tm-navy: theme("colors.navy.700"); /* Loyal Blue */
+  --tm-navy-hover: theme("colors.navy.800");
+  --tm-navy-active: theme("colors.navy.900");
+  --tm-silver: theme("colors.silver.DEFAULT"); /* Cool Gray */
+  --tm-yellow: theme("colors.yellow.accent"); /* Happy Yellow — app-header__title only, nowhere else */
 
   /* Semantic roles — component rules reference these, not the physical
      --tm-* variables directly, so a future re-theme only touches these. */
@@ -42,54 +42,54 @@
   --primary-active: var(--tm-navy-active);
 
   /* Semantic status colors — one solid + one pale-bg tint each. --warning's
-     solid value (#d97706, as specified) is too light for AA-safe small bold
-     text on its own tint, so --warning-text is a darkened variant used
-     specifically for badge/label text; --warning itself stays available for
-     larger accents/icons where that headroom doesn't matter. --success and
-     --danger are dark enough to double as their own text color. */
-  --success: #2e7d32;
-  --success-bg: #e6f4ea;
-  --warning: #d97706;
-  --warning-text: #92400e;
-  --warning-bg: #fef3e2;
-  --danger: #c62828;
-  --danger-bg: #fdecea;
+     solid value (theme("colors.warning.DEFAULT")) is too light for AA-safe
+     small bold text on its own tint, so --warning-text is a darkened variant
+     used specifically for badge/label text; --warning itself stays available
+     for larger accents/icons where that headroom doesn't matter. --success
+     and --danger are dark enough to double as their own text color. */
+  --success: theme("colors.success.DEFAULT");
+  --success-bg: theme("colors.success.bg");
+  --warning: theme("colors.warning.DEFAULT");
+  --warning-text: theme("colors.warning.text");
+  --warning-bg: theme("colors.warning.bg");
+  --danger: theme("colors.danger.DEFAULT");
+  --danger-bg: theme("colors.danger.bg");
   --info: var(--tm-navy);
-  --info-bg: #e3ecf3;
-  --disabled-bg: #aaaaaa;
+  --info-bg: theme("colors.info.bg");
+  --disabled-bg: theme("colors.disabled.DEFAULT");
 
   /* Surfaces (cards, page background, dividers) */
-  --surface: #ffffff;
-  --surface-alt: #f7f8fa;
-  --border: #e2e8f0;
+  --surface: theme("colors.surface.DEFAULT");
+  --surface-alt: theme("colors.surface.alt");
+  --border: theme("colors.border.DEFAULT");
 
   /* Text grays — not part of the brand palette above, still needed for
      body copy / muted text and kept separate from --border on purpose
      (a border color and a text color drifting apart independently is
      fine; collapsing them would just be coincidental). */
-  --gray-900: #222222; /* body text */
-  --gray-700: #444444; /* secondary-btn text, inactive tabs */
-  --gray-600: #666666; /* the one "muted but AA-readable" text color */
+  --gray-900: theme("colors.tm-gray.900"); /* body text */
+  --gray-700: theme("colors.tm-gray.700"); /* secondary-btn text, inactive tabs */
+  --gray-600: theme("colors.tm-gray.600"); /* the one "muted but AA-readable" text color */
 
-  --text-xs: 11px;
-  --text-sm: 12px;
-  --text-base: 13px;
-  --text-md: 15px;
-  --text-lg: 16px;
-  --text-xl: 20px;
+  --text-xs: theme("fontSize.xs");
+  --text-sm: theme("fontSize.sm");
+  --text-base: theme("fontSize.base");
+  --text-md: theme("fontSize.md");
+  --text-lg: theme("fontSize.lg");
+  --text-xl: theme("fontSize.xl");
 
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
+  --space-1: theme("spacing.space-1");
+  --space-2: theme("spacing.space-2");
+  --space-3: theme("spacing.space-3");
+  --space-4: theme("spacing.space-4");
+  --space-5: theme("spacing.space-5");
+  --space-6: theme("spacing.space-6");
 
-  --radius-sm: 4px; /* inputs */
-  --radius-md: 8px; /* buttons, boxes, banners, cards — the brand target */
-  --radius-pill: 999px; /* badges, chips, count badges */
+  --radius-sm: theme("borderRadius.sm"); /* inputs */
+  --radius-md: theme("borderRadius.md"); /* buttons, boxes, banners, cards — the brand target */
+  --radius-pill: theme("borderRadius.pill"); /* badges, chips, count badges */
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: theme("fontFamily.sans");
 }
 
 @tailwind base;
@@ -147,14 +147,20 @@
     text-align: center;
   }
 
+  /* The popup's own body sizing/spacing — distinct from every other page
+     (fixed width, no shared `body` padding above), so it gets its own
+     class rather than reusing .page--wide/--narrow/--status. */
+  .page--popup {
+    @apply w-[360px] m-0 p-3 bg-surface;
+  }
+
   /* Page title — was copy-pasted identically (bare `h1` selector) across
-     club-review/members/report's own inline <style> blocks; consolidated
-     here since it's the exact same rule .page-intro h1 already expresses
-     for sync-data/settings. Scoped to an explicit class rather than a bare
-     `h1` selector so it doesn't reach into pages that were never part of
-     that duplication and intentionally style their own h1 differently
-     (welcome's hero heading; basecamp-auth/easyspeak-done's
-     .confirmation-card h1). */
+     club-review/members/report/sync-data/settings' own markup; consolidated
+     into this one explicit class, applied via class="page-title" on every
+     page's <h1> now, rather than a bare `h1` selector, so it doesn't reach
+     into pages that were never part of that duplication and intentionally
+     style their own h1 differently (welcome's hero heading;
+     basecamp-auth/easyspeak-done's .confirmation-card h1). */
   .page-title {
     @apply text-xl;
     margin: 0 0 4px;
@@ -687,11 +693,6 @@
     margin-bottom: var(--space-5);
   }
 
-  .page-intro h1 {
-    @apply text-xl;
-    margin: 0 0 4px;
-  }
-
   .page-intro__desc {
     @apply text-md text-tm-gray-700;
     margin: 0;
@@ -791,6 +792,13 @@
   .sync-card__details summary {
     @apply text-tm-gray-600;
     cursor: pointer;
+  }
+
+  /* Raw-JSON <pre> block under each source's "View details" — one shared
+     class instead of pasting the same utility cluster on both sources'
+     <pre> elements. */
+  .raw-data {
+    @apply max-h-[220px] overflow-auto bg-surface-alt p-1.5 text-[10px];
   }
 
   /* De-emphasized "Re-import data" action shown once a source already has
@@ -1280,6 +1288,137 @@
 
   .confirmation-card button {
     margin-top: 10px;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Welcome page: first-run tab, toolbar-pin walkthrough                   */
+  /* ---------------------------------------------------------------------- */
+
+  .welcome-card {
+    @apply bg-surface border border-border rounded-md;
+    padding: var(--space-6) var(--space-5);
+    margin-top: var(--space-5);
+  }
+
+  .welcome-intro {
+    @apply text-md text-tm-gray-700;
+    margin: 0 0 var(--space-5);
+    line-height: 1.5;
+  }
+
+  .pin-guide {
+    display: flex;
+    gap: var(--space-5);
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: var(--space-5);
+  }
+
+  .pin-guide__mockup {
+    flex: 0 0 240px;
+  }
+
+  .pin-guide__steps {
+    margin: 0;
+    padding-left: 20px;
+    flex: 1 1 260px;
+  }
+
+  .pin-guide__steps li {
+    @apply text-tm-gray-900;
+    margin-bottom: var(--space-3);
+  }
+
+  .pin-guide__steps li:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Browser-toolbar mockup — decorative only, just enough resemblance to
+     point at the real puzzle-piece icon Chrome uses for unpinned
+     extensions. */
+  .toolbar-mock {
+    @apply bg-surface-alt border border-border rounded-md;
+    padding: var(--space-2) var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .toolbar-mock__address {
+    @apply bg-surface border border-border rounded-pill;
+    flex: 1;
+    height: 18px;
+  }
+
+  .toolbar-mock__avatar {
+    @apply bg-silver;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+  }
+
+  .toolbar-mock__icon {
+    @apply bg-info-bg text-navy-700 rounded-sm;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+  }
+
+  .callout-badge {
+    @apply bg-navy-700 text-xs text-white;
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+  }
+
+  .dropdown-mock {
+    @apply bg-surface border border-border rounded-md;
+    margin-top: var(--space-2);
+    padding: var(--space-2);
+  }
+
+  .dropdown-mock__row {
+    @apply bg-surface-alt text-sm rounded-sm;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
+  }
+
+  .dropdown-mock__logo {
+    @apply rounded-sm;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+  }
+
+  .dropdown-mock__name {
+    @apply text-tm-gray-900;
+    flex: 1;
+  }
+
+  .dropdown-mock__pin {
+    @apply text-navy-700;
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+  }
+
+  .welcome-actions {
+    display: flex;
+    justify-content: flex-end;
   }
 }
 

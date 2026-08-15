@@ -1,13 +1,19 @@
 import type { Config } from "tailwindcss";
+import { sharedColors } from "./tailwind-tokens.js";
 
-// Design tokens ported from src/shared/styles.css's `:root` block (the
-// hand-written custom-property system this file replaces). Colors that
-// already exist in landing/tailwind.config.js (a separate, unrelated Vite+
-// React build) reuse the exact same hex values on purpose, so the extension
-// and the marketing site never visually drift apart — but this config is
-// NOT copied wholesale from there: landing/'s config is missing --info/
-// --info-bg, --disabled-bg, --border, and the three text-gray steps, all of
-// which this app's component classes (badges, buttons, borders) depend on.
+// The single source of truth for every design-token value in this app.
+// src/shared/styles.css's `:root` block resolves its custom properties from
+// here via Tailwind's theme() CSS function rather than restating literals,
+// so per-page <style> blocks that still consume var(--*) directly stay in
+// sync automatically. The brand color palette itself (navy/yellow/silver/
+// surface/success/warning/danger) lives in ./tailwind-tokens.js, shared with
+// landing/tailwind.config.js (a separate, unrelated Vite+React build), so
+// the extension and the marketing site never hand-copy the same hex values
+// independently — but this config layers its own extras on top that
+// tailwind-tokens.js does NOT cover: --info/--info-bg, --disabled-bg,
+// --border, and the three text-gray steps, all of which this app's
+// component classes (badges, buttons, borders) depend on and landing has no
+// use for.
 //
 // tm-gray is intentionally namespaced rather than extending Tailwind's own
 // `gray` scale: overriding only 3 of Tailwind's default gray steps (900/700/
@@ -34,46 +40,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy: {
-          50: "#eef5f9",
-          100: "#d9e9f1",
-          200: "#b3d3e3",
-          300: "#85b6cf",
-          400: "#4f92b3",
-          500: "#2a7297",
-          600: "#0f5a82",
-          700: "#004165", // --tm-navy / --primary
-          800: "#003654", // --tm-navy-hover / --primary-hover
-          900: "#002e47", // --tm-navy-active / --primary-active
-          950: "#001a29",
-        },
-        yellow: {
-          accent: "#f2df74", // --tm-yellow — app-header__title only, nowhere else
-          "accent-hover": "#ecd257",
-        },
-        silver: {
-          DEFAULT: "#a9b2b1", // --tm-silver
-          light: "#e2e8f0",
-        },
-        surface: {
-          DEFAULT: "#ffffff", // --surface
-          alt: "#f7f8fa", // --surface-alt
-        },
+        ...sharedColors,
         border: {
           DEFAULT: "#e2e8f0", // --border — a distinct semantic token from silver.light despite the shared hex
-        },
-        success: {
-          DEFAULT: "#2e7d32", // --success
-          bg: "#e6f4ea", // --success-bg
-        },
-        warning: {
-          DEFAULT: "#d97706", // --warning
-          text: "#92400e", // --warning-text — darkened variant for AA-safe small bold text on --warning-bg
-          bg: "#fef3e2", // --warning-bg
-        },
-        danger: {
-          DEFAULT: "#c62828", // --danger
-          bg: "#fdecea", // --danger-bg
         },
         info: {
           DEFAULT: "#004165", // --info (alias of navy-700 in the old token system)
