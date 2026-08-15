@@ -26,7 +26,7 @@
 // the same per-step info line (e.g. "12 clubs followed") shown under each
 // step's label, so both steppers surface identical information.
 
-import { documentIconHtml, escapeHtml, warningIconHtml } from "./dom-utils";
+import { documentIconHtml, escapeHtml, settingsIconHtml, warningIconHtml } from "./dom-utils";
 
 export type AppShellPage = "report" | "members" | "settings" | "syncData" | "clubReview";
 
@@ -115,15 +115,22 @@ function visibleInfo(meta: StepMeta | undefined): string | undefined {
 }
 
 export interface AppShellOptions {
-  active: AppShellPage;
+  /** `null` for the Global Settings page — it isn't one of the five wizard
+   *  steps, so no step should render as "active" there (see `settingsActive`
+   *  below for how that page highlights itself instead). */
+  active: AppShellPage | null;
   /** Omit while the info is still loading — steps render without their info
    *  line rather than with a placeholder. */
   info?: StepperInfo;
+  /** True only on the Global Settings page itself, to highlight the header
+   *  gear icon the same way a wizard step highlights its own circle when
+   *  active. */
+  settingsActive?: boolean;
 }
 
-export function renderAppShell({ active, info }: AppShellOptions): string {
+export function renderAppShell({ active, info, settingsActive }: AppShellOptions): string {
   const stepsHtml = NAV_ITEMS.map((item, index) => {
-    const isActive = item.key === active;
+    const isActive = active !== null && item.key === active;
     const meta = info?.[item.key];
     const infoText = visibleInfo(meta);
     const body = `
@@ -149,6 +156,7 @@ export function renderAppShell({ active, info }: AppShellOptions): string {
           <div class="app-header__subtitle">${GOAL_SUBTITLE}</div>
         </div>
       </div>
+      <a href="global-settings.html" class="app-header__settings-btn${settingsActive ? " active" : ""}" title="Global Settings" aria-label="Global Settings">${settingsIconHtml()}</a>
     </header>
     <nav class="app-stepper" aria-label="Primary">${stepsHtml}</nav>
   `;

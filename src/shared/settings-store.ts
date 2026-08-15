@@ -88,3 +88,18 @@ export async function getEasySpeakServer(): Promise<EasySpeakServerId> {
   const profileId = await resolveActiveProfile();
   return profileId === "demo" ? DEFAULT_EASYSPEAK_SERVER : profileId;
 }
+
+/**
+ * Global on/off switch (Global Settings page, reached via the header gear
+ * icon — see shared/app-shell.ts) for replacing real member/club names with
+ * generic "Member N"/"Club N" labels (see shared/anonymize.ts) across Club
+ * Progress, the Excel export, and the Sync Data raw-scrape preview. Not
+ * profile-scoped (see LocalSchema.anonymizeMode) and defaults to off.
+ */
+export async function getAnonymizeMode(): Promise<boolean> {
+  return (await local.value("anonymizeMode")) ?? false;
+}
+
+export async function setAnonymizeMode(value: boolean): Promise<void> {
+  await local.set({ anonymizeMode: value });
+}

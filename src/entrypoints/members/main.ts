@@ -34,6 +34,7 @@ import {
 import { buildReport, classifyMember, memberKey, needsAction } from "../../shared/sync/delta";
 import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
+import { getAnonymizeMode } from "../../shared/settings-store";
 import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport, PathReport } from "../../shared/types";
 
 interface FilterDef {
@@ -92,6 +93,21 @@ async function init() {
   const stepperInfo = await computeStepperInfo();
   document.getElementById("appShell")!.innerHTML = renderAppShell({ active: "members", info: stepperInfo });
   document.getElementById("stepFooter")!.innerHTML = renderStepFooter("members", stepperInfo);
+
+  // Anonymize Mode replaces every real name with a generic label, so
+  // name-based matching (this page's whole purpose) can't be done while it's
+  // on — the stepper's own `disabled` (shared/stepper-info.ts) only blocks
+  // *navigating* here; a direct URL/bookmark still lands on this page, so it
+  // needs its own guard too.
+  if (await getAnonymizeMode()) {
+    document.getElementById("conflictWarning")!.innerHTML = "";
+    document.getElementById("clubTabs")!.innerHTML = "";
+    document.getElementById("filterChips")!.innerHTML = "";
+    document.getElementById("membersRoot")!.innerHTML =
+      '<p class="empty-state">Member Review is unavailable while Anonymize Mode is on. ' +
+      '<a href="global-settings.html">Turn it off in Global Settings</a> to review member matches.</p>';
+    return;
+  }
 
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 

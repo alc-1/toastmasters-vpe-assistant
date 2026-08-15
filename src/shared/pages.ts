@@ -16,6 +16,7 @@ export const PAGES = {
   settings: "settings.html",
   syncData: "sync-data.html",
   clubReview: "club-review.html",
+  globalSettings: "global-settings.html",
   basecampAuth: "basecamp-auth.html",
   easyspeakDone: "easyspeak-done.html",
   welcome: "welcome.html",

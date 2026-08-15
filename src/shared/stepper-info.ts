@@ -6,7 +6,7 @@
 // to duplicate the storage reads + buildReport() call this requires.
 
 import { loadResolutionData } from "./resolution-store";
-import { EASYSPEAK_SERVERS, getActiveProfile, getEasySpeakServer, getMockMode } from "./settings-store";
+import { EASYSPEAK_SERVERS, getActiveProfile, getAnonymizeMode, getEasySpeakServer, getMockMode } from "./settings-store";
 import { local } from "./storage";
 import { buildReport, computeMatchSummary, countMembersReadyForNextLevel } from "./sync/delta";
 import { NAV_ITEMS, type AppShellPage, type StepperInfo } from "./app-shell";
@@ -33,10 +33,11 @@ export async function markStepVisited(step: AppShellPage): Promise<void> {
 }
 
 export async function computeStepperInfo(): Promise<StepperInfo> {
-  const [activeProfile, cached, visited] = await Promise.all([
+  const [activeProfile, cached, visited, anonymize] = await Promise.all([
     getActiveProfile(),
     local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]),
     getVisitedSteps(),
+    getAnonymizeMode(),
   ]);
 
   // Index 0 (settings/Setup) is never locked — it's the entry point, reached
@@ -51,7 +52,11 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
   const hasBothData = !!basecampData && !!easyspeakData;
 
   const syncDisabled = noProfile;
-  const clubReviewDisabled = noProfile || !hasBothData;
+  // Anonymize Mode (see shared/anonymize.ts) replaces every real name with a
+  // generic label, so name-based matching (this page's whole purpose) can't
+  // be done while it's on — see Global Settings (shared/pages.ts's
+  // PAGES.globalSettings).
+  const clubReviewDisabled = noProfile || !hasBothData || anonymize;
 
   let clubReviewPending = false;
   let reportInfo: ReportStepInfo | null = null;
@@ -66,8 +71,12 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
     reportInfo = computeReportInfo(report);
   }
 
-  const membersDisabled = noProfile || !hasBothData || clubReviewPending;
-  const reportDisabled = membersDisabled;
+  // reportDisabled deliberately keeps the pre-Anonymize-Mode formula (NOT
+  // gated on `anonymize`) — Club Progress must stay reachable while
+  // Anonymize Mode is on, that's the entire point of the feature. Only
+  // Member Review additionally requires it to be off.
+  const reportDisabled = noProfile || !hasBothData || clubReviewPending;
+  const membersDisabled = reportDisabled || anonymize;
 
   const clubReviewDone = hasBothData && !clubReviewPending;
   const membersPending = (reportInfo?.toReview ?? 0) > 0;

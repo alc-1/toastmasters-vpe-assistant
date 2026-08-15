@@ -85,6 +85,12 @@ export interface LocalSchema {
   // which club/region data is active.
   updateCheck: UpdateCheckInfo;
   updateDismissedVersion: string;
+  // Not profile-scoped, deliberately, same reasoning as lastEasySpeakRegion
+  // above: a display preference (whether Club Progress/export/raw-preview
+  // show real names or generic labels), not "data" — it must survive
+  // switching profiles. See shared/settings-store.ts's getAnonymizeMode()/
+  // setAnonymizeMode() and shared/anonymize.ts.
+  anonymizeMode: boolean;
 }
 
 export interface SessionSchema {

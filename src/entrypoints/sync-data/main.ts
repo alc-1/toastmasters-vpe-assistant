@@ -10,6 +10,7 @@ import { local, session } from "../../shared/storage";
 import { sendMessage } from "../../shared/send-message";
 import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
+import { getAnonymizeMode } from "../../shared/settings-store";
 import {
   bindSourceEls,
   loadMatchSummary,
@@ -21,7 +22,7 @@ import { countBasecampMembers, countEasySpeakMembers } from "../../shared/sync/d
 import { exportToExcel } from "../../shared/export/export-to-excel";
 import { EXPORT_TYPE_LABEL, type ExportType } from "../../shared/export/rows";
 import { escapeHtml } from "../../shared/dom-utils";
-import type { BasecampScrape, EasySpeakScrape } from "../../shared/types";
+import type { BasecampScrape, EasySpeakScrape, SourceKey } from "../../shared/types";
 
 type BadgeTone = "danger" | "pending" | "success";
 
@@ -56,11 +57,12 @@ let importActionOccurred = false;
 // never replaced by rendering, so re-attaching here would stack listeners.
 basecampEls.btn.addEventListener("click", async () => {
   setBadge(badgeBasecamp, "pending");
+  const anonymize = await getAnonymizeMode();
   await onScrapeClick<BasecampScrape>({
     els: basecampEls,
     message: { type: "SCRAPE_BASECAMP" },
     loadingLabel: "Importing…",
-    render: renderScrapeResult,
+    render: (els, data) => renderScrapeResult(els, data, "basecamp", anonymize),
   });
   importActionOccurred = true;
   await refresh();
@@ -68,11 +70,12 @@ basecampEls.btn.addEventListener("click", async () => {
 
 easyspeakEls.btn.addEventListener("click", async () => {
   setBadge(badgeEasySpeak, "pending");
+  const anonymize = await getAnonymizeMode();
   await onScrapeClick<EasySpeakScrape>({
     els: easyspeakEls,
     message: { type: "SCRAPE_EASYSPEAK" },
     loadingLabel: "Importing…",
-    render: renderScrapeResult,
+    render: (els, data) => renderScrapeResult(els, data, "easyspeak", anonymize),
   });
   importActionOccurred = true;
   await refresh();
@@ -247,8 +250,10 @@ async function refresh() {
   const basecampLoading = statuses.basecamp === "loading" && !cached.basecampData;
   const easyspeakLoading = statuses.easyspeak === "loading" && !cached.easyspeakData;
 
-  renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, basecampLoading, countBasecampMembers);
-  renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, easyspeakLoading, countEasySpeakMembers);
+  const anonymize = await getAnonymizeMode();
+  renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, basecampLoading, countBasecampMembers, "basecamp", anonymize);
+  renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, easyspeakLoading, countEasySpeakMembers, "easyspeak", anonymize);
+  document.getElementById("anonymizeExportNotice")!.textContent = anonymize ? "Anonymize Mode is on — this export will use anonymized names." : "";
   await renderProgress();
 
   const exportAvailability = computeExportAvailability(cached.basecampData ?? null, cached.easyspeakData ?? null);
@@ -315,7 +320,9 @@ function renderSourceCard<T extends BasecampScrape | EasySpeakScrape>(
   data: T | null,
   scrapedAt: number | undefined,
   isLoading: boolean,
-  countMembers: (data: T) => number
+  countMembers: (data: T) => number,
+  source: SourceKey,
+  anonymize: boolean
 ) {
   if (isLoading) {
     setBadge(badge, "pending");
@@ -343,7 +350,7 @@ function renderSourceCard<T extends BasecampScrape | EasySpeakScrape>(
     `;
     els.status.textContent = "";
     details.hidden = false;
-    renderScrapeResult(els, data);
+    renderScrapeResult(els, data, source, anonymize);
   } else {
     setBadge(badge, "danger");
     els.btn.className = "btn btn-primary sync-card__action";

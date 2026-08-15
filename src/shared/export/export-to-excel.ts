@@ -10,7 +10,8 @@
 
 import { local } from "../storage";
 import { loadResolutionData } from "../resolution-store";
-import { getActiveProfile, EASYSPEAK_SERVERS } from "../settings-store";
+import { getActiveProfile, getAnonymizeMode, EASYSPEAK_SERVERS } from "../settings-store";
+import { anonymizeBasecampScrape, anonymizeEasySpeakScrape, anonymizeReport, buildAnonymizationMaps } from "../anonymize";
 import { buildReport } from "../sync/delta";
 import { buildExportSheets, type ExportType } from "./rows";
 import { buildExportWorkbook } from "./workbook";
@@ -19,9 +20,10 @@ import type { ProfileId } from "../types";
 
 export const EXPORT_SCHEMA_VERSION = "1";
 
-export function buildExportFilename(exportType: ExportType, now: Date = new Date()): string {
+export function buildExportFilename(exportType: ExportType, now: Date = new Date(), anonymize = false): string {
   const iso = now.toISOString().slice(0, 10); // YYYY-MM-DD
-  return `toastmasters-export-${exportType}-${iso}.xlsx`;
+  const suffix = anonymize ? "-anonymized" : "";
+  return `toastmasters-export-${exportType}${suffix}-${iso}.xlsx`;
 }
 
 export interface ExportSummary {
@@ -45,16 +47,28 @@ function formatProfileLabel(profileId: ProfileId | null): string {
  */
 export async function exportToExcel(exportType: ExportType): Promise<ExportSummary> {
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
-  const basecampData = cached.basecampData ?? {};
-  const easyspeakData = cached.easyspeakData ?? {};
+  let basecampData = cached.basecampData ?? {};
+  let easyspeakData = cached.easyspeakData ?? {};
 
   const resolution = await loadResolutionData();
-  const report = buildReport(
+  let report = buildReport(
     basecampData,
     easyspeakData,
     { basecampScrapedAt: cached.basecampScrapedAt, easyspeakScrapedAt: cached.easyspeakScrapedAt },
     resolution
   );
+
+  // Anonymize Mode (shared/settings-store.ts) — replace the report and the
+  // raw scrape objects with anonymized versions, all keyed off the same maps
+  // so a person/club reads identically across every sheet (see
+  // shared/anonymize.ts).
+  const anonymize = await getAnonymizeMode();
+  if (anonymize) {
+    const maps = buildAnonymizationMaps(report);
+    report = anonymizeReport(report, maps);
+    basecampData = anonymizeBasecampScrape(basecampData, maps);
+    easyspeakData = anonymizeEasySpeakScrape(easyspeakData, maps);
+  }
 
   const activeProfile = await getActiveProfile();
   const extensionVersion = browser.runtime.getManifest().version;
@@ -78,7 +92,7 @@ export async function exportToExcel(exportType: ExportType): Promise<ExportSumma
   const workbook = buildExportWorkbook(sheets);
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const filename = buildExportFilename(exportType);
+  const filename = buildExportFilename(exportType, new Date(), anonymize);
   await downloadBlob(blob, filename);
 
   return {

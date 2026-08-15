@@ -19,8 +19,9 @@ import { escapeHtml } from "./dom-utils";
 import { local } from "./storage";
 import { sendMessage } from "./send-message";
 import { loadResolutionData } from "./resolution-store";
+import { anonymizeBasecampScrape, anonymizeEasySpeakScrape } from "./anonymize";
 import { buildReport, computeMatchSummary, type MatchSummary } from "./sync/delta";
-import type { BasecampScrape, EasySpeakScrape } from "./types";
+import type { BasecampScrape, EasySpeakScrape, SourceKey } from "./types";
 
 export type ScrapeRequest = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSPEAK" };
 
@@ -65,18 +66,34 @@ export function setButtonLoading(els: SourceEls, isLoading: boolean, loadingLabe
   els.btn.textContent = isLoading ? loadingLabel : els.idleLabel;
 }
 
-export function renderScrapeResult(els: SourceEls, data: BasecampScrape | EasySpeakScrape) {
-  const clubCount = Object.keys(data).length;
-  const totalMembers = Object.values(data).reduce((sum, club) => sum + club.members.length, 0);
+// `anonymize` runs `data` through the standalone (no ReportResult/`maps`)
+// form of shared/anonymize.ts's scrape anonymizers — this is a single
+// just-scraped source, with no matched report to derive cross-source labels
+// from yet, so it self-numbers from its own club/member order instead. Those
+// labels aren't guaranteed to match Club Progress/export's numbering for the
+// same person, an accepted simplification for this low-stakes "did the
+// scrape work" debug view (see shared/anonymize.ts's own doc comment). `source`
+// picks which of the two structurally-different anonymizers applies
+// (BasecampScrape/EasySpeakScrape aren't distinguishable at runtime by shape
+// alone once a club has zero members) — same SourceKey tag callers already
+// have on hand (it's what picked SCRAPE_BASECAMP vs. SCRAPE_EASYSPEAK).
+export function renderScrapeResult(els: SourceEls, data: BasecampScrape | EasySpeakScrape, source: SourceKey, anonymize: boolean) {
+  const displayData = anonymize
+    ? source === "basecamp"
+      ? anonymizeBasecampScrape(data as BasecampScrape)
+      : anonymizeEasySpeakScrape(data as EasySpeakScrape)
+    : data;
+  const clubCount = Object.keys(displayData).length;
+  const totalMembers = Object.values(displayData).reduce((sum, club) => sum + club.members.length, 0);
 
   let html = `<table><tr><th>Club</th><th>Entries (member x path)</th></tr>`;
-  for (const club of Object.values(data)) {
+  for (const club of Object.values(displayData)) {
     html += `<tr><td>${escapeHtml(club.name)}</td><td>${club.members.length}</td></tr>`;
   }
   html += `</table><p>${clubCount} club(s), ${totalMembers} entries total.</p>`;
   els.summary.innerHTML = html;
 
-  els.rawData.textContent = JSON.stringify(data, null, 2);
+  els.rawData.textContent = JSON.stringify(displayData, null, 2);
 }
 
 interface ScrapeClickOptions<T> {

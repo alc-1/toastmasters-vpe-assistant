@@ -219,6 +219,9 @@
     @apply bg-navy-700 rounded-md;
     color: #ffffff;
     margin-bottom: var(--space-3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .app-header__brand {
@@ -226,6 +229,47 @@
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-4);
+    min-width: 0;
+  }
+
+  /* Header gear icon linking to the Global Settings page (shared/pages.ts's
+     PAGES.globalSettings) — reached from every wizard page + the popup, not
+     part of the stepper below. */
+  .app-header__settings-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin-right: var(--space-4);
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.75);
+    flex-shrink: 0;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    /* Reset — used both as an <a> (options pages) and a <button> (popup, see
+       entrypoints/popup/index.html). */
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .app-header__settings-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+  }
+
+  .app-header__settings-btn.active {
+    @apply text-yellow-accent;
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .settings-icon {
+    display: flex;
+  }
+
+  .settings-icon svg {
+    display: block;
   }
 
   .app-header__logo {
@@ -502,6 +546,22 @@
 
   .card-body > .help-text:last-child {
     margin-bottom: 0;
+  }
+
+  /* Global Settings' Anonymize Mode toggle — a plain checkbox + label row,
+     the one checkbox-style control in the extension so far. */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: var(--space-2);
+  }
+
+  .toggle-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
   }
 
   /* ---------------------------------------------------------------------- */

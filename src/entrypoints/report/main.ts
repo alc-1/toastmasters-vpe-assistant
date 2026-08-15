@@ -9,6 +9,8 @@
 import { approvedCheckIconHtml, escapeAttr, escapeHtml, warningIconHtml } from "../../shared/dom-utils";
 import { local } from "../../shared/storage";
 import { loadResolutionData } from "../../shared/resolution-store";
+import { getAnonymizeMode } from "../../shared/settings-store";
+import { buildAnonymizationMaps, anonymizeReport } from "../../shared/anonymize";
 import { buildLevelSummary, buildReport, compareLevelSummaryRows, isMemberReadyForNextLevel, memberKey, needsAction } from "../../shared/sync/delta";
 import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
@@ -39,6 +41,7 @@ async function refresh() {
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 
   if (!cached.basecampData || !cached.easyspeakData) {
+    document.getElementById("anonymizeIndicator")!.textContent = "";
     document.getElementById("conflictWarning")!.innerHTML = "";
     document.getElementById("kpiRoot")!.innerHTML = "";
     document.getElementById("clubTabs")!.innerHTML = "";
@@ -54,7 +57,7 @@ async function refresh() {
   // required, not optional — otherwise this page's Level Summary would
   // silently diverge from what the Member Review view shows.
   const resolution = await loadResolutionData();
-  const report = buildReport(
+  let report = buildReport(
     cached.basecampData,
     cached.easyspeakData,
     { basecampScrapedAt: cached.basecampScrapedAt, easyspeakScrapedAt: cached.easyspeakScrapedAt },
@@ -64,6 +67,16 @@ async function refresh() {
     // The Members view is where fuzzy suggestions actually get resolved.
     { ...resolution, allowFuzzyMemberMatches: false }
   );
+
+  // Applied once, right here — everything downstream (buildLevelSummary(),
+  // clubSections, activeMembers) just consumes whatever ReportResult it's
+  // handed, so no other function needs to know about Anonymize Mode. See
+  // shared/anonymize.ts.
+  const anonymize = await getAnonymizeMode();
+  if (anonymize) report = anonymizeReport(report, buildAnonymizationMaps(report));
+  document.getElementById("anonymizeIndicator")!.innerHTML = anonymize
+    ? '<span class="badge badge-pending" title="Turn off in Global Settings to see real names">Anonymized</span>'
+    : "";
 
   // Zipped by index: buildLevelSummary(report) produces one group per
   // report.clubPairs entry, in the same order, so a tab can drive both the
