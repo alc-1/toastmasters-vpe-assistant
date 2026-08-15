@@ -681,6 +681,43 @@ body {
   margin: 0;
 }
 
+.page-intro--with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.export-popover-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.export-menu-btn__caret {
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.export-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  z-index: 20;
+  width: 300px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
+  padding: var(--space-4);
+}
+
+.export-popover__title {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--gray-900);
+  margin-bottom: var(--space-2);
+}
+
 .sync-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

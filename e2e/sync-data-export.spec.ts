@@ -10,6 +10,7 @@ test("Export card auto-selects All data, and lets you switch + download", async 
   await seedDemoData(page, pageUrl);
 
   await page.goto(pageUrl(PAGES.syncData));
+  await page.locator("#exportMenuBtn").click();
 
   const options = page.locator("#exportOptionsRoot .option-card");
   await expect(options).toHaveCount(3);
@@ -49,6 +50,7 @@ test("upgrades the automatic fallback pick to All data once it becomes available
   await page.goto(pageUrl(PAGES.settings));
   await page.locator(".option-card", { hasText: "Try with demo data" }).click();
   await page.goto(pageUrl(PAGES.syncData));
+  await page.locator("#exportMenuBtn").click();
 
   const options = page.locator("#exportOptionsRoot .option-card");
   const allOption = options.filter({ hasText: "All data" });
@@ -73,6 +75,7 @@ test("upgrades the automatic fallback pick to All data once it becomes available
 test("does not override a manual pick on a later refresh", async ({ page, pageUrl }) => {
   await seedDemoData(page, pageUrl);
   await page.goto(pageUrl(PAGES.syncData));
+  await page.locator("#exportMenuBtn").click();
 
   const options = page.locator("#exportOptionsRoot .option-card");
   const allOption = options.filter({ hasText: "All data" });

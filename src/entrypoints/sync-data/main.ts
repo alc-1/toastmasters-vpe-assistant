@@ -82,6 +82,27 @@ const exportBtn = document.getElementById("exportExcelBtn") as HTMLButtonElement
 const statusExport = document.getElementById("statusExport")!;
 const exportIdleLabel = exportBtn.textContent ?? "";
 
+const exportMenuBtn = document.getElementById("exportMenuBtn") as HTMLButtonElement;
+const exportPopover = document.getElementById("exportPopover")!;
+
+exportMenuBtn.addEventListener("click", () => {
+  const isOpen = !exportPopover.hidden;
+  exportPopover.hidden = isOpen;
+  exportMenuBtn.setAttribute("aria-expanded", String(!isOpen));
+});
+
+// Attached once, at module load (same convention as the scrape button
+// listeners above). Closes the popover on a click anywhere outside it —
+// deliberately not on clicking "Export to Excel" itself, so the inline
+// #statusExport success/error message it renders stays visible.
+document.addEventListener("mousedown", (e) => {
+  if (exportPopover.hidden) return;
+  const target = e.target as Node;
+  if (exportPopover.contains(target) || exportMenuBtn.contains(target)) return;
+  exportPopover.hidden = true;
+  exportMenuBtn.setAttribute("aria-expanded", "false");
+});
+
 // Which export type is currently selected in the Export card's radio-style
 // selector. null only while neither Basecamp nor EasySpeak data is loaded
 // yet (nothing to export). Persists across refresh() calls so a manual pick

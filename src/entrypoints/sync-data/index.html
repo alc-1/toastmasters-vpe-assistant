@@ -39,9 +39,24 @@
 <body class="page--wide">
   <div id="appShell"></div>
 
-  <div class="page-intro">
-    <h1>Sync Data</h1>
-    <p class="page-intro__desc">Import your club data from Basecamp and EasySpeak before continuing to the review steps.</p>
+  <div class="page-intro page-intro--with-actions">
+    <div class="page-intro__text">
+      <h1>Sync Data</h1>
+      <p class="page-intro__desc">Import your club data from Basecamp and EasySpeak before continuing to the review steps.</p>
+    </div>
+    <div class="export-popover-wrapper">
+      <button id="exportMenuBtn" class="btn btn-secondary export-menu-btn" type="button"
+              aria-haspopup="true" aria-expanded="false" aria-controls="exportPopover">
+        Export <span class="export-menu-btn__caret" aria-hidden="true">▾</span>
+      </button>
+      <div id="exportPopover" class="export-popover" role="menu" hidden>
+        <div class="export-popover__title">Download Workbook</div>
+        <p class="help-text">Download your data as an Excel workbook.</p>
+        <div id="exportOptionsRoot" class="export-options"></div>
+        <button id="exportExcelBtn" class="btn btn-primary sync-card__action" disabled>Export to Excel</button>
+        <p id="statusExport" class="sync-card__status-text help-text" aria-live="polite"></p>
+      </div>
+    </div>
   </div>
 
   <div class="sync-cards">
@@ -78,18 +93,6 @@
           <div id="summaryEasySpeak" class="summary"></div>
           <pre id="rawDataEasySpeak"></pre>
         </details>
-      </div>
-    </div>
-
-    <div class="card sync-card">
-      <div class="card-header sync-card__header">
-        <span class="sync-card__title">Export data</span>
-      </div>
-      <div class="card-body sync-card__body">
-        <p class="help-text">Download your data as an Excel workbook.</p>
-        <div id="exportOptionsRoot" class="export-options"></div>
-        <button id="exportExcelBtn" class="btn btn-primary sync-card__action" disabled>Export to Excel</button>
-        <p id="statusExport" class="sync-card__status-text help-text" aria-live="polite"></p>
       </div>
     </div>
   </div>
