@@ -36,8 +36,9 @@ export type AppShellPage = "report" | "members" | "setup" | "syncData" | "clubRe
 // horizontal one instead of maintaining its own copy — href values are hash
 // fragments (e.g. "#setup") resolved by entrypoints/app/router.ts within
 // the single merged app.html, which is meaningless from the popup; the
-// popup resolves navigation itself via shared/app-tab.ts's
-// focusOrOpenAppTab() instead of these hrefs.
+// popup instead opens each step in a new tab directly via
+// browser.tabs.create()/shared/pages.ts's appRouteUrl(), ignoring these
+// hrefs entirely.
 export const NAV_ITEMS: { key: AppShellPage; label: string; href: string; nextCta?: string }[] = [
   { key: "setup", label: "Setup", href: "#setup" },
   { key: "syncData", label: "Sync Data", href: "#syncData" },
@@ -198,12 +199,12 @@ export function renderStepFooter(active: AppShellPage, info?: StepperInfo): stri
 
 /**
  * The popup's vertical stepper. Unlike renderAppShell()'s links (in-page
- * hash-fragment navigation within the merged app), a popup click must
- * focus/open a tab instead of navigating the popup document itself — so
- * steps are rendered as inert `href="#"` anchors tagged `data-page-key`, and
- * the caller (entrypoints/popup/main.ts) wires up the actual
- * focus-or-open-tab click handling via shared/app-tab.ts, which this
- * browser.*-free file must not import directly.
+ * hash-fragment navigation within the merged app), a popup click must open a
+ * tab instead of navigating the popup document itself — so steps are
+ * rendered as inert `href="#"` anchors tagged `data-page-key`, and the
+ * caller (entrypoints/popup/main.ts) wires up the actual
+ * browser.tabs.create() click handling, which this browser.*-free file must
+ * not do directly.
  */
 export function renderVerticalStepper(info: StepperInfo): string {
   const stepsHtml = NAV_ITEMS.map((item, index) => {

@@ -11,7 +11,7 @@
 
 import { renderVerticalStepper, type AppShellPage } from "../../shared/app-shell";
 import { escapeHtml, settingsIconHtml } from "../../shared/dom-utils";
-import { focusOrOpenAppTab } from "../../shared/app-tab";
+import { appRouteUrl } from "../../shared/pages";
 import { sendMessage } from "../../shared/send-message";
 import { computeStepperInfo } from "../../shared/stepper-info";
 import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, openUpdateRelease } from "../../shared/update-store";
@@ -20,7 +20,7 @@ const stepperRoot = document.getElementById("popupStepperRoot")!;
 const updateBannerRoot = document.getElementById("updateBannerRoot")!;
 const settingsBtn = document.getElementById("popupSettingsBtn")!;
 settingsBtn.innerHTML = settingsIconHtml();
-settingsBtn.addEventListener("click", () => focusOrOpenAppTab("globalSettings"));
+settingsBtn.addEventListener("click", () => browser.tabs.create({ url: appRouteUrl("globalSettings") }));
 
 // Delegated once — renderPopup() replaces stepperRoot's innerHTML on every
 // call, but the root element itself never changes, so a single delegated
@@ -30,7 +30,7 @@ stepperRoot.addEventListener("click", (e) => {
   if (!step) return;
   e.preventDefault();
   const key = step.dataset.pageKey as AppShellPage;
-  focusOrOpenAppTab(key);
+  browser.tabs.create({ url: appRouteUrl(key) });
 });
 
 init();
