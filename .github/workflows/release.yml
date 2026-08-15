@@ -97,13 +97,11 @@ jobs:
 
             - 🧪 **${{ steps.zip.outputs.chrome_preview_zip }}** — Chrome/Edge/Brave/etc. testers. Install this one.
             - 🧪 **${{ steps.zip.outputs.firefox_preview_zip }}** — Firefox testers. Install this one (see the Firefox section below — it's a different process than Chrome's).
-            - 🏪 **${{ steps.zip.outputs.chrome_store_zip }}** — the Chrome Web Store submission candidate. Not meant for general install; ignore this one unless you know why you're here.
+            - 🏪 **${{ steps.zip.outputs.chrome_store_zip }}** — the store submission build. Not meant for general install; ignore this one unless you know why you're here.
             - 🏪 **${{ steps.zip.outputs.firefox_store_zip }}** / **${{ steps.zip.outputs.firefox_store_sources_zip }}** — the AMO (addons.mozilla.org) submission candidate + its required sources archive. Not meant for general install.
             - The **-sources-preview.zip** file is the sources archive for the Firefox *preview* build; ignore it unless you're the maintainer verifying an AMO submission.
 
             ## Chrome / Edge / Brave / Opera / Vivaldi / Arc
-
-            > This extension isn't on the Chrome Web Store yet, so installing it takes a few extra manual steps below. Don't worry — it only takes 2 minutes, just follow along carefully.
 
             ### Step 1 — Download the file
             Click on **${{ steps.zip.outputs.chrome_preview_zip }}** under "Assets" at the bottom of this page (you may need to click "Assets" to expand the list first). It will download to your computer, usually into your **Downloads** folder.
