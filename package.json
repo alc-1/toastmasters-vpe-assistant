@@ -30,5 +30,8 @@
     "vite": "^8.2.1",
     "vitest": "^4.1.10",
     "wxt": "^0.21.4"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
   }
 }

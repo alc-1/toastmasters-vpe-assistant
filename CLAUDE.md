@@ -91,6 +91,12 @@ Firefox too, especially the EasySpeak scrape's multi-minute login-wait timeouts.
   `test-data/report/*.sample.json`, plus inline-literal cases for pure functions like
   `normalizeName`/`levenshtein`.
 - `tests/dom-utils.test.ts` covers `shared/dom-utils.ts`'s `escapeHtml`/`escapeAttr`/`warningIconHtml`.
+- `tests/export.test.ts` exercises the pure sheet-row shaping in `shared/export/rows.ts`
+  (`buildAggregatedRows`, `buildMatchesRows`, `buildBasecampRows`, `buildEasySpeakRows`,
+  `buildMetadataRows`, `buildExportSheets`) against the same `test-data/report/*.sample.json`
+  fixtures `tests/report.test.ts` uses, reusing `buildReport()` to get a real `ReportResult` rather
+  than hand-building one. `shared/export/workbook.ts`/`download.ts`/`export-to-excel.ts` stay
+  manual-only, same category as `shared/resolution-store.ts` below.
 - `test-data/` is **fully synthetic and versioned** (fabricated names, `example.test`/`example.com`
   emails) — deliberately *not* derived from `example/`, which stays a separate, gitignored,
   real-data-only scratch folder for manual debugging that the automated suite never reads.
@@ -102,7 +108,8 @@ Firefox too, especially the EasySpeak scrape's multi-minute login-wait timeouts.
   build environment Vitest doesn't provide.
 - Out of scope, unchanged manual-only workflow: `background/api/basecamp.ts`,
   `background/api/easyspeak.ts`, `shared/resolution-store.ts`, `shared/settings-store.ts`'s
-  `getEasySpeakServer`/`setEasySpeakServer`, `background/icon-state.ts`, and every popup/options/
+  `getEasySpeakServer`/`setEasySpeakServer`, `background/icon-state.ts`,
+  `shared/export/export-to-excel.ts`/`download.ts`, and every popup/options/
   status page — all genuinely `browser.*`-dependent (tabs, scripting, storage) with no pure logic
   worth isolating.
 
@@ -164,6 +171,14 @@ src/
     ├── sync/
     │   ├── conflicts.ts      # name/path/member matching + override logic
     │   └── delta.ts          # buildReport orchestrator, diffing, level summary — imports conflicts.ts
+    ├── export/               # "Export to Excel" (Sync Data page) — see below
+    │   ├── rows.ts            # pure sheet-row shaping (Aggregated/Matches & Resolutions/Basecamp/
+    │   │                       # EasySpeak/Metadata) — no exceljs/browser.* dep, Vitest-testable
+    │   ├── workbook.ts         # the only file importing exceljs — turns rows.ts's row arrays into
+    │   │                       # an actual ExcelJS.Workbook (headers, widths, freeze pane, autofilter)
+    │   ├── download.ts          # DOM-only Blob/createObjectURL/<a download> helper, library-agnostic
+    │   └── export-to-excel.ts    # browser.*-dependent orchestrator: storage + resolution-store +
+    │                              # buildReport() -> rows -> workbook -> download
     ├── parsers/
     │   └── easyspeak-parser.ts   # pure DOM parsing, imported by entrypoints/easyspeak-parser.content.ts
     └── mock/
@@ -228,7 +243,15 @@ background entrypoint → source-specific scraper**.
   focus-loss event that kills the popup mid-scrape (see `background/api/easyspeak.ts` below). Has
   its own `browser.storage.onChanged` listener re-running `init()`, matching the other long-lived-
   tab options pages' convention (the popup doesn't need this since it's re-created fresh on each
-  open). No report/review-matches buttons or Setup link — those stay popup-only.
+  open). No report/review-matches buttons or Setup link — those stay popup-only. Also owns a third
+  card, Export, with a single "Export to Excel" button that calls `shared/export/export-to-excel.ts`'s
+  `exportToExcel()` directly on click — no `sendMessage`/background round trip, since Excel generation
+  is plain synchronous client-side work with no `browser.tabs`/background-lifetime dependency (same
+  reasoning as Member Review's direct resolution-store writes, unlike EasySpeak's tab-navigation).
+  The button is never disabled for missing data — a partial or even empty export is still legitimate,
+  since `buildReport()` already tolerates an empty/one-sided scrape — and feedback is a plain status
+  line (`#statusExport`), matching this codebase's no-modal/no-toast convention. See `shared/export/`
+  above for the module breakdown.
 - **`entrypoints/background.ts`** — the background entrypoint (`export default defineBackground(()
   => {...})`), consolidating what used to be two physically separate files (`background/index.ts`
   for the store build, `background/index.preview.ts` for preview — a leftover from the pre-WXT

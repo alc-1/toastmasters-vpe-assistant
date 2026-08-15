@@ -18,6 +18,7 @@ import {
   type SourceEls,
 } from "../../shared/sync-status-panel";
 import { countBasecampMembers, countEasySpeakMembers } from "../../shared/sync/delta";
+import { exportToExcel } from "../../shared/export/export-to-excel";
 import type { BasecampScrape, EasySpeakScrape } from "../../shared/types";
 
 type BadgeTone = "danger" | "pending" | "success";
@@ -73,6 +74,33 @@ easyspeakEls.btn.addEventListener("click", async () => {
   });
   importActionOccurred = true;
   await refresh();
+});
+
+const exportBtn = document.getElementById("exportExcelBtn") as HTMLButtonElement;
+const statusExport = document.getElementById("statusExport")!;
+const exportIdleLabel = exportBtn.textContent ?? "";
+
+// Plain synchronous client-side work (no browser.tabs/background-lifetime
+// constraint applies, unlike EasySpeak's tab-navigation), so this is wired
+// directly rather than through onScrapeClick()/sendMessage() — same
+// reasoning already applied to Member Review's direct resolution-store
+// writes. Never gated on data being present: a partial (one-sided, or even
+// empty) export is still legitimate, and exportToExcel() already degrades
+// gracefully via buildReport()'s empty-scrape tolerance.
+exportBtn.addEventListener("click", async () => {
+  exportBtn.disabled = true;
+  exportBtn.textContent = "Generating…";
+  statusExport.textContent = "";
+  try {
+    const summary = await exportToExcel();
+    const note = !summary.hasBasecampData || !summary.hasEasySpeakData ? " (partial data — import both sources for a complete export)" : "";
+    statusExport.textContent = `Downloaded ${summary.filename}${note}`;
+  } catch (err) {
+    statusExport.textContent = `Export failed: ${err instanceof Error ? err.message : String(err)}`;
+  } finally {
+    exportBtn.disabled = false;
+    exportBtn.textContent = exportIdleLabel;
+  }
 });
 
 init();
