@@ -51,26 +51,32 @@ these.
 4. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or your configured EasySpeak
    server (`https://tmclub.eu/` by default — see Setup to change it; any tab, any time
    beforehand).
-5. Click the extension icon, then "Extract Basecamp data" and/or "Extract EasySpeak data" — no
-   Basecamp tab needs to stay open (unless a login is required — see Architecture). EasySpeak
-   scraping always opens and focuses a brand-new tab on the configured EasySpeak server (never
-   reuses an already-open one — see Architecture for why), which
-   **closes the popup immediately** (both Chrome and Firefox tear down `action` popups as soon as
-   they lose focus, and stealing tab/window focus is exactly what `ensureEasySpeakTab()` does).
-   That tab redirects to a "data fetched" confirmation page and closes itself a few seconds later
-   once scraping finishes; reopen the popup to see the result — see the storage note below for why
-   this works.
-6. Inspect the popup summary table and the raw JSON under "Raw data", or check the background
-   entrypoint's console (`chrome://extensions` → this extension → "service worker" inspect link on
-   Chrome; `about:debugging` → "Inspect" on Firefox) for errors. Code injected into the EasySpeak
-   tab via `browser.scripting` logs to that *tab's* own DevTools console, not the background's.
+5. Click the extension icon — the popup is just a branded header + vertical stepper (no scrape
+   buttons of its own, see Architecture) — then click its "Sync Data" step, which focuses/opens the
+   merged app on `#syncData` (`shared/app-tab.ts`'s `focusOrOpenAppTab()`; re-clicking it later
+   re-routes that same tab instead of opening a duplicate). On that tab, click "Import Basecamp
+   Data" and/or "Import EasySpeak Data" — no Basecamp tab needs to stay open (unless a login is
+   required — see Architecture). EasySpeak scraping always opens and focuses a *further* brand-new
+   tab on the configured EasySpeak server (never reuses an already-open one — see Architecture for
+   why); that tab redirects to a "data fetched" confirmation page and closes itself a few seconds
+   later once scraping finishes, returning focus to the Sync Data tab. (If the popup itself happens
+   to still be open when a scrape starts, stealing tab/window focus this way does still close it —
+   both Chrome and Firefox tear down `action` popups the instant they lose focus, and that's exactly
+   what `ensureEasySpeakTab()`/`ensureBasecampDashboardTab()` do — but the scrape itself no longer
+   depends on the popup staying open, unlike the older popup-hosted-buttons design this replaced.)
+6. Inspect each source's card on the Sync Data tab (badge, member count, "View details" for the
+   summary table + raw JSON), or check the background entrypoint's console (`chrome://extensions` →
+   this extension → "service worker" inspect link on Chrome; `about:debugging` → "Inspect" on
+   Firefox) for errors. Code injected into the EasySpeak tab via `browser.scripting` logs to that
+   *tab's* own DevTools console, not the background's.
 7. Watch the toolbar icon while a scrape runs: it should animate (spinning), then land on a green
    check or red cross, then revert to the classic icon the next time you open the popup (see
-   `background/icon-state.ts` in Architecture). Each source's button should be disabled only while
-   *that* source is loading.
+   `background/icon-state.ts` in Architecture). Each source's "Import"/"Re-import" button on the
+   Sync Data tab should be disabled only while *that* source is loading.
 
-Background errors surface via the response returned to the popup (`{ ok: false, error }`), not the
-console — check `entrypoints/popup/main.ts`'s status line first when debugging a failed scrape.
+Background errors surface via the response returned to the caller (`{ ok: false, error }`), not the
+console — check `entrypoints/app/views/syncData.ts`'s per-source status line first when debugging a
+failed scrape.
 
 `.github/workflows/ci.yml` runs `test` (Vitest), then `lint:css` (stylelint against
 `src/shared/styles.css` only — see below), then the store/Chrome build, then the Playwright
@@ -154,28 +160,72 @@ context's own initial blank tab, plus `entrypoints/welcome/` from `onInstalled`'
 before handing the page to a test, since every test already launches/tears down a full persistent
 Chromium + extension process and there's no reason to make that heavier than it needs to be.
 
-This suite is also what caught a real, previously-invisible bug in `entrypoints/sync-data/main.ts`'s
-`refresh()` (not a test-infra issue at all — a `locator.waitFor: Target page, context or browser has
-been closed` timeout kept reproducing waiting on `#badgeEasySpeak` specifically, and its captured
-page snapshot showed the "Data Import Complete" banner and Export card already correctly reflecting
-both sources loaded while that one badge alone stayed stuck on "Importing"). Root cause: `refresh()`
-awaits `sendMessage({type: "POPUP_OPENED"})` (→ `statuses`) and `local.get(...)` (→ `cached`)
-*sequentially*, not as one atomic snapshot, while `background/messaging.ts`'s `runScrape()` always
-writes the scraped data to `storage.local` *before* flipping that source's `storage.session` icon
-status to `"success"`. A call whose two reads straddle that exact instant can see `cached` already
-holding the finished data while its earlier `statuses` read still says `"loading"` — a single call's
-own two-reads-at-different-times inconsistency, not (only) a race between overlapping `refresh()`
-invocations (`browser.storage.onChanged` also triggers `refresh()` independently the moment the
-`local` write lands, well before that status flip — see the layering note in that entrypoint's own
-comments). Fixed with two mechanisms, both still in place: a `refreshToken` counter so a stale,
-later-resolving `refresh()` call never overwrites a fresher one's render, and — the fix that actually
-closed the gap — treating data presence as authoritative over a possibly-stale loading flag
-(`basecampLoading = statuses.basecamp === "loading" && !cached.basecampData`, same for EasySpeak): a
-source with its data already in storage is never still "loading," regardless of what a status flag
-captured a moment earlier claims. Verified by running the suite repeatedly with `retries: 0` (to
-stop retries from masking a still-partially-fixed bug) until it stayed consistently green. If a
-similar "stuck on a transient status despite the underlying data already being ready" symptom shows
-up on another page sharing this same `POPUP_OPENED`/`storage.local` pattern, look here first.
+This suite is also what caught a real, previously-invisible bug in
+`entrypoints/app/views/syncData.ts`'s `refresh()` (not a test-infra issue at all — a
+`locator.waitFor: Target page, context or browser has been closed` timeout kept reproducing waiting
+on `#badgeEasySpeak` specifically, and its captured page snapshot showed the "Data Import Complete"
+banner and Export card already correctly reflecting both sources loaded while that one badge alone
+stayed stuck on "Importing"). Root cause: `refresh()` awaits `sendMessage({type: "POPUP_OPENED"})`
+(→ `statuses`) and `local.get(...)` (→ `cached`) *sequentially*, not as one atomic snapshot, while
+`background/messaging.ts`'s `runScrape()` always writes the scraped data to `storage.local` *before*
+flipping that source's `storage.session` icon status to `"success"`. A call whose two reads straddle
+that exact instant can see `cached` already holding the finished data while its earlier `statuses`
+read still says `"loading"` — a single call's own two-reads-at-different-times inconsistency, not
+(only) a race between overlapping `refresh()` invocations (`browser.storage.onChanged` also triggers
+`refresh()` independently the moment the `local` write lands, well before that status flip — see the
+layering note in that view's own comments). Fixed with two mechanisms, both still in place: a
+`refreshToken` counter so a stale, later-resolving `refresh()` call never overwrites a fresher one's
+render, and — the fix that actually closed the gap — treating data presence as authoritative over a
+possibly-stale loading flag (`basecampLoading = statuses.basecamp === "loading" &&
+!cached.basecampData`, same for EasySpeak): a source with its data already in storage is never still
+"loading," regardless of what a status flag captured a moment earlier claims. Verified by running the
+suite repeatedly with `retries: 0` (to stop retries from masking a still-partially-fixed bug) until
+it stayed consistently green. If a similar "stuck on a transient status despite the underlying data
+already being ready" symptom shows up on another view sharing this same `POPUP_OPENED`/
+`storage.local` pattern, look here first.
+
+The same repeated-`retries: 0` technique later caught two more real bugs, this time in the SPA shell
+itself (`entrypoints/app/main.ts`) rather than in any one view — introduced by the report/members/
+settings/sync-data/club-review/global-settings merge into one client-routed entrypoint, and specific
+to the concurrency that merge introduces (every "navigation" used to be a full page load with no
+in-flight state to race; a client-side route change has both). Both were caught by literally running
+`npx playwright test --retries=0 --repeat-each=5` until failures stopped reproducing, not by
+inspection — don't trust a single green run of a new SPA-shell change, repeat it.
+- **Stale mount torn down by an unrelated same-route refresh**: `sync-data-export.spec.ts`'s
+  "upgrades the automatic fallback pick" test failed reproducibly (2 of 3 bare runs) with the Export
+  popover stuck open and its outside-click-to-close listener silently gone — confirmed with a
+  throwaway Node+Playwright script that dispatched a manual `mousedown` on `document.body` and
+  observed the popover simply didn't react. Root cause: `navigate()` used one `navToken`, bumped on
+  *every* call, to decide whether an in-flight `VIEWS[route].mount()` was still wanted by the time it
+  resolved. `setActiveProfile()`'s two sequential `storage.local` writes (the profile itself, then
+  `clearProfile("demo")`) each fire their own `storage.onChanged` — the second one raced a still-
+  mounting `syncData` view: it re-entered `navigate()`, saw `route === currentRoute` (a same-route,
+  chrome-only refresh, no remount needed) and returned early, but that early call had already bumped
+  the shared token past what the in-flight mount was compared against — so when that mount finally
+  resolved, it read itself as stale and called its own `dispose()`, ripping out the listener it had
+  just registered while its DOM stayed live on screen (nothing else had cleared `#viewRoot`). Fixed
+  by splitting the single counter into two: `navToken` (bumped every call, only ever used to bail out
+  of a superseded chrome-only render) and a separate `mountToken` (bumped only at the moment a *real*,
+  route-changing mount actually begins) — a same-route no-op call can no longer poison a real mount's
+  staleness check. If a view's listeners mysteriously stop firing after an unrelated storage write
+  lands mid-navigation, check this split hasn't regressed back into one counter.
+- **In-flight `refresh()`/`init()` writing into a different view's DOM after being disposed**:
+  running the `pages-render.spec.ts` smoke tests repeatedly surfaced `"Cannot set properties of null
+  (setting 'textContent')"` console errors on Club Progress/Member Review/Club Review, reproducing on
+  ~2 of 3 runs. Root cause: `#viewRoot` is one persistent DOM node reused across every view's
+  `mount()` (not a fresh container per view), so a view's own async `refresh()`/`init()` — triggered
+  by a `storage.onChanged` event fired *before* the user navigated away, e.g. `syncData`'s own
+  `refresh()` still awaiting `loadMatchSummary()` when the test's next `page.goto()` lands — resumes
+  after the shell has already disposed that view and mounted a different one into the same node.
+  Every view's own `document.getElementById(...)`/`root.querySelector(...)` calls inside that stale
+  continuation then either return `null` for an id the new view doesn't have (a crash) or — worse,
+  though not yet observed — silently hit an id the new view *does* happen to share, corrupting its
+  DOM instead of crashing. Fixed by giving every `entrypoints/app/views/*.ts` a local `disposed`
+  flag, set `true` by the returned disposer and checked after each `await` that precedes a DOM write
+  inside `refresh()`/`init()` (and the write skipped, not attempted, once `disposed` is true) — see
+  `syncData.ts`'s `mount()` for the fullest example and the pattern every other view follows. When
+  adding a new view or a new async entry point to an existing one, thread this same guard through any
+  `await` that's followed by a DOM write; skipping it re-opens this exact crash class.
 
 `playwright.config.ts` is deliberately standalone from `wxt.config.ts`/`vitest.config.ts`, same
 isolation reasoning as the `vitest.config.ts` bullet above, and `e2e/**/*.spec.ts` lives outside
@@ -198,17 +248,22 @@ src/
 │   ├── popup/                       # the generated manifest's action.default_popup
 │   │   ├── index.html
 │   │   └── main.ts
-│   ├── report/, members/, settings/, sync-data/, club-review/
-│   │   │                            # five independent unlisted pages, NOT a merged options_page/
-│   │   │                            # dashboard — each opened via browser.tabs.create, exactly like
-│   │   │                            # popup does, built flat (report.html, members.html, ...) at
-│   │   │                            # the extension root regardless of source directory depth
-│   │   └── index.html + main.ts     # report = read-only comparison view ("Club Progress");
-│   │                                 # members = interactive member-matching review ("Member Review");
-│   │                                 # settings = demo/mock mode + EasySpeak server picker ("Setup");
-│   │                                 # sync-data = Data Extraction card, backed by
-│   │                                 #   shared/sync-status-panel.ts ("Sync Data");
-│   │                                 # club-review = club-name lookup editor ("Club Review")
+│   ├── app/                         # the merged single-page app — all six wizard/settings views
+│   │   │                             # (Setup, Sync Data, Club Review, Member Review, Club Progress,
+│   │   │                             # Global Settings) in ONE entrypoint, client-side hash-routed
+│   │   │                             # (#setup, #syncData, ...), no full page reload between
+│   │   │                             # steps — see "The merged app/ SPA" below for the full writeup
+│   │   ├── index.html + main.ts     # the shell: #appShell/#viewRoot/#stepFooter roots + the router
+│   │   ├── router.ts                # resolveRoute() — pure hash -> AppRoute resolution
+│   │   └── views/                   # plain TS modules, NOT entrypoints themselves (no index.html)
+│   │       ├── report.ts            # read-only comparison view ("Club Progress")
+│   │       ├── members.ts           # interactive member-matching review ("Member Review")
+│   │       ├── setup.ts             # demo/real-data profile picker ("Setup")
+│   │       ├── syncData.ts          # Data Extraction card, backed by
+│   │       │                        #   shared/sync-status-panel.ts ("Sync Data")
+│   │       ├── clubReview.ts        # club-name lookup editor ("Club Review")
+│   │       ├── globalSettings.ts    # Anonymize Mode + path-name lookup ("Global Settings")
+│   │       └── index.ts             # the AppRoute -> ViewModule registry main.ts routes against
 │   ├── basecamp-auth/, easyspeak-done/
 │   │   └── index.html + main.ts     # background-initiated interstitial pages, no user entry point
 │   ├── welcome/                     # first-run-only tab, opened by entrypoints/background.ts's onInstalled
@@ -225,21 +280,29 @@ src/
 │       ├── easyspeak.ts             # EasySpeak scraping (tab-navigation based)
 │       └── update-checker.ts        # preview-build-only GitHub-release poller
 └── shared/                          # no browser.* dependency except storage.ts/resolution-store.ts/
-                                      # settings-store.ts/sync-status-panel.ts/update-store.ts/countdown.ts
+                                      # settings-store.ts/sync-status-panel.ts/update-store.ts/
+                                      # countdown.ts/app-tab.ts
     ├── types.ts             # the domain type catalog — read this first when touching data shapes
     ├── storage.ts           # the ONLY file allowed to call browser.storage.* directly
-    ├── pages.ts             # extension page URL constants (browser.runtime.getURL wrapper)
+    ├── pages.ts             # extension page URL constants (browser.runtime.getURL wrapper), plus
+    │                        # AppRoute/appRouteUrl() addressing the merged app's hash-routed views
     ├── send-message.ts      # typed browser.runtime.sendMessage() client for entrypoints/popup/main.ts
     ├── countdown.ts         # shared auto-close-in-5s behavior for the two status pages above
-    ├── app-shell.ts         # shared header/nav bar (renderAppShell), rendered into #appShell on every options page
-    ├── sync-status-panel.ts # shared sync-status summary + Data Extraction logic, used by entrypoints/popup/main.ts and entrypoints/sync-data/main.ts
+    ├── app-shell.ts         # shared header/nav bar (renderAppShell), rendered into #appShell once
+    │                        # by entrypoints/app/main.ts (not per-view — see below)
+    ├── app-tab.ts           # focusOrOpenAppTab() — finds-or-opens the merged app's tab on a given
+    │                        # route, used by the popup instead of always opening a new tab
+    ├── view.ts              # ViewModule — the mount(root)/dispose contract every
+    │                        # entrypoints/app/views/*.ts implements
+    ├── sync-status-panel.ts # Data Extraction card logic, currently used only by
+    │                        # entrypoints/app/views/syncData.ts (not the popup — see below)
     ├── dom-utils.ts         # escapeHtml/escapeAttr/warningIconHtml
-    ├── settings-store.ts    # EasySpeak server choice
+    ├── settings-store.ts    # active profile (demo, or one of the three EasySpeak regions) + Anonymize Mode
     ├── resolution-store.ts  # the 6 persisted name-resolution keys
     ├── sync/
     │   ├── conflicts.ts      # name/path/member matching + override logic
     │   └── delta.ts          # buildReport orchestrator, diffing, level summary — imports conflicts.ts
-    ├── export/               # "Export to Excel" (Sync Data page) — see below
+    ├── export/               # "Export to Excel" (Sync Data view) — see below
     │   ├── rows.ts            # pure sheet-row shaping (Aggregated/Matches & Resolutions/Basecamp/
     │   │                       # EasySpeak/Metadata) — no exceljs/browser.* dep, Vitest-testable
     │   ├── workbook.ts         # the only file importing exceljs — turns rows.ts's row arrays into
@@ -255,64 +318,64 @@ src/
 
 **Layering rule, enforced by convention not tooling — don't violate it**: `shared/**` must never
 import from `background/**`. `shared/sync/conflicts.ts` and `shared/sync/delta.ts` run only in
-options pages (never the background entrypoint) but `delta.ts` imports matching functions from
-`conflicts.ts`, so the dependency graph is `entrypoints/*/main.ts → shared/sync/delta →
+options views (never the background entrypoint) but `delta.ts` imports matching functions from
+`conflicts.ts`, so the dependency graph is `entrypoints/app/views/*.ts → shared/sync/delta →
 shared/sync/conflicts → shared/types`, always acyclic. `background/icon-state.ts` conversely is
 deliberately *never* imported by any page (it owns a running `setInterval` for the icon spin
 animation; a second copy imported into a page would start its own independent interval fighting the
 background's own over `browser.action.setIcon()`) — the popup only ever asks background for the
-current statuses via the `POPUP_OPENED` message (`entrypoints/sync-data/main.ts`'s `init()` sends
-the identical message the same way, since it drives the same shared `shared/sync-status-panel.ts`
-rendering/status logic).
+current statuses via the `POPUP_OPENED` message (`entrypoints/app/views/syncData.ts`'s `mount()`
+sends the identical message the same way, since it drives the same shared
+`shared/sync-status-panel.ts` rendering/status logic).
 
 Two scraper pipelines with different shapes, sharing one trigger flow from the popup: **popup →
 background entrypoint → source-specific scraper**.
 
-- **`shared/sync-status-panel.ts`** — the shared logic behind the "Data Extraction" card + the
-  compact sync-status summary, used by both `entrypoints/popup/main.ts` and `entrypoints/sync-data/main.ts` (see that
-  page's bullet below) — the two pages render matching markup with matching element ids
-  (`scrapeBasecampBtn`/`statusBasecamp`/`summaryBasecamp`/`rawDataBasecamp` and the EasySpeak
-  equivalents, plus a shared `#statusSummary` root) and both call into this module instead of
-  duplicating the rendering/formatting/scrape-click code. Exports `bindSourceEls()` (looks up a
-  source's four elements by id), `onScrapeClick()` (sends `{type: "SCRAPE_BASECAMP"}` /
-  `{type: "SCRAPE_EASYSPEAK"}` to the background entrypoint via `shared/send-message.ts`'s
-  typed `sendMessage()`, parameterized by message type, storage keys, and a render function; takes
-  an optional `onDone` hook for page-specific post-scrape follow-up), `renderScrapeResult()`
-  (merges what used to be two near-identical `renderBasecampResult`/`renderEasySpeakResult`
-  functions — both only ever touched the shared `{name, members}` shape), and
-  `renderStatusSummary()` (renders into `#statusSummary`, returns the cached
-  `{basecampData, easyspeakData}` so each page can layer its own follow-up on top — e.g. the
-  popup's subtitle update — without this module needing to know about it). On a successful scrape,
-  `onScrapeClick()` writes to `browser.storage.local` itself (via `shared/storage.ts`'s
-  `local.set`: `basecampData`/`basecampScrapedAt`, `easyspeakData`/`easyspeakScrapedAt`) — **this
-  write cannot be the only copy** (see the `background/api/*.ts` bullets below). Loading is
-  communicated purely via the triggering button itself (`setButtonLoading`: disabled + relabeled
-  to "Basecamp data loading..." / "EasySpeak data loading..."), **not** the status line or the
-  summary/raw-data panels — `onScrapeClick` never touches `els.status`/`els.summary`/`els.rawData`
-  while a request is in flight, so "Last extraction: ..." and the previous result stay visible the
-  whole time; only a completed extraction or an error updates the status line.
-- **`entrypoints/popup/main.ts`** — UI layer only, composed on top of `shared/sync-status-panel.ts`. `init()`
-  sends `{type: "POPUP_OPENED"}` before anything else, both to let background acknowledge any
-  finished success/error status (see `background/icon-state.ts` below) and to learn whether either
-  source is currently `"loading"`, so it can apply the same disabled/relabeled button state even
-  though this popup instance didn't trigger the in-progress scrape itself (e.g. reopening the
-  popup while EasySpeak is still running in its own tab). Restores cached data on open via
-  `renderScrapeResult()`, and passes an `onDone` hook into each `onScrapeClick()` call that
-  re-renders the status summary and updates `updateReportButton()`/`updatePopupSubtitle()` — both
-  of which stay popup-only (no such buttons/subtitle element on `entrypoints/sync-data/main.ts`). Does not
-  touch `browser.tabs`, `browser.action`, or `browser.storage.session` itself — all tab handling for
-  EasySpeak lives in `background/api/easyspeak.ts`, all icon/status handling lives in
-  `background/icon-state.ts`, both background-only.
-- **`entrypoints/sync-data/index.html` + `entrypoints/sync-data/main.ts`** — a thin page wired up against
-  `shared/sync-status-panel.ts`: same Data Extraction card + sync-status summary markup as the
-  popup (same element ids), same underlying rendering/formatting/scrape-click logic, no duplicated
-  code. Unlike the popup it isn't torn down when `ensureEasySpeakTab()` steals tab/window focus,
-  since it's a regular tab, not an `action` popup — so a scrape triggered here survives exactly the
+- **`shared/sync-status-panel.ts`** — the shared logic behind the Data Extraction card's per-source
+  rendering/formatting/scrape-click code, currently used only by `entrypoints/app/views/syncData.ts`
+  (see that view's bullet below) — the popup no longer has its own copy of this UI at all (see the
+  popup bullet immediately below), so this is a single-consumer shared module today, kept separate
+  from `syncData.ts` on the expectation a future page could reuse it, not because two pages
+  currently do. Exports `bindSourceEls()` (looks up a source's four elements by id), `onScrapeClick()`
+  (sends `{type: "SCRAPE_BASECAMP"}` / `{type: "SCRAPE_EASYSPEAK"}` to the background entrypoint via
+  `shared/send-message.ts`'s typed `sendMessage()`, parameterized by message type and a render
+  function), `renderScrapeResult()` (renders a source's summary table + raw JSON), `setButtonLoading()`
+  (disables + relabels the triggering button while a request is in flight — **not** the status line
+  or summary/raw-data panels, so "Last extraction: ..." and the previous result stay visible the
+  whole time; only a completed extraction or an error updates the status line), and
+  `loadMatchSummary()` (re-derives the matched/total count via `buildReport()`, used by `syncData.ts`'s
+  completion summary). `renderStatusSummary()`/`#statusSummary` are also exported but currently
+  unwired — no page renders into a `#statusSummary` root — pre-existing dead code, not something the
+  SPA merge introduced or removed. On a successful scrape, `onScrapeClick()` writes to
+  `browser.storage.local` itself (via `shared/storage.ts`'s `local.set`:
+  `basecampData`/`basecampScrapedAt`, `easyspeakData`/`easyspeakScrapedAt`) — **this write cannot be
+  the only copy** (see the `background/api/*.ts` bullets below).
+- **`entrypoints/popup/main.ts`** — deliberately thin: just the branded header, the vertical stepper
+  (`renderVerticalStepper()`, `shared/app-shell.ts`), and the update banner (preview builds only,
+  see `background/api/update-checker.ts` below) — no scrape buttons, no per-source status, no raw
+  data, and no direct dependency on `shared/sync-status-panel.ts` at all; all of that now lives
+  exclusively on the Sync Data view (`entrypoints/app/views/syncData.ts`), reached by clicking the
+  stepper. `init()` sends `{type: "POPUP_OPENED"}` before anything else, purely so background can
+  acknowledge any finished success/error icon status (see `background/icon-state.ts` below) — the
+  popup itself no longer shows per-source status, so this is only about the toolbar icon now, not
+  about restoring button state. The gear icon and every stepper item call
+  `shared/app-tab.ts`'s `focusOrOpenAppTab()` (a stepper item's `AppShellPage` key comes off its
+  `data-page-key` attribute via a single delegated click listener on `#popupStepperRoot`) instead of
+  `browser.tabs.create()` directly, so re-clicking a step while the merged app is already open in
+  some tab focuses and re-routes that tab rather than piling up duplicates — see `shared/app-tab.ts`'s
+  own bullet below. Never calls `browser.tabs.*`/`browser.windows.*` itself (that's all inside
+  `shared/app-tab.ts`), and doesn't touch `browser.storage.session` or EasySpeak's own tab handling
+  at all — icon/status handling lives in `background/icon-state.ts`, EasySpeak's tab-navigation
+  scrape lives in `background/api/easyspeak.ts`, both background-only.
+- **`entrypoints/app/views/syncData.ts`** — the Sync Data view, wired up against
+  `shared/sync-status-panel.ts`: the Data Extraction card + Export card. Unlike the popup, the merged
+  app runs in a regular tab, not an `action` popup — Chrome/Firefox never tear it down just because
+  `ensureEasySpeakTab()` steals tab/window focus, so a scrape triggered here survives exactly the
   focus-loss event that kills the popup mid-scrape (see `background/api/easyspeak.ts` below). Has
-  its own `browser.storage.onChanged` listener re-running `init()`, matching the other long-lived-
-  tab options pages' convention (the popup doesn't need this since it's re-created fresh on each
-  open). No report/review-matches buttons or Setup link — those stay popup-only. Also owns a third
-  card, Export, with a single "Export to Excel" button that calls `shared/export/export-to-excel.ts`'s
+  its own `browser.storage.onChanged` listener re-running `refresh()` (registered/removed inside
+  `mount()`/its disposer — see "The merged app/ SPA" below), matching every other view's convention;
+  the popup doesn't need this since it's re-created fresh on each open. Also owns a third card,
+  Export, with a single "Export to Excel" button that calls `shared/export/export-to-excel.ts`'s
   `exportToExcel()` directly on click — no `sendMessage`/background round trip, since Excel generation
   is plain synchronous client-side work with no `browser.tabs`/background-lifetime dependency (same
   reasoning as Member Review's direct resolution-store writes, unlike EasySpeak's tab-navigation).
@@ -329,10 +392,11 @@ background entrypoint → source-specific scraper**.
   `entrypoints/welcome/index.html` in a new tab via `pageUrl(PAGES.welcome)` — neither Chrome nor
   Firefox pins a freshly installed extension's toolbar icon by default, so this page exists purely
   to point a first-time user at the menu and prompt them to pin it, then hands off to Setup via its
-  own "Get started" button (`location.href = pageUrl(PAGES.settings)`, navigating that same tab
-  rather than opening a second one). `entrypoints/welcome/main.ts` has no `browser.storage`/
-  resolution-store dependency at all — it's a static walkthrough, not part of the stepper flow
-  those five options pages share (no `app-shell.ts` nav on it), so it isn't wired into `NAV_ITEMS`.
+  own "Get started" button (`location.href = appRouteUrl("setup")`, `shared/pages.ts` — navigating
+  that same tab rather than opening a second one). `entrypoints/welcome/main.ts` has no
+  `browser.storage`/resolution-store dependency at all — it's a static walkthrough, not part of the
+  stepper flow the merged app's six views share (no `app-shell.ts` nav on it), so it isn't wired into
+  `NAV_ITEMS`.
 
   The store-vs-preview split those two old files existed for is now a **build-time-eliminated
   dynamic import**, gated on WXT's build mode:
@@ -354,8 +418,8 @@ background entrypoint → source-specific scraper**.
   which just does `browser.tabs.create({url: info.releaseUrl})` against the GitHub release's own
   `html_url`) is called both from the popup's update banner and from
   `browser.notifications.onClicked` directly — no message-passing round trip, same reasoning as
-  `entrypoints/members/main.ts`'s direct resolution-store writes (no background-lifetime constraint
-  applies here, unlike EasySpeak's tab-navigation). This used to trigger the release zip download
+  `entrypoints/app/views/members.ts`'s direct resolution-store writes (no background-lifetime
+  constraint applies here, unlike EasySpeak's tab-navigation). This used to trigger the release zip download
   directly via `chrome.downloads.download()` (a Chrome-only API) plus a reload-instructions status
   page, but that download was silently getting cancelled: Chrome doesn't create the real
   `DownloadItem` until it gets a server response, and the very next step (opening a tab) steals
@@ -596,16 +660,16 @@ re-derived (and possibly un-derived) from names again.
     synthetic key, and tagged `overridden: true` — this is what keeps an override from touching the
     global path-name lookup other members rely on.
   - `resolution.allowFuzzyMemberMatches` (default `true`) is **not** a persisted storage key — it's
-    a hardcoded per-caller behavior switch. `entrypoints/members/main.ts` relies on the default (`true`):
-    fuzzy suggestions are exactly what that view exists to surface and let a human confirm/reject.
-    `entrypoints/report/main.ts` explicitly passes `false`: Club Progress is meant to show only what's
-    certain, so an unconfirmed fuzzy guess must never render there as if it were a fact. Setting it
-    `false` simply drops fuzzy-confidence candidates from `matchMembers`'s candidate pool before
-    `greedyAssign` runs — the pair falls through to the *same* leftover-handling code that already
-    produces separate `basecamp-only`/`easyspeak-only` entries for anyone unassigned, so no separate
-    "strict" rendering path exists anywhere downstream (the Next Level Summary table and its
-    per-row detail in `entrypoints/report/main.ts` all automatically reflect it for free). A
-    `memberLinks`-confirmed pair
+    a hardcoded per-caller behavior switch. `entrypoints/app/views/members.ts` relies on the default
+    (`true`): fuzzy suggestions are exactly what that view exists to surface and let a human
+    confirm/reject. `entrypoints/app/views/report.ts` explicitly passes `false`: Club Progress is
+    meant to show only what's certain, so an unconfirmed fuzzy guess must never render there as if
+    it were a fact. Setting it `false` simply drops fuzzy-confidence candidates from
+    `matchMembers`'s candidate pool before `greedyAssign` runs — the pair falls through to the *same*
+    leftover-handling code that already produces separate `basecamp-only`/`easyspeak-only` entries
+    for anyone unassigned, so no separate "strict" rendering path exists anywhere downstream (the
+    Next Level Summary table and its per-row detail in `report.ts` all automatically reflect it for
+    free). A `memberLinks`-confirmed pair
     (even one originally confirmed from a fuzzy suggestion) is unaffected by this flag either way,
     since confirmed links are seeded as `preAssigned` before candidate scoring ever runs.
   - `matchConfidence` on a member row is `"confirmed"|"exact"|"fuzzy"|null` (`MatchConfidence` in
@@ -628,8 +692,10 @@ re-derived (and possibly un-derived) from names again.
   `shared/storage.ts`**). Unlike `shared/sync/*`, this file is legitimately `browser.*`-dependent
   (pure storage I/O) so it isn't Vitest-testable — same as `background/api/basecamp.ts`/
   `background/api/easyspeak.ts`. Used from Club Review, Member Review, and Club Progress (plus
-  `shared/sync-status-panel.ts`'s `loadMatchSummary()`, shared by the popup and Sync Data, for the
-  Matches count); never imported into `background/`, since none of this needs the background entrypoint.
+  `shared/sync-status-panel.ts`'s `loadMatchSummary()`, used by Sync Data's own completion summary
+  — the popup gets its own match-related stepper info through a separate path,
+  `shared/stepper-info.ts`'s own inline `buildReport()`/`computeMatchSummary()` calls, not through
+  `sync-status-panel.ts` at all); never imported into `background/`, since none of this needs the background entrypoint.
   Every write is an upsert enforcing a
   1:1 invariant where applicable (e.g. confirming a link first strips any prior record touching
   either id). The Members view can now unlink/unbind everything this file can create (see below) —
@@ -677,12 +743,88 @@ re-derived (and possibly un-derived) from names again.
     entry canonicalization would otherwise produce. This is the "Force unbind" action in the Members
     view, letting the user then re-resolve the pair manually (bind to something else, or leave as
     orphan) instead of it snapping back together on every refresh.
-- **`entrypoints/report/index.html` + `entrypoints/report/main.ts`** — the comparison page, titled "Club Progress"
-  (reached from the popup's "Open Club Progress" button as a full tab, not a popup window —
-  `browser.tabs.create({url: pageUrl(...)})`). Reads `basecampData`/`easyspeakData` straight from
-  storage (no live scraping) plus resolution data via `loadResolutionData()` — loading resolution
-  here is required, not optional, otherwise this page's "Next Level Summary" would silently diverge
-  from what the Members view shows for the same data. `#reportMeta` (`formatReportMeta()`) is a
+
+**The merged `app/` SPA**: the five wizard steps (Setup, Sync Data, Club Review, Member Review, Club
+Progress) plus Global Settings used to be six fully separate WXT entrypoints, each its own tab-opened
+page with a full reload on every step transition. They're now one entrypoint,
+`entrypoints/app/` (`app.html`), with client-side hash routing (`#setup`, `#syncData`,
+`#clubReview`, `#members`, `#report`, `#globalSettings`) and no reload between steps — hash routing,
+not the History API, since an extension page has no server to fall back to for a direct/bookmarked
+`/report`-style path, and a hash router needs none. Popup and the three background-initiated
+interstitials (`welcome/`, `basecamp-auth/`, `easyspeak-done/`) stay separate entrypoints, unrelated
+to this merge — the popup is a distinct manifest surface with its own lifecycle, and the
+interstitials are tab-lifecycle-driven single-purpose confirmation pages.
+- **`entrypoints/app/main.ts`** — the shell: owns the three roots every view shares
+  (`#appShell`/`#stepFooter`/`#viewRoot`) and the `navigate(rawHash)` driver, called on `hashchange`
+  and once at module load. Centralizes what each of the six former pages used to render
+  independently — `renderAppShell()`/`renderStepFooter()`/`markStepVisited()` — into one place,
+  `renderChrome()`, called once per navigation; a view (below) now owns only its own body content,
+  never the shared chrome. Also owns a shell-only `browser.storage.onChanged` listener that
+  re-renders just the chrome on any `local` change, independent of whatever the currently-mounted
+  view does with its own listener — the two write to disjoint DOM subtrees and both re-derive fresh
+  state from storage every time, so there's nothing to get out of sync between them regardless of
+  firing order. `navigate()` disposes the outgoing view (calling the disposer its `mount()` returned
+  — see `shared/view.ts` below), clears `#viewRoot`, sets `document.body.dataset.view = route` (the
+  scoping hook `shared/styles.css`'s few view-specific rules key off), then mounts the incoming one —
+  strictly in that order, since a view's `mount()` relies on being the only one whose markup exists
+  in `#viewRoot` at a time (see `shared/view.ts`). Uses two separate monotonic counters,
+  `navToken`/`mountToken` — not one — to guard against two different concurrency classes a client
+  router introduces that a full-page-load navigation never had to worry about: `navToken` (bumped on
+  *every* `navigate()` call) lets a call bail out early if a newer one already started while it was
+  awaiting `computeStepperInfo()`; `mountToken` (bumped only when actually about to mount a *new*
+  view) decides whether an in-flight `mount()` is still wanted by the time it resolves. Collapsing
+  these into one counter was a real, shipped bug — see "Stale mount torn down by an unrelated
+  same-route refresh" under "Running / testing changes" above for the exact race and its symptom;
+  don't re-merge them.
+- **`entrypoints/app/router.ts`** — `resolveRoute(rawHash, info)`, pure and independently reasoned
+  about from `main.ts`'s actual navigation driver. An empty/unrecognized hash defaults to
+  `"setup"` (the wizard's first step); a recognized-but-currently-`disabled` wizard step (per
+  `shared/stepper-info.ts`'s `StepperInfo` — e.g. a bookmarked `#report` saved before Setup was ever
+  finished) is redirected back to `"setup"` too. `globalSettings` is never gated, since it isn't
+  one of the five wizard steps `StepperInfo` tracks disabled-ness for.
+- **`shared/view.ts`** — the `ViewModule` contract every `entrypoints/app/views/*.ts` module
+  implements: `mount(root): Promise<() => void>`. All DOM binding, event-listener registration, and
+  per-visit state must happen inside `mount()`, not at module top level (unlike the old one-page-per-
+  view code, which could safely do `const el = document.getElementById(...)` at module load — that
+  now runs once total, at extension-page load, long before any specific view's markup exists).
+  Because `main.ts`'s `navigate()` guarantees only one view's markup exists in `#viewRoot` at a time
+  (dispose old → clear → mount new, always in that order), plain `document.getElementById()`/
+  `root.querySelector()` lookups inside `mount()` stay exactly as safe as they were in the old
+  per-page code — the previous view's same-named elements are provably gone by the time a new
+  `mount()` runs, so `shared/sync-status-panel.ts`'s `bindSourceEls()` (plain `getElementById`)
+  needed no signature change to keep working. The returned disposer must remove every listener
+  `mount()` registered *outside* `root` itself (a `document`-level listener, most notably —
+  `syncData.ts`'s popover-outside-click handler is the one view with one) since clearing `#viewRoot`'s
+  innerHTML does nothing for those. Just as important, and easy to miss: an async `refresh()`/`init()`
+  that was already in flight when the view got disposed does **not** stop running just because its
+  listeners were removed — every view keeps a local `disposed` flag, set by its disposer and checked
+  after each `await` that precedes a DOM write, specifically to stop a stale continuation from
+  writing into whatever view has since taken over the same `#viewRoot` node. See "In-flight
+  `refresh()`/`init()` writing into a different view's DOM after being disposed" under "Running /
+  testing changes" above for the crash this guards against and why it wasn't optional.
+- **`shared/app-tab.ts`** — `focusOrOpenAppTab(route)`, `browser.tabs`/`browser.windows`-dependent
+  (same established `shared/**`-with-a-`browser.*`-exception category as `storage.ts`/
+  `settings-store.ts`/`sync-status-panel.ts`/`update-store.ts`/`countdown.ts`, listed at the top of
+  this section). Used by the popup's gear icon and vertical-stepper clicks instead of
+  `browser.tabs.create()` directly: finds an existing tab already showing the merged app (any route,
+  via a wildcarded `browser.tabs.query({url: base + "*"})`, since a plain URL match wouldn't see past
+  the fragment) and `browser.tabs.update()`s it to the requested route + focuses its window, rather
+  than piling up a duplicate tab every time a step is re-clicked. No precedent for this "find or
+  create" pattern existed anywhere else in this codebase to reuse — `background/api/basecamp.ts`'s
+  `ensureBasecampDashboardTab()`/`background/api/easyspeak.ts`'s `ensureEasySpeakTab()` are
+  explicitly documented as "always create new, never reuse" by design, the opposite need, for an
+  unrelated login/Cloudflare-tab concern.
+
+The six views below plug into the shell just described — each is a plain `ViewModule`, not an
+entrypoint itself (no `index.html`, no separate build output):
+- **`entrypoints/app/views/report.ts`** — the comparison view, titled "Club Progress" (a
+  `ViewModule`, reached from the popup's vertical stepper via `focusOrOpenAppTab("report")`, or by
+  clicking its `app-shell.ts` nav item once already inside the merged app — see "The merged app/
+  SPA" above for how a view's `mount()`/disposer lifecycle works). Reads `basecampData`/
+  `easyspeakData` straight from storage (no live scraping) plus resolution data via
+  `loadResolutionData()` — loading resolution here is required, not optional, otherwise this view's
+  "Next Level Summary" would silently diverge from what the Member Review view shows for the same
+  data. `#reportMeta` (`formatReportMeta()`) is a
   single literal sentence rather than two raw timestamps — date-only (no time-of-day, which isn't
   meaningful to a VPE): `"Report generated with data extracted from Basecamp & EasySpeak the
   M/D/YYYY"` when both sources were extracted the same day, or `"...Basecamp the M/D/YYYY &
@@ -707,37 +849,43 @@ re-derived (and possibly un-derived) from names again.
   Level Summary" heading — deliberately club-scoped rather than global, so reviewing one club's tab
   never shows another club's numbers. `renderClubTabs()` separately prefixes a warning-sign icon
   (`warningIconHtml()`, `shared/dom-utils.ts` — shared with
-  `entrypoints/members/main.ts`, see below; `.warning-icon`/`.conflict-warning` are defined once,
+  `members.ts`, see below; `.warning-icon`/`.conflict-warning` are defined once,
   centrally, in `shared/styles.css`) onto any club tab whose pair has no counterpart on the other side, and appends a
-  `.tab-count` badge (same convention as `entrypoints/members/main.ts`'s own tab badges) showing that club's
+  `.tab-count` badge (same convention as `members.ts`'s own tab badges) showing that club's
   `needsAction()` count (`shared/sync/delta.ts` — fuzzy suggestion, unmatched, or a path issue),
   shown only when > 0 — this tab-level badge/icon is a fast at-a-glance signal across *all* clubs,
   complementary to (not replaced by) the active club's own detailed banner. Neither the tab badge
   nor any presence badge in the table/detail renders for `presence === "both"` — only the
   Basecamp-only/EasySpeak-only exceptions are shown, since those are the only ones actionable.
 
-  "Next Level Summary" (`renderSummaryTable()`/`renderSummaryBody()`) is the page's only
-  member-facing table — the old separate "Member List" of per-member `<details>` cards is gone,
-  folded into this table as expandable detail rows instead. Each row carries a
-  `` `${memberKey}::${pathKey}` `` composite key (`data-row-key`, built from `memberKey()` and
-  `PathReport.canonicalKey` — both from `shared/sync/delta.ts`/`shared/types.ts`'s
-  `LevelSummaryRow.memberKey`/`.pathKey`, added specifically so a row survives being re-sorted
-  without losing its link back to the source `MemberReport`/`PathReport`) and is followed by an
-  always-rendered `<tr class="detail-row">` sibling, hidden via a `.collapsed` class exactly like
-  `entrypoints/members/main.ts`'s own path-review detail rows. A single delegated `click` listener on
-  `tbody` (attached once, in `renderSummaryTable()`) resolves the clicked row via
-  `closest("tr[data-row-key]")`, toggles its key in the module-level `expandedRowKeys: Set<string>`,
-  and flips the sibling's `.collapsed` class directly — no full re-render needed for the toggle
-  itself. Several rows can stay expanded at once. `expandedRowKeys` is cleared whenever the active
-  club changes (both on a tab click and on a full `renderClubTabs()` rebuild), so switching clubs
-  always starts collapsed. `renderRowDetail()` looks the row's member up in a module-level
-  `activeMembers: Map<string, MemberReport>` (rebuilt in `renderActiveClub()` from the active
-  club's `members[]`, keyed by `memberKey()`), finds the specific `PathReport` by `canonicalKey`,
-  and renders the member's presence/confidence badges plus the same level-by-level diff table
-  (`renderLevelsTable()`, unchanged) the old member cards used to show — reused, not reimplemented.
-- **`entrypoints/members/index.html` + `entrypoints/members/main.ts`** — the primary member-matching review workflow,
-  titled "Member Review" (reached from the popup's "Member Review" button, and cross-linked with
-  Club Review/Club Progress). Same storage-reads-only pattern as `report.ts`.
+  "Next Level Summary" and the second, separately-sortable "Pending review" table below it
+  (`renderSummaryTable()`/`renderSummaryBody()`, shared by both — `mount()` builds two independent
+  `SummaryTableState` instances, `mainTable`/`pendingTable`, each with its own `rootId`/`sort`/
+  `expandedRowKey`, so sorting or expanding a row in one table never affects the other) are this
+  view's only member-facing tables — there is no separate "Member List" of per-member `<details>`
+  cards. Each row carries a `` `${memberKey}::${pathKey}` `` composite key (`data-row-key`, built
+  from `memberKey()` and `PathReport.canonicalKey` — both from `shared/sync/delta.ts`/
+  `shared/types.ts`'s `LevelSummaryRow.memberKey`/`.pathKey`, added specifically so a row survives
+  being re-sorted without losing its link back to the source `MemberReport`/`PathReport`). Same
+  convention as `members.ts`'s own path-review detail rows (below): a table's detail `<tr>` here is
+  only emitted for whichever row matches that table's own `expandedRowKey` (`string | null`, at most
+  one expanded row per table at a time) — every other row has no sibling `<tr>` at all, so
+  `.data-table tbody tr:nth-child(2n)`'s plain odd/even zebra
+  striping (`shared/styles.css`) lines up with the visible rows instead of counting hidden detail
+  rows too. A single delegated `click` listener on each table's `tbody` (attached once per table, in
+  `renderSummaryTable()`) resolves the clicked row via `closest("tr[data-row-key]")`, toggles that
+  table's `expandedRowKey`, and calls `renderSummaryBody()` to re-render just that table's rows.
+  Both tables' `expandedRowKey` are reset to `null` whenever the active club changes (both on a tab
+  click and on a full `renderClubTabs()` rebuild), so switching clubs always starts collapsed.
+  `renderRowDetail()` looks the row's member up in a module-level `activeMembers: Map<string,
+  MemberReport>` (rebuilt in `renderActiveClub()` from the active club's `members[]`, keyed by
+  `memberKey()`), finds the specific `PathReport` by `canonicalKey`, and renders the member's
+  presence/confidence badges plus the same level-by-level diff table (`renderLevelsTable()`) both
+  tables share.
+- **`entrypoints/app/views/members.ts`** — the primary member-matching review workflow,
+  titled "Member Review" (a `ViewModule`, reached from the popup's vertical stepper, and
+  cross-linked with Club Review/Club Progress via in-app hash links, e.g. `<a href="#clubReview">`).
+  Same storage-reads-only pattern as `report.ts`.
   `renderClubMatchWarning()` (`#conflictWarning`, called from `refresh()`) mirrors `report.ts`'s
   conflict banner but with member-matching-specific advice: whenever any club has no counterpart in
   the other system, it names the affected club(s) and points at Club Review, since a club with
@@ -754,7 +902,7 @@ re-derived (and possibly un-derived) from names again.
   before the alphabetical tiebreak applies, so Basecamp names never get interleaved with
   easyspeak-only ones).
   `classifyMember()` (`shared/sync/delta.ts` — exported from there, alongside `memberKey()` and
-  `needsAction()`, specifically so `entrypoints/report/main.ts`'s club-tab badges and this page's own tab
+  `needsAction()`, specifically so `report.ts`'s club-tab badges and this view's own tab
   badges/filter chips agree on what "needs attention" means for the same club) tags are **not
   mutually exclusive**: a member can carry more than
   one at once (e.g. a manually-confirmed link that still has an unresolved path issue shows under
@@ -810,40 +958,46 @@ re-derived (and possibly un-derived) from names again.
   rebuild-and-reassign-`innerHTML` rendering style. A member with more than one simultaneous
   orphaned path pair renders one picker row per `basecamp-only` path (`<select>` over that member's
   `easyspeak-only` candidates) rather than assuming exactly one pair.
-- **`entrypoints/settings/index.html` + `entrypoints/settings/main.ts`** — titled "Setup". Just the demo/mock mode
-  toggle and the EasySpeak server picker (small, low-cardinality, edited rarely — no live-recompute
-  loop like `members.ts`; each section just re-reads its own storage after a write). The mock mode
-  card (`getMockMode()`/`setMockMode()`, `shared/settings-store.ts`) toggles whether "Extract
-  Basecamp data"/"Extract EasySpeak data" return built-in demo data instead of contacting the real
-  sites. The EasySpeak server section renders a `<select>` from `EASYSPEAK_SERVERS`
-  (`shared/settings-store.ts`) preselected via `getEasySpeakServer()`, with an explicit "Save"
-  button (matching this page's existing button-triggered-write convention rather than auto-saving
-  on `change`) that calls `setEasySpeakServer()`; a "Saved." confirmation (`.save-status.visible`)
-  is hidden again the moment the selection/checkbox changes, so it can't linger next to an unsaved
-  new choice. Changing the server does **not** clear any already-extracted
-  `easyspeakData`/`easyspeakScrapedAt` — it only affects the URL the *next* "Extract EasySpeak
-  data" run targets, same as any ordinary stale-data situation; the help text calls this out. Club
-  name lookup and path name lookup used to live on this page too — they moved to their own "Club
-  Review" page (see below) since they're a different concern (reconciling scraped data) from this
-  page's remaining "which source/mode" settings; path name lookup has since moved again, to
-  "Global Settings" (see below), since it's a global alias table rather than a per-scrape
-  reconciliation concern.
-- **`entrypoints/club-review/index.html` + `entrypoints/club-review/main.ts`** — titled "Club Review". Club-name
-  lookup editor, split out of `entrypoints/settings/main.ts` (a path-name lookup editor lived here
+- **`entrypoints/app/views/setup.ts`** — titled "Setup", the merged app's entry route (empty/
+  invalid/disabled hashes all resolve here — see `entrypoints/app/router.ts`'s `resolveRoute()`
+  below). A two-option "how do you want to prepare your club progress report" step — "Try with demo
+  data" vs. "Use my club data" — backed by `shared/settings-store.ts`'s single `activeProfile` key
+  (`"demo"`, or one of the three EasySpeak region ids): picking a card is exactly "switch profile,"
+  and each profile keeps its own extracted data and review decisions (`shared/storage.ts`'s
+  profile-scoping) rather than one overwriting another. Choosing "Use my club data" reveals a second
+  card of region picker cards (image + radio, from `EASYSPEAK_SERVERS`); every choice — the initial
+  card, then the region — writes through immediately via `setActiveProfile()` (no explicit Save
+  button; the bottom "Your setup:" summary is the confirmation). Switching *into* Demo, *out of* it,
+  or between two other profiles always wipes the Demo profile's own storage
+  (`setActiveProfile()`'s `local.clearProfile("demo")` call) so it never carries stale data across a
+  switch — a no-op re-pick of the already-active profile doesn't count as "changing profile" and
+  skips the wipe. Small, low-cardinality, edited rarely, so — unlike `members.ts`/`report.ts` —
+  there's no live-recompute loop; `init()` just re-reads `getActiveProfile()`/
+  `getLastEasySpeakRegion()` after every `storage.onChanged` and re-renders all three roots fresh.
+  Club name lookup and path name lookup used to live on this view too — they moved to their own
+  "Club Review" view (see below) since they're a different concern (reconciling scraped data) from
+  this view's remaining "which profile" scope; path name lookup has since moved again, to "Global
+  Settings" (see below), since it's a global alias table rather than a per-scrape reconciliation
+  concern.
+- **`entrypoints/app/views/clubReview.ts`** — titled "Club Review". Club-name
+  lookup editor, split out of `setup.ts` (a path-name lookup editor lived here
   too for a while, but has since moved to "Global Settings" — see below). This is a
   review table (every club from both sources, not just already-pinned ones), same shape/vocabulary
-  as `entrypoints/members/main.ts`'s member-matching table: a status badge per club pair (Exact/Suggested/
+  as `members.ts`'s member-matching table: a status badge per club pair (Exact/Suggested/
   Linked manually/Unmatched) and Confirm/"Not this one"/Unlink actions, backed by `matchClubs()`
   (`shared/sync/conflicts.ts`, `allowFuzzy: true` — unlike `buildReport()`'s own `matchClubs()`
   call, this is the one place a fuzzy club-name suggestion is meant to be reviewed) and
   `pinClub()`/`rejectClubPair()`/`removeClubPin()` (`shared/resolution-store.ts`); the "add mapping"
   form is populated from `basecampData`/`easyspeakData`'s current club lists (excluding
   already-pinned ones).
-- **`entrypoints/global-settings/index.html` + `entrypoints/global-settings/main.ts`** — titled
-  "Global Settings", reached via the header gear icon (`shared/app-shell.ts`'s `renderAppShell()`),
-  not one of the five wizard steps in `NAV_ITEMS` (`active: null` + `settingsActive: true`, so no
-  step circle renders as current). Hosts cross-cutting preferences that aren't tied to a specific
-  wizard step and don't fit the "which source/mode" scope of Setup: the Anonymize Mode toggle
+- **`entrypoints/app/views/globalSettings.ts`** — titled
+  "Global Settings", reached via the header gear icon (`shared/app-shell.ts`'s `renderAppShell()`,
+  `<a href="#globalSettings">`) or the popup's gear icon (`shared/app-tab.ts`'s
+  `focusOrOpenAppTab("globalSettings")`), not one of the five wizard steps in `NAV_ITEMS`
+  (`active: null` + `settingsActive: true`, so no step circle renders as current — and the shell
+  renders no `#stepFooter` content for this route either, since Previous/Next only make sense
+  between wizard steps). Hosts cross-cutting preferences that aren't tied to a specific
+  wizard step and don't fit the "which profile" scope of Setup: the Anonymize Mode toggle
   (`shared/settings-store.ts`'s `getAnonymizeMode()`/`setAnonymizeMode()`), and the path-name
   lookup table (moved here from Club Review). The path-lookup section edits `pathLookup` directly
   via `setPathAliases()`/`deletePathCanonical()` (`shared/resolution-store.ts`); adding a new
@@ -851,21 +1005,40 @@ re-derived (and possibly un-derived) from names again.
   raw path before consulting the lookup, so a mixed-case key would simply never match. Deliberately
   **not** gated behind Anonymize Mode the way Club Review is — path names aren't personal data, and
   this is the very page that defines that toggle.
-- **`shared/settings-store.ts`** — storage I/O for general extension settings, currently just the
-  EasySpeak server choice (`easyspeakServer` key). Deliberately **not** folded into
-  `shared/resolution-store.ts`, which is scoped specifically to member/club/path matching decisions —
-  this is a different, unrelated concern. `EASYSPEAK_SERVERS` (id + display label for each of the
-  three deployments) and `DEFAULT_EASYSPEAK_SERVER` (`"tmclub.eu"`) are the single source of truth
-  for both the Setup dropdown and `getEasySpeakServer()`'s fallback (used whenever the stored
-  value is absent or isn't one of the three known ids — defensive against a future removed/renamed
-  entry). Used from both `entrypoints/settings/main.ts` (for the dropdown) *and* `background/api/easyspeak.ts`
-  (because the actual URL construction that needs the chosen server happens in the background entrypoint).
+- **`shared/settings-store.ts`** — storage I/O for general extension settings, centered on a single
+  `activeProfile` key (`ProfileId`: `"demo"`, or one of the three EasySpeak region ids) rather than
+  two independent flat settings, so a mock-mode flag and a region choice can never drift apart, and
+  `shared/storage.ts`'s profile-scoping has one unambiguous id to key off of. Deliberately **not**
+  folded into `shared/resolution-store.ts`, which is scoped specifically to member/club/path
+  matching decisions — a different, unrelated concern. `getActiveProfile()` returns the raw stored
+  choice (`null` = nothing picked yet, Setup's required no-default state); `setActiveProfile()`
+  writes it (remembering the region separately in `lastEasySpeakRegion` so switching into Demo and
+  back restores it) and wipes the Demo profile's own data on any real profile change (never on a
+  no-op re-pick — see `setup.ts`'s bullet above). `resolveActiveProfile()` is the
+  defaulted read the scrapers need instead (`??  DEFAULT_EASYSPEAK_SERVER`, defensive against
+  scraping being triggered before Setup was ever visited); `getMockMode()` (`=== "demo"`) and
+  `getEasySpeakServer()` (the region, or the default if Demo/unset) are both derived from it.
+  `EASYSPEAK_SERVERS` (id + display label + region name for each of the three deployments) and
+  `DEFAULT_EASYSPEAK_SERVER` (`"tmclub.eu"`) are the single source of truth for both Setup's region
+  cards and `getEasySpeakServer()`'s fallback. Also owns the unrelated, not-profile-scoped
+  `getAnonymizeMode()`/`setAnonymizeMode()` (`anonymizeMode` key, Global Settings' toggle) — kept in
+  this file rather than a separate one since it's the same "general extension settings, not matching
+  decisions" category. Used from `entrypoints/app/views/setup.ts` (the profile/region pickers) and
+  `entrypoints/app/views/globalSettings.ts` (Anonymize Mode) *and* `background/api/easyspeak.ts` (the
+  actual URL construction that needs the chosen server happens in the background entrypoint) *and*
+  `shared/stepper-info.ts` (the Setup step's own info line, and gating Club Review/Member Review
+  while Anonymize Mode is on).
 - **`shared/app-shell.ts`** — the shared branded header + primary nav (`renderAppShell()`),
-  rendered via `innerHTML` into a `<div id="appShell">` placeholder on every options page (not the
-  popup, which has its own static header). `NAV_ITEMS` fixes both the set of pages and their
-  left-to-right display order: Setup, Sync Data, Club Review, Member Review, Club Progress — each
-  page passes its own `AppShellPage` key (`"settings"|"syncData"|"clubReview"|"members"|"report"`)
-  as `active` so its own nav link renders highlighted.
+  rendered via `innerHTML` into `entrypoints/app/main.ts`'s `#appShell` placeholder once per
+  navigation (not the popup, which has its own static header and a separate `renderVerticalStepper()`
+  export from this same file — see the popup's bullet above). `NAV_ITEMS` fixes both the set of
+  wizard steps and their left-to-right display order: Setup, Sync Data, Club Review, Member Review,
+  Club Progress — each entry's `key` is an `AppShellPage` (`"setup"|"syncData"|"clubReview"|
+  "members"|"report"`, a subset of `shared/pages.ts`'s broader `AppRoute`, which also includes
+  `"globalSettings"`) and `href` is now an in-page hash fragment (`"#setup"`, etc.) rather than a
+  separate page's filename — plain `<a href="#members">` navigates via the browser's native
+  `hashchange` event, no click handler needed. The active view passes its own key as `active` so its
+  own nav link renders highlighted.
 - **`shared/dom-utils.ts`** — `escapeHtml()` and `escapeAttr()`, shared by all extension pages. **Use
   `escapeAttr`, not `escapeHtml`, for any untrusted text (scraped member/path names) written into an
   HTML attribute value** (e.g. an `<option value="...">`, a `data-*` attribute) — `escapeHtml`'s
@@ -873,7 +1046,7 @@ re-derived (and possibly un-derived) from names again.
   content and does not escape a literal `"`, so it can't safely go inside a double-quoted attribute.
   Also `warningIconHtml(title)` — the shared warning-triangle SVG used by both `report.ts` and
   `members.ts` (`.warning-icon`/`.conflict-warning` are defined once, centrally, in
-  `shared/styles.css`, not per-page).
+  `shared/styles.css`, not per-view).
 
 When extending this codebase with a new data source, don't assume Basecamp's tab-less fetch pattern
 is the default template — check first whether the target site can be reached with a plain
@@ -925,22 +1098,27 @@ A few decisions worth knowing before changing the config:
   `src/` prefix out of runtime URLs. Every extension-page path string lives in `shared/pages.ts`.
   `publicDir` (`public/`, unchanged) stays at the repo root by WXT's own default, so `public/icons/**`
   needed no path changes migrating off crxjs.
-- **`entrypoints/` uses one-directory-per-page, not flat co-located files** — `entrypoints/report.html`
-  + `entrypoints/report.ts` as *siblings* does **not** work: WXT treats a same-named `.html`/`.ts`
-  pair at the top level of `entrypoints/` as two conflicting entrypoints named `report` and errors
+- **`entrypoints/` uses one-directory-per-page, not flat co-located files** — `entrypoints/app.html`
+  + `entrypoints/app.ts` as *siblings* does **not** work: WXT treats a same-named `.html`/`.ts`
+  pair at the top level of `entrypoints/` as two conflicting entrypoints named `app` and errors
   with "Multiple entrypoints with the same name detected." The fix (already applied throughout) is
-  the directory form — `entrypoints/report/index.html` + `entrypoints/report/main.ts` — where only
+  the directory form — `entrypoints/app/index.html` + `entrypoints/app/main.ts` — where only
   `index.html` is the recognized entrypoint file and `main.ts` is just an ordinary sibling script the
   HTML references via `<script type="module" src="./main.ts">`. Every unlisted page and the popup
   follow this pattern; `entrypoints/background.ts` and `entrypoints/easyspeak-parser.content.ts` are
   flat single files (their own type — background, content-script — is unambiguous from the filename
-  alone, so there's no `.html` sibling to collide with).
+  alone, so there's no `.html` sibling to collide with). `entrypoints/app/views/` is a different,
+  unrelated convention layered inside that same entrypoint directory — a plain subfolder of ordinary
+  TS modules (`report.ts`, `members.ts`, ...), none of them an `index.html`/entrypoint themselves, so
+  WXT doesn't see or build them independently at all; they only exist because `entrypoints/app/main.ts`
+  imports them. Don't read "one entrypoint = one directory" as "one directory = one entrypoint" —
+  `views/` is proof a directory can hold plenty of non-entrypoint files alongside one.
 - **Icon/image references from HTML must be absolute (`/icons/...`, `/images/...`), not
   relative** — `public/` assets aren't visible to Vite's source-relative asset resolution (they're
   copied verbatim to the output root, not bundled), so an `<img src="...">`/`<link href="...">`
   pointing at one is left completely untouched by the build, string-for-string. Since every
   unlisted page/popup entrypoint builds flat at the output root regardless of its *source* nesting
-  depth (`entrypoints/report/index.html` → `report.html`, not `report/index.html`), an absolute
+  depth (`entrypoints/app/index.html` → `app.html`, not `app/index.html`), an absolute
   `/icons/default/32.png` reference resolves correctly from every page uniformly; a relative
   `../icons/...` would only happen to work at exactly one specific source nesting depth and silently
   break if that depth ever changes. Genuinely-bundled assets (e.g. `shared/styles.css`, referenced

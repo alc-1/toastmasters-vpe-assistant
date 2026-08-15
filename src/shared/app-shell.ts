@@ -28,24 +28,25 @@
 
 import { documentIconHtml, escapeHtml, settingsIconHtml, warningIconHtml } from "./dom-utils";
 
-export type AppShellPage = "report" | "members" | "settings" | "syncData" | "clubReview";
+export type AppShellPage = "report" | "members" | "setup" | "syncData" | "clubReview";
 
 // Display order, left to right: Setup, Sync Data, Club Review, Member
 // Review, Club Progress. Exported so the popup's vertical stepper
 // (renderVerticalStepper below) shares the exact same label/order as this
-// horizontal one instead of maintaining its own copy — the href values here
-// are relative to an options page's own directory (e.g. "settings.html"),
-// which is meaningless from the popup; the popup resolves navigation itself
-// via shared/pages.ts's PAGES + chrome.tabs.create instead of these hrefs.
+// horizontal one instead of maintaining its own copy — href values are hash
+// fragments (e.g. "#setup") resolved by entrypoints/app/router.ts within
+// the single merged app.html, which is meaningless from the popup; the
+// popup resolves navigation itself via shared/app-tab.ts's
+// focusOrOpenAppTab() instead of these hrefs.
 export const NAV_ITEMS: { key: AppShellPage; label: string; href: string; nextCta?: string }[] = [
-  { key: "settings", label: "Setup", href: "settings.html" },
-  { key: "syncData", label: "Sync Data", href: "sync-data.html" },
-  { key: "clubReview", label: "Club Review", href: "club-review.html" },
-  { key: "members", label: "Member Review", href: "members.html" },
+  { key: "setup", label: "Setup", href: "#setup" },
+  { key: "syncData", label: "Sync Data", href: "#syncData" },
+  { key: "clubReview", label: "Club Review", href: "#clubReview" },
+  { key: "members", label: "Member Review", href: "#members" },
   // nextCta overrides the generic "Continue to X" label used by
   // renderStepFooter() below — "View" reads better than "Continue to" for
   // the destination page itself.
-  { key: "report", label: "Club Progress", href: "report.html", nextCta: "View Club Progress" },
+  { key: "report", label: "Club Progress", href: "#report", nextCta: "View Club Progress" },
 ];
 
 const GOAL_SUBTITLE =
@@ -156,7 +157,7 @@ export function renderAppShell({ active, info, settingsActive }: AppShellOptions
           <div class="app-header__subtitle">${GOAL_SUBTITLE}</div>
         </div>
       </div>
-      <a href="global-settings.html" class="app-header__settings-btn${settingsActive ? " active" : ""}" title="Global Settings" aria-label="Global Settings">${settingsIconHtml()}</a>
+      <a href="#globalSettings" class="app-header__settings-btn${settingsActive ? " active" : ""}" title="Global Settings" aria-label="Global Settings">${settingsIconHtml()}</a>
     </header>
     <nav class="app-stepper" aria-label="Primary">${stepsHtml}</nav>
   `;
@@ -196,13 +197,13 @@ export function renderStepFooter(active: AppShellPage, info?: StepperInfo): stri
 }
 
 /**
- * The popup's vertical stepper. Unlike renderAppShell()'s links (relative
- * hrefs meant for options-page-to-options-page navigation), a popup click
- * must open a full tab instead of navigating the popup document itself — so
+ * The popup's vertical stepper. Unlike renderAppShell()'s links (in-page
+ * hash-fragment navigation within the merged app), a popup click must
+ * focus/open a tab instead of navigating the popup document itself — so
  * steps are rendered as inert `href="#"` anchors tagged `data-page-key`, and
- * the caller (entrypoints/popup/main.ts) wires up the actual browser.tabs.create()
- * click handling via shared/pages.ts, which this browser.*-free file must not
- * import directly.
+ * the caller (entrypoints/popup/main.ts) wires up the actual
+ * focus-or-open-tab click handling via shared/app-tab.ts, which this
+ * browser.*-free file must not import directly.
  */
 export function renderVerticalStepper(info: StepperInfo): string {
   const stepsHtml = NAV_ITEMS.map((item, index) => {

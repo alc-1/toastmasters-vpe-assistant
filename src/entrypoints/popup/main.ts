@@ -9,9 +9,9 @@
 // with the options pages' horizontal stepper), plus telling background the
 // popup was opened (see init() below).
 
-import { renderVerticalStepper } from "../../shared/app-shell";
+import { renderVerticalStepper, type AppShellPage } from "../../shared/app-shell";
 import { escapeHtml, settingsIconHtml } from "../../shared/dom-utils";
-import { PAGES, pageUrl } from "../../shared/pages";
+import { focusOrOpenAppTab } from "../../shared/app-tab";
 import { sendMessage } from "../../shared/send-message";
 import { computeStepperInfo } from "../../shared/stepper-info";
 import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, openUpdateRelease } from "../../shared/update-store";
@@ -20,7 +20,7 @@ const stepperRoot = document.getElementById("popupStepperRoot")!;
 const updateBannerRoot = document.getElementById("updateBannerRoot")!;
 const settingsBtn = document.getElementById("popupSettingsBtn")!;
 settingsBtn.innerHTML = settingsIconHtml();
-settingsBtn.addEventListener("click", () => browser.tabs.create({ url: pageUrl(PAGES.globalSettings) }));
+settingsBtn.addEventListener("click", () => focusOrOpenAppTab("globalSettings"));
 
 // Delegated once — renderPopup() replaces stepperRoot's innerHTML on every
 // call, but the root element itself never changes, so a single delegated
@@ -29,8 +29,8 @@ stepperRoot.addEventListener("click", (e) => {
   const step = (e.target as HTMLElement).closest<HTMLElement>("[data-page-key]");
   if (!step) return;
   e.preventDefault();
-  const key = step.dataset.pageKey as keyof typeof PAGES;
-  browser.tabs.create({ url: pageUrl(PAGES[key]) });
+  const key = step.dataset.pageKey as AppShellPage;
+  focusOrOpenAppTab(key);
 });
 
 init();

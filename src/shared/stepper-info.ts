@@ -40,7 +40,7 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
     getAnonymizeMode(),
   ]);
 
-  // Index 0 (settings/Setup) is never locked — it's the entry point, reached
+  // Index 0 (setup/Setup) is never locked — it's the entry point, reached
   // without a prior Next click.
   const isLocked = (key: AppShellPage): boolean =>
     NAV_ITEMS.findIndex((item) => item.key === key) > 0 && !visited.includes(key);
@@ -83,7 +83,7 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
   const membersDone = clubReviewDone && !membersPending;
 
   return {
-    settings: { info: setupInfo, done: !noProfile },
+    setup: { info: setupInfo, done: !noProfile },
     syncData: {
       info: syncDisabled ? undefined : formatOldestSync(cached.basecampScrapedAt, cached.easyspeakScrapedAt),
       disabled: syncDisabled,

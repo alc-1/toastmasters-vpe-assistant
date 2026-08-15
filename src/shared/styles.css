@@ -10,7 +10,7 @@
  * theme.extend (colors/fontSize/spacing/borderRadius) via Tailwind's theme()
  * CSS function, rather than a second set of hand-written literals — that
  * config is the single source of truth for every value; this block only
- * exists so each page's own residual <style> block for genuinely page-unique
+ * exists so each page's own residual \3c style> block for genuinely page-unique
  * layout (popup's fixed width, report's <col> widths, status pages' centered
  * layout) can keep referencing plain var(--*) instead of needing @apply
  * itself. Component rules in @layer components below use Tailwind's @apply
@@ -203,7 +203,7 @@
   }
 
   /* Was independently redefined in both club-review and members' own inline
-     <style> blocks — consolidated here. */
+     \3c style> blocks — consolidated here. */
   .muted-text {
     @apply text-tm-gray-600;
   }
@@ -1349,7 +1349,7 @@
   /* ---------------------------------------------------------------------- */
   /* Status pages: confirmation-icon + heading + note used identically by   */
   /* basecamp-auth and easyspeak-done, previously two byte-identical inline */
-  /* <style> blocks per page.                                               */
+  /* \3c style> blocks per page.                                               */
   /* ---------------------------------------------------------------------- */
 
   .confirmation-card .icon {
@@ -1517,4 +1517,239 @@ input:focus-visible,
 select:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* entrypoints/app/ view-specific rules — consolidated here from each      */
+/* former separate page's own inline \3c style> block when the 6 wizard/     */
+/* settings pages merged into one SPA (app/index.html has no inline style */
+/* of its own). Deliberately unlayered (like the accessibility block      */
+/* above, and not wrapped in @layer components) for consistency with that  */
+/* block, and so any future rule here that needs to override a            */
+/* @layer components rule (e.g. .page--wide) can do so unconditionally     */
+/* without having to match that layer's specificity by hand — an          */
+/* unlayered rule always wins over a layered one regardless of             */
+/* specificity. Grouped one sub-section per view; app/main.ts's router     */
+/* sets document.body.dataset.view on every navigation, which is what      */
+/* body[data-view="..."] below scopes against.                            */
+/* ---------------------------------------------------------------------- */
+
+/* Shared by both Club Review's and Member Review's action-buttons column. */
+.actions button {
+  margin-right: 4px;
+}
+
+/* Club Progress */
+.anonymize-indicator:not(:empty) {
+  margin-bottom: 12px;
+}
+
+.no-active-path {
+  font-size: var(--text-xs);
+  color: var(--gray-600);
+  font-style: italic;
+  margin: 4px 0;
+}
+
+.detail-paths {
+  font-size: var(--text-sm);
+  margin-bottom: 12px;
+}
+
+.detail-paths-label {
+  color: var(--gray-600);
+  margin-right: 4px;
+}
+
+.non-pathway-note {
+  font-size: var(--text-sm);
+  color: var(--gray-600);
+  font-style: italic;
+}
+
+table.summary tr[data-row-key] {
+  cursor: pointer;
+}
+
+.row-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  margin-right: 6px;
+  color: var(--gray-600);
+  vertical-align: middle;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.row-chevron.expanded {
+  transform: rotate(90deg);
+  color: var(--primary);
+}
+
+table.summary tr.detail-row {
+  background: var(--info-bg);
+}
+
+table.summary tr.detail-row td {
+  border-left: 3px solid var(--tm-silver);
+}
+
+table.levels {
+  background: var(--surface);
+  margin: 16px 0;
+  table-layout: fixed;
+  width: 100%;
+}
+
+table.levels th {
+  width: 14.2857%;
+}
+
+table.levels th:not(:first-child),
+table.levels td:not(:first-child) {
+  text-align: center;
+}
+
+table.levels td.pending-cell {
+  background: var(--warning-bg);
+}
+
+table.levels tbody td:first-child,
+table.levels tfoot td:first-child {
+  font-weight: 600;
+}
+
+table.levels tfoot td {
+  font-style: italic;
+  color: var(--gray-600);
+  background: var(--surface-alt);
+  border-top: 2px solid var(--border);
+}
+
+table.levels td[title] {
+  cursor: help;
+}
+
+table.levels td.check-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.approved-check {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.approved-check svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+table.summary {
+  table-layout: fixed;
+  margin-bottom: 30px;
+}
+table.summary col.col-member { width: 15%; }
+table.summary col.col-path { width: 30%; }
+table.summary col.col-level { width: 5%; }
+table.summary col.col-status { width: 15%; }
+table.summary col.col-detail { width: 25%; }
+
+table.summary th, table.summary td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+table.summary th {
+  cursor: pointer;
+  user-select: none;
+}
+
+table.summary th:hover {
+  background: var(--border);
+}
+
+table.summary th .sort-indicator {
+  color: var(--primary);
+  margin-left: 3px;
+}
+
+table.summary td.numeric {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Member Review */
+table.members {
+  margin-bottom: 20px;
+}
+
+table.members tr.detail-row {
+  background: var(--surface-alt);
+}
+
+table.members tr.detail-row td {
+  border-left: 3px solid var(--tm-silver);
+}
+
+.actions {
+  white-space: nowrap;
+}
+
+input.link-search {
+  font-size: var(--text-sm);
+  padding: 3px 6px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.path-pair-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0;
+  font-size: var(--text-sm);
+}
+/* input.link-search's width: 100% is correct in its usual table-cell
+   context (the input is the cell's only content) but would otherwise
+   blow out this flex row, squeezing every sibling button — constrain it
+   to a fixed-ish share of the row instead. */
+.path-pair-row input.link-search {
+  width: auto;
+  flex: 1 1 220px;
+  min-width: 160px;
+}
+
+/* Sync Data — scoped defensively: .summary is generic enough that a future
+   addition elsewhere plausibly could collide, even though nothing does today. */
+body[data-view="syncData"] details {
+  margin-top: 8px;
+  font-size: var(--text-sm);
+}
+
+body[data-view="syncData"] details summary {
+  cursor: pointer;
+  color: var(--gray-600);
+}
+
+body[data-view="syncData"] .summary {
+  margin-top: 8px;
+  font-size: var(--text-sm);
+}
+
+body[data-view="syncData"] .summary table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+body[data-view="syncData"] .summary td,
+body[data-view="syncData"] .summary th {
+  text-align: left;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--border);
 }

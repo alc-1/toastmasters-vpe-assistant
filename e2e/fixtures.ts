@@ -22,16 +22,18 @@ import { test as base, chromium, type BrowserContext, type Page } from "@playwri
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_PATH = path.resolve(__dirname, "../.output/store/chrome-mv3");
 
-// WXT's stable, flat output filenames for each unlisted-page entrypoint —
-// see shared/pages.ts, which can't be imported here directly since it calls
-// browser.runtime.getURL() and only exists inside an extension page context,
-// not this Node-side Playwright process.
+// The 5 wizard steps are all client-side routes inside the single merged
+// entrypoints/app/ (app.html), addressed by hash fragment — see
+// shared/pages.ts's AppRoute/appRouteUrl, which can't be imported here
+// directly since shared/pages.ts calls browser.runtime.getURL() and only
+// exists inside an extension page context, not this Node-side Playwright
+// process.
 export const PAGES = {
-  settings: "settings.html",
-  syncData: "sync-data.html",
-  report: "report.html",
-  members: "members.html",
-  clubReview: "club-review.html",
+  setup: "app.html#setup",
+  syncData: "app.html#syncData",
+  report: "app.html#report",
+  members: "app.html#members",
+  clubReview: "app.html#clubReview",
 } as const;
 
 export const test = base.extend<{
@@ -103,7 +105,7 @@ export const expect = test.expect;
  *     network/tab/login involved).
  */
 export async function seedDemoData(page: Page, pageUrl: (page: (typeof PAGES)[keyof typeof PAGES]) => string): Promise<void> {
-  await page.goto(pageUrl(PAGES.settings));
+  await page.goto(pageUrl(PAGES.setup));
   await page.locator(".option-card", { hasText: "Try with demo data" }).click();
 
   await page.goto(pageUrl(PAGES.syncData));

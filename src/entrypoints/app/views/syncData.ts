@@ -1,0 +1,430 @@
+// src/entrypoints/app/views/syncData.ts
+//
+// The Sync Data view: a Basecamp card and an EasySpeak card, plus a
+// completion summary once both imports are in. Reuses
+// shared/sync-status-panel.ts's bindSourceEls/onScrapeClick/renderScrapeResult
+// for the actual scrape trigger + response handling (unchanged) — this file
+// only owns the card/badge/summary presentation layered on top of it.
+//
+// Highest-risk view in the SPA merge: it's the only one with a listener
+// bound to `document` rather than a node inside its own root (the popover
+// outside-click handler) — that listener does NOT die for free when
+// #viewRoot is cleared on navigation, so it's captured as a named handler
+// here and explicitly removed in the disposer. See shared/view.ts.
+
+import { local, session } from "../../../shared/storage";
+import { sendMessage } from "../../../shared/send-message";
+import { getAnonymizeMode } from "../../../shared/settings-store";
+import {
+  bindSourceEls,
+  loadMatchSummary,
+  onScrapeClick,
+  renderScrapeResult,
+  type SourceEls,
+} from "../../../shared/sync-status-panel";
+import { countBasecampMembers, countEasySpeakMembers } from "../../../shared/sync/delta";
+import { exportToExcel } from "../../../shared/export/export-to-excel";
+import { EXPORT_TYPE_LABEL, type ExportType } from "../../../shared/export/rows";
+import { escapeHtml } from "../../../shared/dom-utils";
+import type { BasecampScrape, EasySpeakScrape, SourceKey } from "../../../shared/types";
+import type { ViewModule } from "../../../shared/view";
+
+const SHELL_HTML = `
+  <div class="page-intro page-intro--with-actions">
+    <div class="page-intro__text">
+      <h1 class="page-title">Sync Data</h1>
+      <p class="page-intro__desc">Import your club data from Basecamp and EasySpeak before continuing to the review steps.</p>
+    </div>
+    <div class="export-popover-wrapper">
+      <button id="exportMenuBtn" class="btn btn-secondary export-menu-btn" type="button"
+              aria-haspopup="true" aria-expanded="false" aria-controls="exportPopover">
+        Export <span class="export-menu-btn__caret" aria-hidden="true">▾</span>
+      </button>
+      <div id="exportPopover" class="export-popover" role="menu" hidden>
+        <div class="export-popover__title">Download Workbook</div>
+        <p class="help-text">Download your data as an Excel workbook.</p>
+        <div id="exportOptionsRoot" class="export-options"></div>
+        <p id="anonymizeExportNotice" class="help-text" aria-live="polite"></p>
+        <button id="exportExcelBtn" class="btn btn-primary sync-card__action" disabled>Export to Excel</button>
+        <p id="statusExport" class="sync-card__status-text help-text" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sync-cards">
+    <div class="card sync-card">
+      <div class="card-header sync-card__header">
+        <span class="sync-card__title">Basecamp</span>
+        <span id="badgeBasecamp" class="badge badge-danger">Not Imported</span>
+      </div>
+      <div class="card-body sync-card__body">
+        <p id="statusBasecamp" class="sync-card__status-text help-text" aria-live="polite"></p>
+        <p id="progressBasecamp" class="sync-card__status-text help-text" aria-live="polite"></p>
+        <div id="metaBasecamp" class="sync-card__result"></div>
+        <button id="scrapeBasecampBtn" class="btn btn-primary sync-card__action">Import Basecamp Data</button>
+        <details id="detailsBasecamp" class="sync-card__details" hidden>
+          <summary>View details</summary>
+          <div id="summaryBasecamp" class="summary"></div>
+          <pre id="rawDataBasecamp" class="raw-data"></pre>
+        </details>
+      </div>
+    </div>
+
+    <div class="card sync-card">
+      <div class="card-header sync-card__header">
+        <span class="sync-card__title">EasySpeak</span>
+        <span id="badgeEasySpeak" class="badge badge-danger">Not Imported</span>
+      </div>
+      <div class="card-body sync-card__body">
+        <p id="statusEasySpeak" class="sync-card__status-text help-text" aria-live="polite"></p>
+        <div id="metaEasySpeak" class="sync-card__result"></div>
+        <button id="scrapeEasySpeakBtn" class="btn btn-primary sync-card__action">Import EasySpeak Data</button>
+        <p class="help-text">Opens a new EasySpeak tab during import.</p>
+        <details id="detailsEasySpeak" class="sync-card__details" hidden>
+          <summary>View details</summary>
+          <div id="summaryEasySpeak" class="summary"></div>
+          <pre id="rawDataEasySpeak" class="raw-data"></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div id="completionSummary" class="setup-summary" hidden></div>
+
+  <p id="continueHelper" class="help-text sync-continue-helper"></p>
+`;
+
+type BadgeTone = "danger" | "pending" | "success";
+
+const BADGE_LABEL: Record<BadgeTone, string> = {
+  danger: "Not Imported",
+  pending: "Importing",
+  success: "Imported",
+};
+
+const EXPORT_OPTION_DESC: Record<ExportType, string> = {
+  all: "Aggregated data + sources + matches",
+  basecamp: "Original Basecamp data",
+  easyspeak: "Original EasySpeak data",
+};
+
+function computeExportAvailability(basecampData: BasecampScrape | null, easyspeakData: EasySpeakScrape | null): Record<ExportType, boolean> {
+  const hasBasecamp = !!basecampData;
+  const hasEasySpeak = !!easyspeakData;
+  return { all: hasBasecamp && hasEasySpeak, basecamp: hasBasecamp, easyspeak: hasEasySpeak };
+}
+
+function setBadge(el: HTMLElement, tone: BadgeTone) {
+  el.className = `badge badge-${tone}`;
+  el.textContent = BADGE_LABEL[tone];
+}
+
+// Time-only ("7:42 AM") rather than shared/sync-status-panel.ts's formatDate
+// (full date + time) — a freshly imported source is always "today", so the
+// date part is redundant noise in the card's 3-line result.
+function formatTime(timestamp: number | undefined): string {
+  if (!timestamp) return "just now";
+  return new Date(timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+export const syncDataView: ViewModule = {
+  async mount(root) {
+    root.innerHTML = SHELL_HTML;
+
+    // Set true by the disposer. refresh() has several await points (a
+    // background message round-trip, storage reads, buildReport()) — if
+    // the user navigates away while one is in flight, the shell replaces
+    // #viewRoot's content with a different view before this promise chain
+    // resumes; without this guard the resumed code would go on writing
+    // into elements (queried fresh via document.getElementById, matching
+    // this view's own ids) that either don't exist in the new view at all
+    // (a null-dereference crash) or — worse — happen to collide with an id
+    // the new view *does* use, silently corrupting its DOM instead.
+    let disposed = false;
+
+    const basecampEls: SourceEls = bindSourceEls({ btn: "scrapeBasecampBtn", status: "statusBasecamp", summary: "summaryBasecamp", rawData: "rawDataBasecamp" });
+    const easyspeakEls: SourceEls = bindSourceEls({ btn: "scrapeEasySpeakBtn", status: "statusEasySpeak", summary: "summaryEasySpeak", rawData: "rawDataEasySpeak" });
+
+    const badgeBasecamp = document.getElementById("badgeBasecamp")!;
+    const progressBasecamp = document.getElementById("progressBasecamp")!;
+    const metaBasecamp = document.getElementById("metaBasecamp")!;
+    const detailsBasecamp = document.getElementById("detailsBasecamp") as HTMLDetailsElement;
+    const badgeEasySpeak = document.getElementById("badgeEasySpeak")!;
+    const metaEasySpeak = document.getElementById("metaEasySpeak")!;
+    const detailsEasySpeak = document.getElementById("detailsEasySpeak") as HTMLDetailsElement;
+    const completionSummary = document.getElementById("completionSummary")!;
+    const continueHelper = document.getElementById("continueHelper")!;
+
+    // Set once an Import/Re-import button is actually clicked during this
+    // mount — the completion summary below is gated on this (not just on
+    // both sources having data), so simply revisiting the view with
+    // already-imported data doesn't show it again.
+    let importActionOccurred = false;
+
+    basecampEls.btn.addEventListener("click", async () => {
+      setBadge(badgeBasecamp, "pending");
+      const anonymize = await getAnonymizeMode();
+      await onScrapeClick<BasecampScrape>({
+        els: basecampEls,
+        message: { type: "SCRAPE_BASECAMP" },
+        loadingLabel: "Importing…",
+        render: (els, data) => renderScrapeResult(els, data, "basecamp", anonymize),
+      });
+      importActionOccurred = true;
+      await refresh();
+    });
+
+    easyspeakEls.btn.addEventListener("click", async () => {
+      setBadge(badgeEasySpeak, "pending");
+      const anonymize = await getAnonymizeMode();
+      await onScrapeClick<EasySpeakScrape>({
+        els: easyspeakEls,
+        message: { type: "SCRAPE_EASYSPEAK" },
+        loadingLabel: "Importing…",
+        render: (els, data) => renderScrapeResult(els, data, "easyspeak", anonymize),
+      });
+      importActionOccurred = true;
+      await refresh();
+    });
+
+    const exportBtn = document.getElementById("exportExcelBtn") as HTMLButtonElement;
+    const statusExport = document.getElementById("statusExport")!;
+    const exportIdleLabel = exportBtn.textContent ?? "";
+
+    const exportMenuBtn = document.getElementById("exportMenuBtn") as HTMLButtonElement;
+    const exportPopover = document.getElementById("exportPopover")!;
+
+    exportMenuBtn.addEventListener("click", () => {
+      const isOpen = !exportPopover.hidden;
+      exportPopover.hidden = isOpen;
+      exportMenuBtn.setAttribute("aria-expanded", String(!isOpen));
+    });
+
+    // The one listener in this whole SPA bound to `document` instead of a
+    // node inside `root` — closes the popover on a click anywhere outside
+    // it. Must be explicitly removed in the disposer below, since clearing
+    // #viewRoot's innerHTML does nothing for a document-level listener.
+    const onDocumentMousedown = (e: MouseEvent) => {
+      if (exportPopover.hidden) return;
+      const target = e.target as Node;
+      if (exportPopover.contains(target) || exportMenuBtn.contains(target)) return;
+      exportPopover.hidden = true;
+      exportMenuBtn.setAttribute("aria-expanded", "false");
+    };
+    document.addEventListener("mousedown", onDocumentMousedown);
+
+    // Which export type is currently selected in the Export card's
+    // radio-style selector. null only while neither Basecamp nor EasySpeak
+    // data is loaded yet (nothing to export). Persists across refresh()
+    // calls so a manual pick survives storage-change-triggered re-renders,
+    // unless that pick becomes unavailable — see refresh() below.
+    let selectedExportType: ExportType | null = null;
+
+    // True only once the user has actually clicked an option themselves.
+    // Distinguishes a deliberate choice (never silently overridden again)
+    // from an automatic fallback pick — refresh() upgrades the latter to
+    // "all" the moment it becomes available.
+    let exportTypeUserPicked = false;
+
+    function updateExportButtonState() {
+      exportBtn.disabled = selectedExportType === null;
+    }
+
+    function renderExportOptions(availability: Record<ExportType, boolean>) {
+      const optionsRoot = document.getElementById("exportOptionsRoot")!;
+      optionsRoot.innerHTML = (["all", "basecamp", "easyspeak"] as ExportType[])
+        .map((type) => {
+          const enabled = availability[type];
+          const selected = selectedExportType === type;
+          return `
+            <label class="option-card${selected ? " selected" : ""}${enabled ? "" : " disabled"}">
+              <input type="radio" name="exportType" value="${type}"${selected ? " checked" : ""}${enabled ? "" : " disabled"}>
+              <span class="option-card__body">
+                <span class="option-card__title">${EXPORT_TYPE_LABEL[type]}</span>
+                <span class="option-card__desc">${EXPORT_OPTION_DESC[type]}</span>
+              </span>
+            </label>
+          `;
+        })
+        .join("");
+
+      optionsRoot.querySelectorAll<HTMLInputElement>('input[name="exportType"]').forEach((input) => {
+        input.addEventListener("change", () => {
+          selectedExportType = input.value as ExportType;
+          exportTypeUserPicked = true;
+          renderExportOptions(availability);
+        });
+      });
+
+      updateExportButtonState();
+    }
+
+    exportBtn.addEventListener("click", async () => {
+      if (!selectedExportType) return;
+      exportBtn.disabled = true;
+      exportBtn.textContent = "Generating…";
+      statusExport.textContent = "";
+      try {
+        const summary = await exportToExcel(selectedExportType);
+        statusExport.innerHTML = `✓ Exported <ins>${escapeHtml(summary.filename)}</ins>`;
+      } catch (err) {
+        statusExport.textContent = `Export failed: ${err instanceof Error ? err.message : String(err)}`;
+      } finally {
+        exportBtn.textContent = exportIdleLabel;
+        updateExportButtonState();
+      }
+    });
+
+    // refresh() is triggered from two independent places: explicitly, right
+    // after a scrape's onScrapeClick() resolves, and by the storage.onChanged
+    // listener below, which fires the instant a scrape writes its data to
+    // browser.storage.local — which happens *before* background/messaging.ts's
+    // runScrape() flips the source's icon status to "success" and responds.
+    // That means two overlapping refresh() calls can resolve out of order —
+    // refreshToken guards against a stale one winning. See sync-data's
+    // original header comment (preserved in git history) for the full
+    // race-condition writeup this guards against.
+    let refreshToken = 0;
+
+    async function refresh() {
+      const myToken = ++refreshToken;
+
+      const statuses = (await sendMessage({ type: "POPUP_OPENED" })) || { basecamp: "idle", easyspeak: "idle" };
+      const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
+
+      if (disposed || myToken !== refreshToken) return; // this view was navigated away from, or a newer refresh() has since started — this one is stale
+
+      const basecampLoading = statuses.basecamp === "loading" && !cached.basecampData;
+      const easyspeakLoading = statuses.easyspeak === "loading" && !cached.easyspeakData;
+
+      const anonymize = await getAnonymizeMode();
+      if (disposed) return;
+      renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, basecampLoading, countBasecampMembers, "basecamp", anonymize);
+      renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, easyspeakLoading, countEasySpeakMembers, "easyspeak", anonymize);
+      document.getElementById("anonymizeExportNotice")!.textContent = anonymize ? "Anonymize Mode is on — this export will use anonymized names." : "";
+      await renderProgress();
+      if (disposed) return;
+
+      const exportAvailability = computeExportAvailability(cached.basecampData ?? null, cached.easyspeakData ?? null);
+      if (!selectedExportType || !exportAvailability[selectedExportType]) {
+        selectedExportType = (["all", "basecamp", "easyspeak"] as ExportType[]).find((t) => exportAvailability[t]) ?? null;
+        exportTypeUserPicked = false;
+      } else if (!exportTypeUserPicked && exportAvailability.all && selectedExportType !== "all") {
+        selectedExportType = "all";
+      }
+      renderExportOptions(exportAvailability);
+
+      await renderCompletionSummary(cached.basecampData ?? null, cached.easyspeakData ?? null);
+      if (disposed) return;
+
+      const hasBoth = !!cached.basecampData && !!cached.easyspeakData;
+      continueHelper.textContent = hasBoth ? "" : "Import Basecamp and EasySpeak data to continue.";
+    }
+
+    async function renderProgress() {
+      const state = await session.value("scrapeProgress");
+      const progress = state?.basecamp;
+      if (!progress) {
+        progressBasecamp.textContent = "";
+        return;
+      }
+      const clubLabel = `Club ${progress.currentClubIndex} of ${progress.clubsTotal} (${progress.currentClubName})`;
+      progressBasecamp.textContent =
+        progress.currentClubMembersTotal === null
+          ? `${clubLabel} — starting…`
+          : `${clubLabel} — ${progress.currentClubMembersFetched} member${progress.currentClubMembersFetched === 1 ? "" : "s"} out of ${progress.currentClubMembersTotal} loaded so far`;
+    }
+
+    function renderSourceCard<T extends BasecampScrape | EasySpeakScrape>(
+      els: SourceEls,
+      badge: HTMLElement,
+      result: HTMLElement,
+      details: HTMLDetailsElement,
+      idleLabel: string,
+      data: T | null,
+      scrapedAt: number | undefined,
+      isLoading: boolean,
+      countMembers: (data: T) => number,
+      source: SourceKey,
+      anonymize: boolean
+    ) {
+      if (isLoading) {
+        setBadge(badge, "pending");
+        els.btn.className = "btn btn-primary sync-card__action";
+        els.btn.disabled = true;
+        els.btn.textContent = "Importing…";
+        details.hidden = true;
+        return;
+      }
+
+      els.btn.disabled = false;
+
+      if (data) {
+        setBadge(badge, "success");
+        els.btn.className = "link-btn";
+        els.btn.textContent = "Re-import data";
+        const count = countMembers(data);
+        result.innerHTML = `
+          <div class="sync-card__result-status">Imported ✓</div>
+          <div>${count} member${count === 1 ? "" : "s"}</div>
+          <div>Imported ${formatTime(scrapedAt)}</div>
+        `;
+        els.status.textContent = "";
+        details.hidden = false;
+        renderScrapeResult(els, data, source, anonymize);
+      } else {
+        setBadge(badge, "danger");
+        els.btn.className = "btn btn-primary sync-card__action";
+        els.btn.textContent = idleLabel;
+        result.innerHTML = "";
+        els.status.textContent = "";
+        details.hidden = true;
+      }
+    }
+
+    async function renderCompletionSummary(basecampData: BasecampScrape | null, easyspeakData: EasySpeakScrape | null) {
+      if (!importActionOccurred || !basecampData || !easyspeakData) {
+        completionSummary.hidden = true;
+        return;
+      }
+
+      const { matched, total } = await loadMatchSummary(basecampData, easyspeakData);
+      const basecampCount = countBasecampMembers(basecampData);
+      const easyspeakCount = countEasySpeakMembers(easyspeakData);
+      const needsReview = total - matched;
+
+      completionSummary.hidden = false;
+      completionSummary.innerHTML = `
+        <div class="setup-summary__title sync-summary-title">
+          <span>Data Import Complete</span>
+          <span class="sync-summary-check">✓</span>
+        </div>
+        <div class="setup-summary__stats">
+          <div class="setup-summary__item">Basecamp: ${basecampCount} member${basecampCount === 1 ? "" : "s"}</div>
+          <div class="setup-summary__item">EasySpeak: ${easyspeakCount} member${easyspeakCount === 1 ? "" : "s"}</div>
+          <div class="setup-summary__item">Matched: ${matched} member${matched === 1 ? "" : "s"}</div>
+          <div class="setup-summary__item">Needs Review: ${needsReview} member${needsReview === 1 ? "" : "s"}</div>
+        </div>
+        <p class="setup-summary__footer">Ready to continue to Club Review.</p>
+      `;
+    }
+
+    // Keeps this view in sync if a scrape started elsewhere (e.g. another
+    // tab) finishes while this one stays mounted. Session-area changes are
+    // handled separately (renderProgress alone, not a full refresh()) since
+    // those fire once per page fetched during a Basecamp import.
+    const onStorageChanged = (changes: Record<string, unknown>, area: string) => {
+      if (area === "local") refresh();
+      else if (area === "session" && changes.scrapeProgress) renderProgress();
+    };
+    browser.storage.onChanged.addListener(onStorageChanged);
+
+    await refresh();
+
+    return () => {
+      disposed = true;
+      browser.storage.onChanged.removeListener(onStorageChanged);
+      document.removeEventListener("mousedown", onDocumentMousedown);
+    };
+  },
+};

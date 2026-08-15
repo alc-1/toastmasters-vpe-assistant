@@ -7,12 +7,12 @@
 // step — "Get started" navigates this same tab there rather than opening a
 // second one.
 
-import { PAGES, pageUrl } from "../../shared/pages";
+import { appRouteUrl } from "../../shared/pages";
 
 document.getElementById("pinMockup")!.innerHTML = renderPinMockup();
 
 document.getElementById("getStartedBtn")!.addEventListener("click", () => {
-  location.href = pageUrl(PAGES.settings);
+  location.href = appRouteUrl("setup");
 });
 
 function renderPinMockup(): string {

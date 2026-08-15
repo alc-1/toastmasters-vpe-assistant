@@ -47,7 +47,7 @@ test("upgrades the automatic fallback pick to All data once it becomes available
   // click order), not seedDemoData()'s near-simultaneous double click — that
   // shortcut happens to skip the intermediate "only Basecamp loaded" state
   // this test exists to cover.
-  await page.goto(pageUrl(PAGES.settings));
+  await page.goto(pageUrl(PAGES.setup));
   await page.locator(".option-card", { hasText: "Try with demo data" }).click();
   await page.goto(pageUrl(PAGES.syncData));
   await page.locator("#exportMenuBtn").click();
