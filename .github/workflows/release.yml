@@ -11,11 +11,6 @@ on:
           - patch
           - minor
           - major
-      submit_to_chrome_web_store:
-        description: "Submit to Chrome Web Store?"
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -27,6 +22,9 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      chrome_store_zip: ${{ steps.zip.outputs.chrome_store_zip }}
     steps:
       - uses: actions/checkout@v4
 
@@ -144,8 +142,38 @@ jobs:
             ---
             **Something not working?** [Open an issue here](../../issues) and describe what you see — happy to help.
 
+      - name: Upload Chrome Web Store build
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-build
+          path: .output/${{ steps.zip.outputs.chrome_store_zip }}
+
+  publish-store:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: chrome-web-store
+    permissions:
+      contents: read
+    concurrency:
+      group: chrome-web-store-publish
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Download Chrome Web Store build
+        uses: actions/download-artifact@v4
+        with:
+          name: store-build
+          path: .output
+
       - name: Submit to Chrome Web Store
-        if: ${{ inputs.submit_to_chrome_web_store }}
         env:
           # v1.1 (client ID/secret/refresh token) is deprecated and shuts down
           # October 15th, 2026 — v2 (service account) is what publish-browser-extension
@@ -155,4 +183,4 @@ jobs:
           CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
           CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
-        run: npx wxt submit --chrome-zip .output/${{ steps.zip.outputs.chrome_store_zip }}
+        run: npx wxt submit --chrome-zip .output/${{ needs.release.outputs.chrome_store_zip }}
