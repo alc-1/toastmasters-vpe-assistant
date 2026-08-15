@@ -455,7 +455,7 @@ function renderSummaryRow(row: LevelSummaryRow, key: string, isExpanded: boolean
     <tr class="${rowClass}" data-row-key="${escapeAttr(key)}">
       <td>${chevron}${escapeHtml(row.memberName)}</td>
       <td>${escapeHtml(row.pathName)}${pathBadge}</td>
-      <td>${escapeHtml(row.currentLevelLabel)}</td>
+      <td>${escapeHtml(row.currentLevelLabel === "Not in Basecamp" ? "-" : row.currentLevelLabel)}</td>
       <td><span class="badge ${statusInfo.tone}" title="${escapeAttr(statusInfo.description)}">${statusInfo.icon}${escapeHtml(statusInfo.label)}</span></td>
       <td>${renderStatusDetail(row.statusDetail)}</td>
     </tr>
