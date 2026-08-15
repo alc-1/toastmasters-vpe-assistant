@@ -27,6 +27,17 @@ import type {
 // columns is safe, not "variable-length".
 const LEVEL_NUMBERS = [1, 2, 3, 4, 5] as const;
 
+// Which sheets buildExportSheets() includes — see that function below. The
+// label is shared between the Metadata sheet's "Export Type" row and the
+// Sync Data page's selector, so it only lives in one place.
+export type ExportType = "all" | "basecamp" | "easyspeak";
+
+export const EXPORT_TYPE_LABEL: Record<ExportType, string> = {
+  all: "All data",
+  basecamp: "Basecamp",
+  easyspeak: "EasySpeak",
+};
+
 function formatTimestamp(ms: number): string {
   return new Date(ms).toLocaleString("en-US");
 }
@@ -561,6 +572,7 @@ export interface MetadataInput {
   extensionVersion: string;
   schemaVersion: string;
   activeProfileLabel: string;
+  exportType: ExportType;
   basecampScrapedAt: number | null;
   easyspeakScrapedAt: number | null;
   basecampData: BasecampScrape;
@@ -575,6 +587,7 @@ export function buildMetadataRows(input: MetadataInput): MetadataRow[] {
     { key: "Export Schema Version", value: input.schemaVersion },
     { key: "Extension Version", value: input.extensionVersion },
     { key: "Active Profile", value: input.activeProfileLabel },
+    { key: "Export Type", value: EXPORT_TYPE_LABEL[input.exportType] },
     {
       key: "Basecamp Scraped At",
       value: input.basecampScrapedAt ? new Date(input.basecampScrapedAt).toLocaleDateString("en-US") : "Not yet extracted",
@@ -598,32 +611,43 @@ export function buildMetadataRows(input: MetadataInput): MetadataRow[] {
 // ---------------------------------------------------------------------------
 
 export interface ExportSheets {
-  aggregated: AggregatedRow[];
-  matches: MatchesRow[];
-  basecamp: BasecampRawRow[];
-  easyspeak: EasySpeakRawRow[];
+  aggregated?: AggregatedRow[];
+  matches?: MatchesRow[];
+  basecamp?: BasecampRawRow[];
+  easyspeak?: EasySpeakRawRow[];
   metadata: MetadataRow[];
 }
 
 export interface ExportInputs {
+  exportType: ExportType;
   basecampData: BasecampScrape;
   easyspeakData: EasySpeakScrape;
   report: ReportResult;
   resolution: ResolutionRecords;
-  metadata: Omit<MetadataInput, "basecampData" | "easyspeakData" | "report">;
+  metadata: Omit<MetadataInput, "basecampData" | "easyspeakData" | "report" | "exportType">;
 }
 
 export function buildExportSheets(inputs: ExportInputs): ExportSheets {
-  return {
-    aggregated: buildAggregatedRows(inputs.report),
-    matches: buildMatchesRows(inputs.report, inputs.resolution),
-    basecamp: buildBasecampRows(inputs.basecampData),
-    easyspeak: buildEasySpeakRows(inputs.easyspeakData),
+  const sheets: ExportSheets = {
     metadata: buildMetadataRows({
       ...inputs.metadata,
+      exportType: inputs.exportType,
       basecampData: inputs.basecampData,
       easyspeakData: inputs.easyspeakData,
       report: inputs.report,
     }),
   };
+
+  if (inputs.exportType === "all") {
+    sheets.aggregated = buildAggregatedRows(inputs.report);
+    sheets.matches = buildMatchesRows(inputs.report, inputs.resolution);
+  }
+  if (inputs.exportType === "all" || inputs.exportType === "basecamp") {
+    sheets.basecamp = buildBasecampRows(inputs.basecampData);
+  }
+  if (inputs.exportType === "all" || inputs.exportType === "easyspeak") {
+    sheets.easyspeak = buildEasySpeakRows(inputs.easyspeakData);
+  }
+
+  return sheets;
 }

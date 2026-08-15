@@ -500,6 +500,15 @@ body {
   background: var(--info-bg);
 }
 
+.option-card.disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.option-card.disabled:hover {
+  border-color: var(--border);
+}
+
 .option-card input[type="radio"] {
   margin-top: 3px;
   flex-shrink: 0;
@@ -520,6 +529,21 @@ body {
 .option-card__desc {
   font-size: var(--text-sm);
   color: var(--gray-600);
+}
+
+/* Export card's selector, reusing .option-card's radio-card look but stacked
+   vertically — the Setup page's .option-cards is sized for a full-width
+   page, too wide to fit side-by-side inside a narrower sync-card column. */
+.export-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.export-options .option-card {
+  flex: 1 1 auto;
+  padding: var(--space-3);
 }
 
 .region-cards {

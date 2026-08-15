@@ -125,10 +125,10 @@ export function buildExportWorkbook(sheets: ExportSheets): ExcelJS.Workbook {
   workbook.creator = "Toastmasters VPE Assistant";
   workbook.created = new Date();
 
-  addSheet(workbook, "Aggregated", AGGREGATED_COLUMNS, sheets.aggregated);
-  addSheet(workbook, "Matches & Resolutions", MATCHES_COLUMNS, sheets.matches);
-  addSheet(workbook, "Basecamp", BASECAMP_COLUMNS, sheets.basecamp);
-  addSheet(workbook, "EasySpeak", EASYSPEAK_COLUMNS, sheets.easyspeak);
+  if (sheets.aggregated) addSheet(workbook, "Aggregated", AGGREGATED_COLUMNS, sheets.aggregated);
+  if (sheets.matches) addSheet(workbook, "Matches & Resolutions", MATCHES_COLUMNS, sheets.matches);
+  if (sheets.basecamp) addSheet(workbook, "Basecamp", BASECAMP_COLUMNS, sheets.basecamp);
+  if (sheets.easyspeak) addSheet(workbook, "EasySpeak", EASYSPEAK_COLUMNS, sheets.easyspeak);
   addSheet(workbook, "Metadata", METADATA_COLUMNS, sheets.metadata);
 
   return workbook;

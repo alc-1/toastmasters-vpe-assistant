@@ -301,12 +301,13 @@ describe("buildEasySpeakRows", () => {
 describe("buildMetadataRows", () => {
   const report = buildReport(basecampData, easyspeakData, { basecampScrapedAt: 1700000000000, easyspeakScrapedAt: 1700000100000 });
 
-  it("emits exactly 13 rows in a fixed key order", () => {
+  it("emits exactly 14 rows in a fixed key order", () => {
     const rows = buildMetadataRows({
       exportedAt: 1700000200000,
       extensionVersion: "0.6.1",
       schemaVersion: "1",
       activeProfileLabel: "Demo",
+      exportType: "all",
       basecampScrapedAt: 1700000000000,
       easyspeakScrapedAt: 1700000100000,
       basecampData,
@@ -318,6 +319,7 @@ describe("buildMetadataRows", () => {
       "Export Schema Version",
       "Extension Version",
       "Active Profile",
+      "Export Type",
       "Basecamp Scraped At",
       "EasySpeak Scraped At",
       "Basecamp Clubs",
@@ -336,6 +338,7 @@ describe("buildMetadataRows", () => {
       extensionVersion: "0.6.1",
       schemaVersion: "1",
       activeProfileLabel: "Demo",
+      exportType: "all",
       basecampScrapedAt: null,
       easyspeakScrapedAt: null,
       basecampData,
@@ -352,6 +355,7 @@ describe("buildMetadataRows", () => {
       extensionVersion: "0.6.1",
       schemaVersion: "1",
       activeProfileLabel: "Demo",
+      exportType: "all",
       basecampScrapedAt: 1700000000000,
       easyspeakScrapedAt: 1700000100000,
       basecampData,
@@ -364,6 +368,23 @@ describe("buildMetadataRows", () => {
     expect(rows.find((r) => r.key === "Members Matched")!.value).toBe(matched);
     expect(rows.find((r) => r.key === "Members Total")!.value).toBe(total);
   });
+
+  it("labels the export type row for each ExportType", () => {
+    const base = {
+      exportedAt: 1700000200000,
+      extensionVersion: "0.6.1",
+      schemaVersion: "1",
+      activeProfileLabel: "Demo",
+      basecampScrapedAt: 1700000000000,
+      easyspeakScrapedAt: 1700000100000,
+      basecampData,
+      easyspeakData,
+      report,
+    };
+    expect(buildMetadataRows({ ...base, exportType: "all" }).find((r) => r.key === "Export Type")!.value).toBe("All data");
+    expect(buildMetadataRows({ ...base, exportType: "basecamp" }).find((r) => r.key === "Export Type")!.value).toBe("Basecamp");
+    expect(buildMetadataRows({ ...base, exportType: "easyspeak" }).find((r) => r.key === "Export Type")!.value).toBe("EasySpeak");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -371,28 +392,44 @@ describe("buildMetadataRows", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildExportSheets", () => {
-  it("combines all 5 builders into one object, consistent with calling each directly", () => {
-    const report = buildReport(basecampData, easyspeakData, { basecampScrapedAt: 1700000000000, easyspeakScrapedAt: 1700000100000 });
-    const resolution = emptyResolution();
-    const sheets = buildExportSheets({
-      basecampData,
-      easyspeakData,
-      report,
-      resolution,
-      metadata: {
-        exportedAt: 1700000200000,
-        extensionVersion: "0.6.1",
-        schemaVersion: "1",
-        activeProfileLabel: "Demo",
-        basecampScrapedAt: 1700000000000,
-        easyspeakScrapedAt: 1700000100000,
-      },
-    });
+  const report = buildReport(basecampData, easyspeakData, { basecampScrapedAt: 1700000000000, easyspeakScrapedAt: 1700000100000 });
+  const resolution = emptyResolution();
+  const metadata = {
+    exportedAt: 1700000200000,
+    extensionVersion: "0.6.1",
+    schemaVersion: "1",
+    activeProfileLabel: "Demo",
+    basecampScrapedAt: 1700000000000,
+    easyspeakScrapedAt: 1700000100000,
+  };
+
+  it("'all' combines all 5 builders into one object, consistent with calling each directly", () => {
+    const sheets = buildExportSheets({ exportType: "all", basecampData, easyspeakData, report, resolution, metadata });
 
     expect(Object.keys(sheets).sort()).toEqual(["aggregated", "basecamp", "easyspeak", "matches", "metadata"]);
     expect(sheets.aggregated).toEqual(buildAggregatedRows(report));
     expect(sheets.matches).toEqual(buildMatchesRows(report, resolution));
     expect(sheets.basecamp).toEqual(buildBasecampRows(basecampData));
     expect(sheets.easyspeak).toEqual(buildEasySpeakRows(easyspeakData));
+  });
+
+  it("'basecamp' includes only the Basecamp and Metadata sheets", () => {
+    const sheets = buildExportSheets({ exportType: "basecamp", basecampData, easyspeakData, report, resolution, metadata });
+
+    expect(Object.keys(sheets).sort()).toEqual(["basecamp", "metadata"]);
+    expect(sheets.basecamp).toEqual(buildBasecampRows(basecampData));
+    expect(sheets.aggregated).toBeUndefined();
+    expect(sheets.matches).toBeUndefined();
+    expect(sheets.easyspeak).toBeUndefined();
+  });
+
+  it("'easyspeak' includes only the EasySpeak and Metadata sheets", () => {
+    const sheets = buildExportSheets({ exportType: "easyspeak", basecampData, easyspeakData, report, resolution, metadata });
+
+    expect(Object.keys(sheets).sort()).toEqual(["easyspeak", "metadata"]);
+    expect(sheets.easyspeak).toEqual(buildEasySpeakRows(easyspeakData));
+    expect(sheets.aggregated).toBeUndefined();
+    expect(sheets.matches).toBeUndefined();
+    expect(sheets.basecamp).toBeUndefined();
   });
 });

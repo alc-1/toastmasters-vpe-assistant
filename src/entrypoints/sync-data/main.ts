@@ -19,6 +19,8 @@ import {
 } from "../../shared/sync-status-panel";
 import { countBasecampMembers, countEasySpeakMembers } from "../../shared/sync/delta";
 import { exportToExcel } from "../../shared/export/export-to-excel";
+import { EXPORT_TYPE_LABEL, type ExportType } from "../../shared/export/rows";
+import { escapeHtml } from "../../shared/dom-utils";
 import type { BasecampScrape, EasySpeakScrape } from "../../shared/types";
 
 type BadgeTone = "danger" | "pending" | "success";
@@ -80,26 +82,75 @@ const exportBtn = document.getElementById("exportExcelBtn") as HTMLButtonElement
 const statusExport = document.getElementById("statusExport")!;
 const exportIdleLabel = exportBtn.textContent ?? "";
 
+// Which export type is currently selected in the Export card's radio-style
+// selector. null only while neither Basecamp nor EasySpeak data is loaded
+// yet (nothing to export). Persists across refresh() calls so a manual pick
+// survives storage-change-triggered re-renders, unless that pick becomes
+// unavailable — see refresh() below.
+let selectedExportType: ExportType | null = null;
+
+const EXPORT_OPTION_DESC: Record<ExportType, string> = {
+  all: "Aggregated data + sources + matches",
+  basecamp: "Original Basecamp data",
+  easyspeak: "Original EasySpeak data",
+};
+
+function computeExportAvailability(basecampData: BasecampScrape | null, easyspeakData: EasySpeakScrape | null): Record<ExportType, boolean> {
+  const hasBasecamp = !!basecampData;
+  const hasEasySpeak = !!easyspeakData;
+  return { all: hasBasecamp && hasEasySpeak, basecamp: hasBasecamp, easyspeak: hasEasySpeak };
+}
+
+function updateExportButtonState() {
+  exportBtn.disabled = selectedExportType === null;
+}
+
+function renderExportOptions(availability: Record<ExportType, boolean>) {
+  const root = document.getElementById("exportOptionsRoot")!;
+  root.innerHTML = (["all", "basecamp", "easyspeak"] as ExportType[])
+    .map((type) => {
+      const enabled = availability[type];
+      const selected = selectedExportType === type;
+      return `
+        <label class="option-card${selected ? " selected" : ""}${enabled ? "" : " disabled"}">
+          <input type="radio" name="exportType" value="${type}"${selected ? " checked" : ""}${enabled ? "" : " disabled"}>
+          <span class="option-card__body">
+            <span class="option-card__title">${EXPORT_TYPE_LABEL[type]}</span>
+            <span class="option-card__desc">${EXPORT_OPTION_DESC[type]}</span>
+          </span>
+        </label>
+      `;
+    })
+    .join("");
+
+  root.querySelectorAll<HTMLInputElement>('input[name="exportType"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      selectedExportType = input.value as ExportType;
+      renderExportOptions(availability);
+    });
+  });
+
+  updateExportButtonState();
+}
+
 // Plain synchronous client-side work (no browser.tabs/background-lifetime
 // constraint applies, unlike EasySpeak's tab-navigation), so this is wired
 // directly rather than through onScrapeClick()/sendMessage() — same
 // reasoning already applied to Member Review's direct resolution-store
-// writes. Never gated on data being present: a partial (one-sided, or even
-// empty) export is still legitimate, and exportToExcel() already degrades
-// gracefully via buildReport()'s empty-scrape tolerance.
+// writes.
 exportBtn.addEventListener("click", async () => {
+  if (!selectedExportType) return;
   exportBtn.disabled = true;
   exportBtn.textContent = "Generating…";
   statusExport.textContent = "";
   try {
-    const summary = await exportToExcel();
-    const note = !summary.hasBasecampData || !summary.hasEasySpeakData ? " (partial data — import both sources for a complete export)" : "";
-    statusExport.textContent = `Downloaded ${summary.filename}${note}`;
+    const summary = await exportToExcel(selectedExportType);
+    statusExport.innerHTML = `✓ Exported <ins>${escapeHtml(summary.filename)}</ins>`;
   } catch (err) {
     statusExport.textContent = `Export failed: ${err instanceof Error ? err.message : String(err)}`;
   } finally {
-    exportBtn.disabled = false;
     exportBtn.textContent = exportIdleLabel;
+    updateExportButtonState();
   }
 });
 
@@ -136,6 +187,12 @@ async function refresh() {
   renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, statuses.basecamp === "loading", countBasecampMembers);
   renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, statuses.easyspeak === "loading", countEasySpeakMembers);
   await renderProgress();
+
+  const exportAvailability = computeExportAvailability(cached.basecampData ?? null, cached.easyspeakData ?? null);
+  if (!selectedExportType || !exportAvailability[selectedExportType]) {
+    selectedExportType = (["all", "basecamp", "easyspeak"] as ExportType[]).find((t) => exportAvailability[t]) ?? null;
+  }
+  renderExportOptions(exportAvailability);
 
   await renderCompletionSummary(cached.basecampData ?? null, cached.easyspeakData ?? null);
 

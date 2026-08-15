@@ -12,16 +12,16 @@ import { local } from "../storage";
 import { loadResolutionData } from "../resolution-store";
 import { getActiveProfile, EASYSPEAK_SERVERS } from "../settings-store";
 import { buildReport } from "../sync/delta";
-import { buildExportSheets } from "./rows";
+import { buildExportSheets, type ExportType } from "./rows";
 import { buildExportWorkbook } from "./workbook";
 import { downloadBlob } from "./download";
 import type { ProfileId } from "../types";
 
 export const EXPORT_SCHEMA_VERSION = "1";
 
-export function buildExportFilename(now: Date = new Date()): string {
+export function buildExportFilename(exportType: ExportType, now: Date = new Date()): string {
   const iso = now.toISOString().slice(0, 10); // YYYY-MM-DD
-  return `toastmasters-export-${iso}.xlsx`;
+  return `toastmasters-export-${exportType}-${iso}.xlsx`;
 }
 
 export interface ExportSummary {
@@ -43,7 +43,7 @@ function formatProfileLabel(profileId: ProfileId | null): string {
  * scrape object the same way it does for a not-yet-imported source anywhere
  * else in the app.
  */
-export async function exportToExcel(): Promise<ExportSummary> {
+export async function exportToExcel(exportType: ExportType): Promise<ExportSummary> {
   const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
   const basecampData = cached.basecampData ?? {};
   const easyspeakData = cached.easyspeakData ?? {};
@@ -60,6 +60,7 @@ export async function exportToExcel(): Promise<ExportSummary> {
   const extensionVersion = browser.runtime.getManifest().version;
 
   const sheets = buildExportSheets({
+    exportType,
     basecampData,
     easyspeakData,
     report,
@@ -77,13 +78,13 @@ export async function exportToExcel(): Promise<ExportSummary> {
   const workbook = buildExportWorkbook(sheets);
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  const filename = buildExportFilename();
+  const filename = buildExportFilename(exportType);
   await downloadBlob(blob, filename);
 
   return {
     filename,
     hasBasecampData: !!cached.basecampData,
     hasEasySpeakData: !!cached.easyspeakData,
-    memberRowCount: sheets.aggregated.length,
+    memberRowCount: sheets.aggregated?.length ?? 0,
   };
 }
