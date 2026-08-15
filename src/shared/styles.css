@@ -1073,6 +1073,31 @@
     font-weight: 700;
   }
 
+  /* Shared by Club Review's club-name lookup table and Global Settings'
+     path-name lookup table — both edit a small, low-cardinality mapping via
+     an inline text input per row plus an "add new" form below the table. */
+  table.lookup input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: var(--text-sm);
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .add-form {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .add-form select, .add-form input[type="text"] {
+    font-size: var(--text-sm);
+    padding: 4px 6px;
+  }
+
   /* ---------------------------------------------------------------------- */
   /* Badges — grouped into exactly the 4 statuses the Member Matching table  */
   /* distinguishes (Exact/green, Resolved Manually/blue, Unmatched/red, Needs */

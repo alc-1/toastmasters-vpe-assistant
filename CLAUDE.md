@@ -208,7 +208,7 @@ src/
 │   │                                 # settings = demo/mock mode + EasySpeak server picker ("Setup");
 │   │                                 # sync-data = Data Extraction card, backed by
 │   │                                 #   shared/sync-status-panel.ts ("Sync Data");
-│   │                                 # club-review = club-name/path-name lookup editors ("Club Review")
+│   │                                 # club-review = club-name lookup editor ("Club Review")
 │   ├── basecamp-auth/, easyspeak-done/
 │   │   └── index.html + main.ts     # background-initiated interstitial pages, no user entry point
 │   ├── welcome/                     # first-run-only tab, opened by entrypoints/background.ts's onInstalled
@@ -825,9 +825,12 @@ re-derived (and possibly un-derived) from names again.
   data" run targets, same as any ordinary stale-data situation; the help text calls this out. Club
   name lookup and path name lookup used to live on this page too — they moved to their own "Club
   Review" page (see below) since they're a different concern (reconciling scraped data) from this
-  page's remaining "which source/mode" settings.
+  page's remaining "which source/mode" settings; path name lookup has since moved again, to
+  "Global Settings" (see below), since it's a global alias table rather than a per-scrape
+  reconciliation concern.
 - **`entrypoints/club-review/index.html` + `entrypoints/club-review/main.ts`** — titled "Club Review". Club-name
-  lookup and path-name lookup editors, split out of `entrypoints/settings/main.ts`. The club section is a
+  lookup editor, split out of `entrypoints/settings/main.ts` (a path-name lookup editor lived here
+  too for a while, but has since moved to "Global Settings" — see below). This is a
   review table (every club from both sources, not just already-pinned ones), same shape/vocabulary
   as `entrypoints/members/main.ts`'s member-matching table: a status badge per club pair (Exact/Suggested/
   Linked manually/Unmatched) and Confirm/"Not this one"/Unlink actions, backed by `matchClubs()`
@@ -835,10 +838,19 @@ re-derived (and possibly un-derived) from names again.
   call, this is the one place a fuzzy club-name suggestion is meant to be reviewed) and
   `pinClub()`/`rejectClubPair()`/`removeClubPin()` (`shared/resolution-store.ts`); the "add mapping"
   form is populated from `basecampData`/`easyspeakData`'s current club lists (excluding
-  already-pinned ones). The path section edits `pathLookup` directly via `setPathAliases()`/
-  `deletePathCanonical()`; adding a new canonical name lowercases it before saving, since
-  `canonicalizePathName()` always lowercases the raw path before consulting the lookup, so a
-  mixed-case key would simply never match.
+  already-pinned ones).
+- **`entrypoints/global-settings/index.html` + `entrypoints/global-settings/main.ts`** — titled
+  "Global Settings", reached via the header gear icon (`shared/app-shell.ts`'s `renderAppShell()`),
+  not one of the five wizard steps in `NAV_ITEMS` (`active: null` + `settingsActive: true`, so no
+  step circle renders as current). Hosts cross-cutting preferences that aren't tied to a specific
+  wizard step and don't fit the "which source/mode" scope of Setup: the Anonymize Mode toggle
+  (`shared/settings-store.ts`'s `getAnonymizeMode()`/`setAnonymizeMode()`), and the path-name
+  lookup table (moved here from Club Review). The path-lookup section edits `pathLookup` directly
+  via `setPathAliases()`/`deletePathCanonical()` (`shared/resolution-store.ts`); adding a new
+  canonical name lowercases it before saving, since `canonicalizePathName()` always lowercases the
+  raw path before consulting the lookup, so a mixed-case key would simply never match. Deliberately
+  **not** gated behind Anonymize Mode the way Club Review is — path names aren't personal data, and
+  this is the very page that defines that toggle.
 - **`shared/settings-store.ts`** — storage I/O for general extension settings, currently just the
   EasySpeak server choice (`easyspeakServer` key). Deliberately **not** folded into
   `shared/resolution-store.ts`, which is scoped specifically to member/club/path matching decisions —

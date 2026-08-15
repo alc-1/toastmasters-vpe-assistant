@@ -12,18 +12,15 @@ import { local } from "../../shared/storage";
 import {
   getClubLookup,
   getClubRejectedPairs,
-  getPathLookup,
   pinClub,
   rejectClubPair,
   removeClubPin,
-  setPathAliases,
-  deletePathCanonical,
 } from "../../shared/resolution-store";
 import { matchClubs, type ClubGroup, type ClubMatchPair } from "../../shared/sync/conflicts";
 import { renderAppShell, renderStepFooter } from "../../shared/app-shell";
 import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
 import { getAnonymizeMode } from "../../shared/settings-store";
-import type { BasecampScrape, EasySpeakScrape, PathLookup } from "../../shared/types";
+import type { BasecampScrape, EasySpeakScrape } from "../../shared/types";
 
 let basecampData: BasecampScrape | null = null;
 let easyspeakData: EasySpeakScrape | null = null;
@@ -54,7 +51,6 @@ async function init() {
     document.getElementById("clubLookupRoot")!.innerHTML =
       '<p class="empty-state">Club Review is unavailable while Anonymize Mode is on. ' +
       '<a href="global-settings.html">Turn it off in Global Settings</a> to review club matches.</p>';
-    document.getElementById("pathLookupRoot")!.innerHTML = "";
     return;
   }
 
@@ -63,7 +59,6 @@ async function init() {
   easyspeakData = cached.easyspeakData ?? null;
 
   await refreshClubLookup();
-  await refreshPathLookup();
 }
 
 // ---------------------------------------------------------------------------
@@ -246,84 +241,4 @@ async function onAddClubPin() {
   const esName = easyspeakData?.[esId]?.name ?? esId;
   await pinClub(bcId, esId, bcName, esName, "manual-search");
   await refreshClubLookup();
-}
-
-// ---------------------------------------------------------------------------
-// Path name lookup
-// ---------------------------------------------------------------------------
-
-async function refreshPathLookup() {
-  const pathLookup = await getPathLookup();
-  document.getElementById("pathLookupRoot")!.innerHTML = renderPathLookupSection(pathLookup);
-  attachPathLookupHandlers();
-}
-
-function renderPathLookupSection(pathLookup: PathLookup): string {
-  const rows = Object.entries(pathLookup)
-    .map(
-      ([canonical, aliases]) => `
-      <tr data-canonical="${escapeAttr(canonical)}">
-        <td>${escapeHtml(canonical)}</td>
-        <td><input type="text" data-role="alias-input" value="${escapeAttr(aliases.join(", "))}" aria-label="Alternate spellings for ${escapeAttr(canonical)}"></td>
-        <td>
-          <button class="btn btn-secondary" data-action="save-aliases">Save</button>
-          <button class="btn btn-secondary" data-action="delete-canonical">Delete</button>
-        </td>
-      </tr>
-    `
-    )
-    .join("");
-
-  const table = rows
-    ? `<table class="data-table lookup"><thead><tr><th>Canonical path name</th><th>Alternate spellings (comma-separated)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
-    : '<p class="empty-state">No path aliases configured.</p>';
-
-  return `
-    ${table}
-    <div class="add-form">
-      <input type="text" id="newPathCanonical" placeholder="New canonical path name (lowercase)" aria-label="New canonical path name">
-      <button class="btn btn-primary" data-action="add-canonical">Add path</button>
-    </div>
-  `;
-}
-
-function attachPathLookupHandlers() {
-  const root = document.getElementById("pathLookupRoot")!;
-
-  root.querySelectorAll<HTMLButtonElement>('[data-action="save-aliases"]').forEach((btn) => {
-    btn.addEventListener("click", () => onSaveAliases(btn));
-  });
-  root.querySelectorAll<HTMLButtonElement>('[data-action="delete-canonical"]').forEach((btn) => {
-    btn.addEventListener("click", () => onDeleteCanonical(btn));
-  });
-  const addBtn = root.querySelector<HTMLButtonElement>('[data-action="add-canonical"]');
-  if (addBtn) addBtn.addEventListener("click", onAddCanonical);
-}
-
-async function onSaveAliases(btn: HTMLButtonElement) {
-  const row = btn.closest("tr") as HTMLTableRowElement;
-  const canonical = row.dataset.canonical!;
-  const input = row.querySelector<HTMLInputElement>('[data-role="alias-input"]')!;
-  const aliases = input.value
-    .split(",")
-    .map((a) => a.trim())
-    .filter(Boolean);
-  await setPathAliases(canonical, aliases);
-  await refreshPathLookup();
-}
-
-async function onDeleteCanonical(btn: HTMLButtonElement) {
-  const row = btn.closest("tr") as HTMLTableRowElement;
-  await deletePathCanonical(row.dataset.canonical!);
-  await refreshPathLookup();
-}
-
-async function onAddCanonical() {
-  const input = document.getElementById("newPathCanonical") as HTMLInputElement;
-  // canonicalizePathName() lowercases the raw path before this table is
-  // consulted, so a mixed-case canonical key here would just never match.
-  const name = input.value.trim().toLowerCase();
-  if (!name) return;
-  await setPathAliases(name, []);
-  await refreshPathLookup();
 }
