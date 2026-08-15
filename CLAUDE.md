@@ -128,9 +128,14 @@ both import buttons on Sync Data — this hits the same `"demo"` profile short-c
 are deterministic. Currently covers the Sync Data → Export card flow (selector availability/auto-
 select + an actual file download) and a render/console-error smoke check on Report/Members/Club
 Review. Wired into `.github/workflows/ci.yml`, right after the "Build (store, Chrome)" step (the
-exact `.output/store/chrome-mv3` this suite launches) — `npx playwright install --with-deps
-chromium` fetches the browser there, since CI starts from a clean runner every time. `playwright.config.ts`
-sets `workers: 1` unconditionally (launching several persistent extension contexts concurrently was
+exact `.output/store/chrome-mv3` this suite launches). The browser binary itself is cached
+(`actions/cache` on `~/.cache/ms-playwright`, keyed on `runner.os` + a `package-lock.json` hash so a
+`@playwright/test` version bump correctly invalidates it) — a fresh GitHub-hosted runner still needs
+`npx playwright install --with-deps chromium` to fetch it and the apt-level shared libraries Chromium
+needs to launch at all, but a cache hit skips the (slow) download and only re-runs `playwright
+install-deps chromium` for those OS packages, which apt doesn't persist across runs either way.
+`playwright.config.ts` sets `workers: 1` unconditionally (launching several persistent extension
+contexts concurrently was
 observed to make one worker's browser process unresponsive — a real flake reproduced locally, not a
 hypothetical) plus `retries: 1` under `process.env.CI` only, as a safety margin for CI's more
 resource-constrained runners without masking a genuinely broken test. `playwright.config.ts` is

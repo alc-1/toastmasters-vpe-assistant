@@ -34,8 +34,25 @@ jobs:
       - name: Build (store, Chrome)
         run: npm run build
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # Browser binaries are what actions/cache saves above; the OS-level
+      # shared libraries `--with-deps` also installs are apt packages, which
+      # aren't part of that cached path and don't persist between runs on a
+      # fresh GitHub-hosted runner — so a cache hit still needs
+      # install-deps, just without re-downloading Chromium itself.
       - name: Install Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright OS dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: E2E tests
         run: npm run test:e2e
