@@ -1,27 +1,30 @@
 /* src/shared/styles.css
  *
- * Shared design tokens + component classes for every extension page
- * (popup, options/*, status/*). Referenced via <link rel="stylesheet"
- * href="../shared/styles.css"> from each HTML entry — Vite dedupes it into
- * one hashed dist/assets/*.css chunk shared across all pages, the same way
- * shared JS modules already are.
+ * Tailwind entry point + shared design tokens/component classes for every
+ * extension page (popup, options/*, status/*). Referenced via
+ * <link rel="stylesheet" href="../shared/styles.css"> from each HTML entry —
+ * Vite dedupes it into one hashed dist/assets/*.css chunk shared across all
+ * pages, the same way shared JS modules already are.
  *
- * Each page keeps a small residual <style> block for layout that's
- * genuinely page-unique (popup's fixed width, report's <col> widths, status
- * pages' centered layout) — this file only carries tokens and classes that
- * are shared across multiple pages.
+ * The :root custom properties below are the original hand-written token
+ * system and are mirrored 1:1 in tailwind.config.ts's theme.extend (colors/
+ * fontSize/spacing/borderRadius) — component rules in @layer components
+ * below use Tailwind's @apply against those same tokens rather than var()
+ * directly, so this file stays the single source of truth for the palette
+ * while Tailwind's utility classes become available for any new/one-off
+ * markup. The custom properties themselves are kept (not just a build
+ * artifact of the migration) because each page's own residual <style> block
+ * for genuinely page-unique layout (popup's fixed width, report's <col>
+ * widths, status pages' centered layout) still references them directly.
  *
  * Toastmasters brand system: Loyal Blue is the primary brand color and also
  * doubles as the "info" accent (badges/hovers that used to be True Maroon
  * were switched to Loyal Blue — it clashed with the rest of the page), Cool
  * Gray is reserved for subtle brand-tinted borders, Happy Yellow is used
- * only for the app title text.
- * Component rules should reference the semantic --primary/--info aliases
- * below, not the physical --tm-* variables directly, so a future re-theme
- * only touches one place. Font stays the existing system sans-serif stack —
- * Inter isn't bundled anywhere in this project and adding it would mean
- * either a new npm dependency or a remote font request (blocked by MV3's
- * default CSP anyway), both out of scope for a framework-free visual pass.
+ * only for the app title text. Font stays the existing system sans-serif
+ * stack — Inter isn't bundled anywhere in this project and adding it would
+ * mean either a new npm dependency or a remote font request (blocked by
+ * MV3's default CSP anyway).
  */
 
 :root {
@@ -89,1176 +92,1195 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-/* ---------------------------------------------------------------------- */
-/* Page containers                                                        */
-/* ---------------------------------------------------------------------- */
-
-body {
-  font-family: var(--font-sans);
-  margin: 0 auto;
-  padding: 16px 20px 60px;
-  color: var(--gray-900);
-  background: var(--surface-alt);
-}
-
-.page--wide {
-  max-width: 1100px;
-}
-
-.page--narrow {
-  max-width: 800px;
-}
-
-.page--status {
-  max-width: 520px;
-  margin: 80px auto 0;
-  padding: 0 20px 60px;
-  text-align: center;
-}
-
-.meta {
-  font-size: var(--text-sm);
-  color: var(--gray-600);
-  margin-bottom: 4px;
-}
-
-.help-text {
-  font-size: var(--text-xs);
-  color: var(--gray-600);
-  margin: 0 0 12px;
-}
-
-.page-nav {
-  font-size: var(--text-sm);
-  margin-bottom: 20px;
-}
-
-.page-nav a {
-  color: var(--primary);
-}
-
-.section-header {
-  font-size: var(--text-lg);
-  margin: var(--space-6) 0 var(--space-1);
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-4);
-}
-
-.section-header--first {
-  border-top: none;
-  padding-top: 0;
-}
-
-.empty-state {
-  font-size: 14px;
-  color: var(--gray-600);
-  margin-top: 40px;
-}
-
-/* ---------------------------------------------------------------------- */
-/* App shell: branded header (see shared/app-shell.ts) + a separate        */
-/* stepper nav section, shared by report/members/settings/sync-data/      */
-/* club-review. Popup reuses .app-header/.app-header__brand/__logo/__text/ */
-/* __title/__subtitle directly in its own hand-written header markup.     */
-/* ---------------------------------------------------------------------- */
-
-.app-header {
-  background: var(--primary);
-  color: #ffffff;
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-3);
-}
-
-.app-header__brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-}
-
-.app-header__logo {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  display: block;
-}
-
-.app-header__text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.app-header__title {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--tm-yellow);
-}
-
-.app-header__subtitle {
-  font-size: var(--text-sm);
-  font-weight: 400;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-/* Stepper — its own section, deliberately outside .app-header. Steps are
-   plain nav links (direct navigation, not a gated wizard); only the
-   *current* step is highlighted, the connecting line is neutral throughout
-   so nothing implies "completed" vs "not completed" steps. */
-
-.app-stepper {
-  display: flex;
-  justify-content: center;
-  gap: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-3) var(--space-3);
-  margin-bottom: var(--space-5);
-}
-
-.app-stepper__step {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 0 var(--space-2);
-  text-decoration: none;
-}
-
-.app-stepper__step:not(:first-child)::before {
-  content: "";
-  position: absolute;
-  top: 15px; /* vertical center of the 32px circle */
-  left: -50%;
-  width: 100%;
-  height: 2px;
-  background: var(--border);
-  z-index: 0;
-}
-
-.app-stepper__circle {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  color: var(--gray-700);
-  font-size: var(--text-sm);
-  font-weight: 700;
-  margin-bottom: var(--space-1);
-}
-
-.app-stepper__label {
-  font-size: var(--text-xs);
-  color: var(--gray-700);
-  text-align: center;
-}
-
-/* Horizontal-only: the vertical variant lays its own info line out inside
-   .app-stepper__body (see below), which already centers/spaces it via flex
-   gap — this rule only applies outside that variant. */
-.app-stepper:not(.app-stepper--vertical) .app-stepper__info {
-  display: block;
-  text-align: center;
-  margin-top: 2px;
-}
-
-.app-stepper__step:hover .app-stepper__circle {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.app-stepper__step:hover .app-stepper__label {
-  color: var(--gray-900);
-}
-
-.app-stepper__step.active .app-stepper__circle {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #ffffff;
-}
-
-.app-stepper__step.active .app-stepper__label {
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.app-stepper__step.disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-
-/* Completed step — its own requirement is fully satisfied (profile picked,
-   data extracted, review queue empty). Lower specificity than the ".active"
-   circle rule above on purpose, so the current page's own circle still wins
-   its primary-filled look even when also complete. */
-.app-stepper__circle.completed {
-  background: var(--success-bg);
-  border-color: var(--success);
-  color: var(--success);
-}
-
-/* Warning step — something needs attention (currently Member Review's
-   pending-match count). Same lower-specificity-than-".active" reasoning as
-   ".completed" above. */
-.app-stepper__circle.warning {
-  background: var(--danger-bg);
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-/* Both icons replace the plain step number inside a 32px circle — shrunk
-   down from their own default size (warning-icon's 24px, sized for banners
-   elsewhere) and stripped of the margin those callers use to sit next to
-   adjacent text, since here the icon is the circle's only content. */
-.app-stepper__circle .warning-icon,
-.app-stepper__circle .document-icon {
-  margin-right: 0;
-}
-
-.app-stepper__circle .warning-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* The active circle's own background/color rule (higher specificity than
-   ".warning" above) already turns it solid primary-blue, but the icon's fill
-   is a separate property that rule never touches — without this it would
-   stay --danger-red on top of that blue fill instead of matching it. */
-.app-stepper__step.active .app-stepper__circle .warning-icon svg {
-  fill: #ffffff;
-}
-
-.document-icon {
-  display: inline-flex;
-  align-items: center;
-}
-
-.document-icon svg {
-  display: block;
-}
-
-.app-stepper__step:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 4px;
-  border-radius: var(--radius-sm);
-}
-
-/* Vertical variant — the popup's version of the same stepper (see
-   shared/app-shell.ts's renderVerticalStepper()). Rows stack top-to-bottom
-   instead of side-by-side; the connecting line is a flex-filled rail segment
-   between each circle and the next rather than the horizontal ::before
-   trick above, since a vertical row's height varies with its info line's
-   text length. No "active" state here — the popup is never itself one of
-   these five pages. */
-
-.app-stepper--vertical {
-  flex-direction: column;
-  gap: 0;
-  padding: var(--space-2);
-}
-
-.app-stepper--vertical .app-stepper__step {
-  flex-direction: row;
-  align-items: stretch;
-  flex: none;
-  width: 100%;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-/* Cancels the horizontal variant's absolutely-positioned connecting-line
-   ::before — the vertical layout draws its own line via .app-stepper__line
-   instead (see below), which flexes to the row's actual height. */
-.app-stepper--vertical .app-stepper__step::before {
-  content: none;
-}
-
-.app-stepper--vertical .app-stepper__step:hover {
-  background: var(--surface-alt);
-}
-
-.app-stepper__rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  margin-right: var(--space-3);
-}
-
-.app-stepper--vertical .app-stepper__circle {
-  margin-bottom: 0;
-}
-
-.app-stepper__line {
-  flex: 1;
-  width: 2px;
-  min-height: var(--space-2);
-  background: var(--border);
-  margin: var(--space-1) 0;
-}
-
-.app-stepper--vertical .app-stepper__step:last-child .app-stepper__line {
-  visibility: hidden;
-}
-
-.app-stepper__body {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding-bottom: var(--space-3);
-  min-width: 0;
-}
-
-.app-stepper--vertical .app-stepper__label {
-  text-align: left;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--gray-900);
-}
-
-.app-stepper__info {
-  font-size: var(--text-xs);
-  color: var(--gray-600);
-}
-
-.app-stepper--vertical .app-stepper__step:hover .app-stepper__label {
-  color: var(--primary);
-}
-
-/* ---------------------------------------------------------------------- */
-/* Cards                                                                   */
-/* ---------------------------------------------------------------------- */
-
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-4);
-}
-
-.card-header {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
-}
-
-.card-header__title {
-  font-size: var(--text-md);
-  font-weight: 600;
-}
-
-.card-body {
-  padding: var(--space-4);
-}
-
-.card-body > .help-text:last-child {
-  margin-bottom: 0;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Setup page: option cards (radio-selectable) + setup summary            */
-/* ---------------------------------------------------------------------- */
-
-.option-cards {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.option-card {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  flex: 1 1 260px;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  cursor: pointer;
-}
-
-.option-card:hover {
-  border-color: var(--primary);
-}
-
-.option-card.selected {
-  border-color: var(--primary);
-  background: var(--info-bg);
-}
-
-.option-card.disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.option-card.disabled:hover {
-  border-color: var(--border);
-}
-
-.option-card input[type="radio"] {
-  margin-top: 3px;
-  flex-shrink: 0;
-}
-
-.option-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.option-card__title {
-  font-size: var(--text-md);
-  font-weight: 600;
-  color: var(--gray-900);
-}
-
-.option-card__desc {
-  font-size: var(--text-sm);
-  color: var(--gray-600);
-}
-
-/* Export card's selector, reusing .option-card's radio-card look but stacked
-   vertically — the Setup page's .option-cards is sized for a full-width
-   page, too wide to fit side-by-side inside a narrower sync-card column. */
-.export-options {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.export-options .option-card {
-  flex: 1 1 auto;
-  padding: var(--space-3);
-}
-
-.region-cards {
-  display: flex;
-  justify-content: space-evenly;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.region-card {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 180px;
-  max-width: 220px;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.region-card:hover {
-  border-color: var(--primary);
-}
-
-.region-card.selected {
-  border-color: var(--primary);
-  background: var(--info-bg);
-}
-
-.region-card input[type="radio"] {
-  pointer-events: none;
-  grid-column: 1;
-  justify-self: start;
-}
-
-.region-card__image {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  display: block;
-}
-
-.region-card__label {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  text-align: center;
-}
-
-.region-card__text {
-  display: flex;
-  flex-direction: column;
-}
-
-.region-card__region {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--gray-900);
-}
-
-.region-card__url {
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--gray-600);
-}
-
-.setup-summary {
-  background: var(--success-bg);
-  border: 1px solid #b7dfc0;
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-.setup-summary__title {
-  font-weight: 600;
-  color: var(--gray-900);
-  margin-bottom: 4px;
-}
-
-.setup-summary__item {
-  color: var(--success);
-  font-weight: 600;
-  font-size: var(--text-sm);
-}
-
-/* Stacks .setup-summary__item lines one per row (e.g. Sync Data's
-   completion summary: one stat per line reads as a stronger, more
-   scannable structure than a run-on horizontal row). */
-.setup-summary__stats {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-}
-
-/* Sync Data's completion summary title — puts the checkmark at the panel's
-   right edge instead of leading the text, additive to .setup-summary__title
-   (used bare, without this class, by Setup's own "Your setup:" heading). */
-.sync-summary-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.sync-summary-check {
-  color: var(--success);
-  font-weight: 700;
-}
-
-.setup-summary__footer {
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-sm);
-  color: var(--gray-900);
-}
-
-/* ---------------------------------------------------------------------- */
-/* Sync Data: page intro + per-source status cards                        */
-/* ---------------------------------------------------------------------- */
-
-.page-intro {
-  margin-bottom: var(--space-5);
-}
-
-.page-intro h1 {
-  font-size: var(--text-xl);
-  margin: 0 0 4px;
-}
-
-.page-intro__desc {
-  font-size: var(--text-md);
-  color: var(--gray-700);
-  margin: 0;
-}
-
-.page-intro--with-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-4);
-}
-
-.export-popover-wrapper {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.export-menu-btn__caret {
-  font-size: 10px;
-  margin-left: 2px;
-}
-
-.export-popover {
-  position: absolute;
-  right: 0;
-  top: calc(100% + var(--space-2));
-  z-index: 20;
-  width: 300px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
-  padding: var(--space-4);
-}
-
-.export-popover__title {
-  font-weight: 600;
-  font-size: var(--text-sm);
-  color: var(--gray-900);
-  margin-bottom: var(--space-2);
-}
-
-.sync-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
-}
-
-@media (max-width: 720px) {
-  .sync-cards {
-    grid-template-columns: 1fr;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Preflight is off (see tailwind.config.ts), but Tailwind's border-width/
+ * border-color utilities (used all over @layer components below via
+ * `border`/`border-t`/`border-b`/`border-border` etc.) only ever set
+ * border-width and border-color — never border-style. Preflight normally
+ * supplies that piece globally so those utilities render at all. The reset
+ * is two properties together, not one: `border-width: 0` AND
+ * `border-style: solid` on every element. Setting style alone (a bug in an
+ * earlier version of this rule) is actively worse than setting neither —
+ * the browser's own initial border-width is `medium` (~3-4px), which
+ * `border-style: none` had been suppressing entirely; making style solid
+ * without also zeroing the width makes that ~3-4px default border render,
+ * in the current text color, on every single element on the page that
+ * doesn't have an explicit border-width utility. With both properties reset
+ * together, an element stays borderless until something explicitly gives it
+ * a border-width (at which point Tailwind's/this file's border-color
+ * utilities can style it), which is the actual Preflight behavior.
+ */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-width: 0;
+    border-style: solid;
   }
 }
 
-.sync-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.sync-card__title {
-  font-weight: 600;
-}
-
-/* Empty unless onScrapeClick has a transient loading/error/complete message
-   to show — no reserved height, so it takes no space until it has content. */
-.sync-card__status-text {
-  margin: 0;
-}
-
-/* Three-line imported-state result (see options/sync-data.ts's
-   renderSourceCard): status line, member count, imported-at time — one
-   fact per line rather than a single run-on sentence. */
-.sync-card__result {
-  font-size: var(--text-sm);
-  color: var(--gray-700);
-  margin: 0 0 var(--space-2);
-}
-
-.sync-card__result div {
-  margin-bottom: 2px;
-}
-
-.sync-card__result-status {
-  color: var(--success);
-  font-weight: 600;
-}
-
-.sync-card__action {
-  width: 100%;
-}
-
-.sync-card__details {
-  margin-top: var(--space-3);
-  margin-bottom: var(--space-3);
-  font-size: var(--text-sm);
-}
-
-.sync-card__details summary {
-  cursor: pointer;
-  color: var(--gray-600);
-}
-
-/* De-emphasized "Re-import data" action shown once a source already has
-   data — a plain text-style link rather than a full button, so it doesn't
-   compete with the page's primary Continue action. */
-.link-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: var(--text-sm);
-  color: var(--primary);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.link-btn:hover:not(:disabled) {
-  color: var(--primary-hover);
-}
-
-.link-btn:disabled {
-  color: var(--gray-600);
-  text-decoration: none;
-  cursor: not-allowed;
-}
-
-/* ---------------------------------------------------------------------- */
-/* KPI row                                                                 */
-/* ---------------------------------------------------------------------- */
-
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-}
-
-.kpi-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-}
-
-.kpi-card__value {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--gray-900);
-  line-height: 1.2;
-}
-
-.kpi-card__label {
-  font-size: var(--text-xs);
-  color: var(--gray-600);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-top: 2px;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Buttons                                                                 */
-/* ---------------------------------------------------------------------- */
-
-.btn {
-  font-size: var(--text-base);
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  border: none;
-  border-radius: var(--radius-sm);
-}
-
-.btn-primary {
-  background: var(--primary);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.btn-primary:active:not(:disabled) {
-  background: var(--primary-active);
-}
-
-.btn-secondary {
-  background: var(--surface-alt);
-  color: var(--gray-700);
-  border: 1px solid var(--border);
-}
-
-.btn:disabled {
-  background: var(--disabled-bg);
-  color: white;
-  border-color: transparent;
-  cursor: not-allowed;
-}
-
-/* Mirrors .btn:disabled for the non-button <span> case used by a locked
-   step-footer Next button (see shared/app-shell.ts's renderStepFooter()) —
-   a <span> can't be a real disabled form control. */
-.btn[aria-disabled="true"] {
-  background: var(--disabled-bg);
-  color: white;
-  border-color: transparent;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Step footer — Next/Previous navigation between the five options pages  */
-/* ---------------------------------------------------------------------- */
-
-.step-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: var(--space-5);
-}
-
-/* Bigger + "raised" versions of .btn-primary/.btn-secondary, scoped to this
-   footer only (not a change to .btn itself, which is used all over the rest
-   of the app) — same colors as everywhere else, just more tactile: a soft
-   drop shadow for volume, a hover lift, and a press-down on click. */
-.step-footer__btn {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-md);
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  text-decoration: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.12);
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.step-footer__btn:hover {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
-  transform: translateY(-1px);
-}
-
-.step-footer__btn:active {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  transform: translateY(0);
-}
-
-/* No lift/press affordance for the inert disabled span — pointer-events is
-   already none on it, but the shadow alone would still hint "clickable". */
-.step-footer__btn[aria-disabled="true"] {
-  box-shadow: none;
-}
-
-/* Sync Data's "why is Continue disabled" hint — right-aligned so it sits
-   directly below the Continue button, which is itself right-aligned by
-   .step-footer's justify-content: space-between. */
-.sync-continue-helper {
-  text-align: right;
-  margin: var(--space-2) 0 0;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Tables                                                                  */
-/* ---------------------------------------------------------------------- */
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-  /* Gives odd rows a guaranteed white base so the nth-child(2n) zebra
-     stripe below actually contrasts, even on pages (Member Review, Club
-     Progress) where the table sits directly on the page body — whose
-     background is itself --surface-alt, the same gray as an even row,
-     which otherwise made the striping invisible outside a white .card. */
-  background: var(--surface);
-}
-
-.table th,
-.table td {
-  text-align: left;
-  padding: var(--space-2);
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
-}
-
-.table th {
-  background: var(--surface-alt);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.table tbody tr:nth-child(2n) {
-  background: var(--surface-alt);
-}
-
-.table tbody tr:hover {
-  background: var(--info-bg);
-}
-
-.table tr.muted-row {
-  color: var(--gray-600);
-  font-style: italic;
-}
-
-/* A level's requirements are already satisfied in EasySpeak but not yet
-   reported in Basecamp (realMissing === 0) — it can be taken anytime. */
-.table tr.ready-row {
-  font-weight: 700;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Badges — grouped into exactly the 4 statuses the Member Matching table  */
-/* distinguishes (Exact/green, Resolved Manually/blue, Unmatched/red, Needs */
-/* Review/orange, also reused by Flagged); Report's own presence badges    */
-/* (basecamp-only/easyspeak-only) reuse the same 4 tokens rather than a    */
-/* separate 5th color.                                                    */
-/* ---------------------------------------------------------------------- */
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: var(--radius-pill);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-/* Club Progress's Status badges (report/main.ts) — icon-less badges just
-   have no .status-icon child, so this doesn't affect them. */
-.badge .status-icon {
-  flex-shrink: 0;
-}
-
-.badge-both,
-.badge-exact {
-  background: var(--success-bg);
-  color: var(--success);
-}
-
-.badge-confirmed,
-.badge-easyspeak-only {
-  background: var(--info-bg);
-  color: var(--info);
-}
-
-.badge-basecamp-only,
-.badge-fuzzy,
-.badge-flagged {
-  background: var(--warning-bg);
-  color: var(--warning-text);
-}
-
-.badge-unmatched,
-.badge-path-issue {
-  background: var(--danger-bg);
-  color: var(--danger);
-}
-
-/* Generic status tones — additive to the 4 Member Review-specific pairs
-   above, for contexts (like Sync Data's status cards) that aren't part of
-   that specific vocabulary. */
-.badge-success {
-  background: var(--success-bg);
-  color: var(--success);
-}
-
-.badge-pending {
-  background: var(--warning-bg);
-  color: var(--warning-text);
-}
-
-.badge-info {
-  background: var(--info-bg);
-  color: var(--info);
-}
-
-.badge-danger {
-  background: var(--danger-bg);
-  color: var(--danger);
-}
-
-.badge-muted {
-  background: var(--surface-alt);
-  color: var(--gray-600);
-}
-
-/* Kept under their existing names (not renamed to something generic like
-   ".count-badge") since members.ts constructs these class names as plain
-   literal strings in its template code — no dynamic interpolation, so
-   there's no correctness reason to rename, only churn. */
-.tab-count {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
-  font-size: 10px;
-  font-weight: 700;
-  color: white;
-  background: var(--danger);
-  border-radius: var(--radius-pill);
-  vertical-align: middle;
-}
-
-.chip-count {
-  display: inline-block;
-  min-width: 14px;
-  padding: 0 5px;
-  margin-left: 2px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--gray-700);
-  background: var(--surface);
-  border-radius: var(--radius-pill);
-}
-
-/* ---------------------------------------------------------------------- */
-/* Tabs + warning icon + conflict banner                                  */
-/* ---------------------------------------------------------------------- */
-
-.tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 12px;
-}
-
-.tab-btn {
-  padding: 8px 14px;
-  font-size: var(--text-base);
-  cursor: pointer;
-  background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  color: var(--gray-600);
-}
-
-.tab-btn:hover {
-  color: var(--gray-900);
-}
-
-.tab-btn.active {
-  color: var(--primary);
-  font-weight: 600;
-  border-bottom-color: var(--primary);
-}
-
-.warning-icon {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  vertical-align: middle;
-  margin-right: 6px;
-}
-
-.warning-icon svg {
-  display: block;
-  fill: var(--danger);
-}
-
-.conflict-warning {
-  background: var(--warning-bg);
-  border: 1px solid #f0d0a0;
-  border-radius: var(--radius-md);
-  padding: 10px 14px;
-  font-size: var(--text-base);
-  color: var(--warning-text);
-  margin-bottom: 16px;
-}
-
-.conflict-warning .warning-icon {
-  margin-right: 6px;
-}
-
-.conflict-warning a {
-  color: var(--primary);
-  font-weight: 600;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Toolbar (filter chips row) — a flatter, GitHub-issue-filter-style       */
-/* treatment: plain text links with an active underline, not solid pills. */
-/* ---------------------------------------------------------------------- */
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
-  margin-bottom: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.chip {
-  padding: 5px 10px;
-  font-size: var(--text-sm);
-  cursor: pointer;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--gray-700);
-}
-
-.chip:hover {
-  background: var(--surface-alt);
-}
-
-.chip.active {
-  background: var(--surface-alt);
-  border-color: var(--border);
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.chip.active .chip-count {
-  color: var(--primary);
-  background: var(--surface);
-}
-
-.search-input {
-  display: block;
-  font-size: var(--text-sm);
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  width: 100%;
-  max-width: 280px;
-  box-sizing: border-box;
-  margin-bottom: var(--space-3);
-}
-
-/* ---------------------------------------------------------------------- */
-/* Popup-only: compact status summary rows                                */
-/* ---------------------------------------------------------------------- */
-
-.status-summary {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: var(--space-3) 0;
-}
-
-.status-summary__row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-}
-
-.status-summary__label {
-  font-weight: 600;
-  color: var(--gray-900);
-}
-
-.status-summary__value {
-  color: var(--gray-600);
-}
-
-.status-summary__value.is-success {
-  color: var(--success);
-  font-weight: 600;
-}
-
-.status-summary__value.is-pending {
-  color: var(--warning-text);
-  font-weight: 600;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Status pages: centered confirmation card                               */
-/* ---------------------------------------------------------------------- */
-
-.confirmation-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-5) var(--space-4);
+@layer components {
+  /* ---------------------------------------------------------------------- */
+  /* Page containers                                                        */
+  /* ---------------------------------------------------------------------- */
+
+  body {
+    @apply font-sans mx-auto text-tm-gray-900 bg-surface-alt;
+    padding: 16px 20px 60px;
+  }
+
+  .page--wide {
+    max-width: 1100px;
+  }
+
+  .page--narrow {
+    max-width: 800px;
+  }
+
+  .page--status {
+    max-width: 520px;
+    margin: 80px auto 0;
+    padding: 0 20px 60px;
+    text-align: center;
+  }
+
+  /* Page title — was copy-pasted identically (bare `h1` selector) across
+     club-review/members/report's own inline <style> blocks; consolidated
+     here since it's the exact same rule .page-intro h1 already expresses
+     for sync-data/settings. Scoped to an explicit class rather than a bare
+     `h1` selector so it doesn't reach into pages that were never part of
+     that duplication and intentionally style their own h1 differently
+     (welcome's hero heading; basecamp-auth/easyspeak-done's
+     .confirmation-card h1). */
+  .page-title {
+    @apply text-xl;
+    margin: 0 0 4px;
+  }
+
+  .meta {
+    @apply text-sm text-tm-gray-600;
+    margin-bottom: 4px;
+  }
+
+  .help-text {
+    @apply text-xs text-tm-gray-600;
+    margin: 0 0 12px;
+  }
+
+  .page-nav {
+    @apply text-sm;
+    margin-bottom: 20px;
+  }
+
+  .page-nav a {
+    @apply text-navy-700;
+  }
+
+  .section-header {
+    @apply text-lg border-t border-border;
+    margin: var(--space-6) 0 var(--space-1);
+    padding-top: var(--space-4);
+  }
+
+  .section-header--first {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .empty-state {
+    @apply text-tm-gray-600;
+    font-size: 14px;
+    margin-top: 40px;
+  }
+
+  /* Was independently redefined in both club-review and members' own inline
+     <style> blocks — consolidated here. */
+  .muted-text {
+    @apply text-tm-gray-600;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* App shell: branded header (see shared/app-shell.ts) + a separate        */
+  /* stepper nav section, shared by report/members/settings/sync-data/      */
+  /* club-review. Popup reuses .app-header/.app-header__brand/__logo/__text/ */
+  /* __title/__subtitle directly in its own hand-written header markup.     */
+  /* ---------------------------------------------------------------------- */
+
+  .app-header {
+    @apply bg-navy-700 rounded-md;
+    color: #ffffff;
+    margin-bottom: var(--space-3);
+  }
+
+  .app-header__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+  }
+
+  .app-header__logo {
+    @apply rounded-sm;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  .app-header__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .app-header__title {
+    @apply text-lg text-yellow-accent;
+    font-weight: 700;
+  }
+
+  .app-header__subtitle {
+    @apply text-sm;
+    font-weight: 400;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  /* Stepper — its own section, deliberately outside .app-header. Steps are
+     plain nav links (direct navigation, not a gated wizard); only the
+     *current* step is highlighted, the connecting line is neutral throughout
+     so nothing implies "completed" vs "not completed" steps. */
+
+  .app-stepper {
+    @apply bg-surface border border-border rounded-md;
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    padding: var(--space-4) var(--space-3) var(--space-3);
+    margin-bottom: var(--space-5);
+  }
+
+  .app-stepper__step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 var(--space-2);
+    text-decoration: none;
+  }
+
+  .app-stepper__step:not(:first-child)::before {
+    @apply bg-border;
+    content: "";
+    position: absolute;
+    top: 15px; /* vertical center of the 32px circle */
+    left: -50%;
+    width: 100%;
+    height: 2px;
+    z-index: 0;
+  }
+
+  .app-stepper__circle {
+    @apply bg-surface border-2 border-border text-tm-gray-700 text-sm;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-weight: 700;
+    margin-bottom: var(--space-1);
+  }
+
+  .app-stepper__label {
+    @apply text-xs text-tm-gray-700;
+    text-align: center;
+  }
+
+  /* Horizontal-only: the vertical variant lays its own info line out inside
+     .app-stepper__body (see below), which already centers/spaces it via flex
+     gap — this rule only applies outside that variant. */
+  .app-stepper:not(.app-stepper--vertical) .app-stepper__info {
+    display: block;
+    text-align: center;
+    margin-top: 2px;
+  }
+
+  .app-stepper__step:hover .app-stepper__circle {
+    @apply border-navy-700 text-navy-700;
+  }
+
+  .app-stepper__step:hover .app-stepper__label {
+    @apply text-tm-gray-900;
+  }
+
+  .app-stepper__step.active .app-stepper__circle {
+    @apply bg-navy-700 border-navy-700;
+    color: #ffffff;
+  }
+
+  .app-stepper__step.active .app-stepper__label {
+    @apply text-navy-700;
+    font-weight: 600;
+  }
+
+  .app-stepper__step.disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  /* Completed step — its own requirement is fully satisfied (profile picked,
+     data extracted, review queue empty). Lower specificity than the ".active"
+     circle rule above on purpose, so the current page's own circle still wins
+     its primary-filled look even when also complete. */
+  .app-stepper__circle.completed {
+    @apply bg-success-bg border-success text-success;
+  }
+
+  /* Warning step — something needs attention (currently Member Review's
+     pending-match count). Same lower-specificity-than-".active" reasoning as
+     ".completed" above. */
+  .app-stepper__circle.warning {
+    @apply bg-danger-bg border-danger text-danger;
+  }
+
+  /* Both icons replace the plain step number inside a 32px circle — shrunk
+     down from their own default size (warning-icon's 24px, sized for banners
+     elsewhere) and stripped of the margin those callers use to sit next to
+     adjacent text, since here the icon is the circle's only content. */
+  .app-stepper__circle .warning-icon,
+  .app-stepper__circle .document-icon {
+    margin-right: 0;
+  }
+
+  .app-stepper__circle .warning-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* The active circle's own background/color rule (higher specificity than
+     ".warning" above) already turns it solid primary-blue, but the icon's fill
+     is a separate property that rule never touches — without this it would
+     stay --danger-red on top of that blue fill instead of matching it. */
+  .app-stepper__step.active .app-stepper__circle .warning-icon svg {
+    fill: #ffffff;
+  }
+
+  .document-icon {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .document-icon svg {
+    display: block;
+  }
+
+  .app-stepper__step:focus-visible {
+    @apply outline-navy-700 rounded-sm;
+    outline-style: solid;
+    outline-width: 2px;
+    outline-offset: 4px;
+  }
+
+  /* Vertical variant — the popup's version of the same stepper (see
+     shared/app-shell.ts's renderVerticalStepper()). Rows stack top-to-bottom
+     instead of side-by-side; the connecting line is a flex-filled rail segment
+     between each circle and the next rather than the horizontal ::before
+     trick above, since a vertical row's height varies with its info line's
+     text length. No "active" state here — the popup is never itself one of
+     these five pages. */
+
+  .app-stepper--vertical {
+    flex-direction: column;
+    gap: 0;
+    padding: var(--space-2);
+  }
+
+  .app-stepper--vertical .app-stepper__step {
+    @apply rounded-sm;
+    flex-direction: row;
+    align-items: stretch;
+    flex: none;
+    width: 100%;
+    padding: var(--space-1) var(--space-2);
+    cursor: pointer;
+  }
+
+  /* Cancels the horizontal variant's absolutely-positioned connecting-line
+     ::before — the vertical layout draws its own line via .app-stepper__line
+     instead (see below), which flexes to the row's actual height. */
+  .app-stepper--vertical .app-stepper__step::before {
+    content: none;
+  }
+
+  .app-stepper--vertical .app-stepper__step:hover {
+    @apply bg-surface-alt;
+  }
+
+  .app-stepper__rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    margin-right: var(--space-3);
+  }
+
+  .app-stepper--vertical .app-stepper__circle {
+    margin-bottom: 0;
+  }
+
+  .app-stepper__line {
+    @apply bg-border;
+    flex: 1;
+    width: 2px;
+    min-height: var(--space-2);
+    margin: var(--space-1) 0;
+  }
+
+  .app-stepper--vertical .app-stepper__step:last-child .app-stepper__line {
+    visibility: hidden;
+  }
+
+  .app-stepper__body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding-bottom: var(--space-3);
+    min-width: 0;
+  }
+
+  .app-stepper--vertical .app-stepper__label {
+    @apply text-sm text-tm-gray-900;
+    text-align: left;
+    font-weight: 600;
+  }
+
+  .app-stepper__info {
+    @apply text-xs text-tm-gray-600;
+  }
+
+  .app-stepper--vertical .app-stepper__step:hover .app-stepper__label {
+    @apply text-navy-700;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Cards                                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  .card {
+    @apply bg-surface border border-border rounded-md;
+    margin-bottom: var(--space-4);
+  }
+
+  .card-header {
+    @apply border-b border-border;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .card-header__title {
+    @apply text-md;
+    font-weight: 600;
+  }
+
+  .card-body {
+    padding: var(--space-4);
+  }
+
+  .card-body > .help-text:last-child {
+    margin-bottom: 0;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Setup page: option cards (radio-selectable) + setup summary            */
+  /* ---------------------------------------------------------------------- */
+
+  .option-cards {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .option-card {
+    @apply bg-surface border-2 border-border rounded-md;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    flex: 1 1 260px;
+    padding: var(--space-4);
+    cursor: pointer;
+  }
+
+  .option-card:hover {
+    @apply border-navy-700;
+  }
+
+  .option-card.selected {
+    @apply border-navy-700 bg-info-bg;
+  }
+
+  .option-card.disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .option-card.disabled:hover {
+    @apply border-border;
+  }
+
+  .option-card input[type="radio"] {
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+
+  .option-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .option-card__title {
+    @apply text-md text-tm-gray-900;
+    font-weight: 600;
+  }
+
+  .option-card__desc {
+    @apply text-sm text-tm-gray-600;
+  }
+
+  /* Export card's selector, reusing .option-card's radio-card look but stacked
+     vertically — the Setup page's .option-cards is sized for a full-width
+     page, too wide to fit side-by-side inside a narrower sync-card column. */
+  .export-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+
+  .export-options .option-card {
+    flex: 1 1 auto;
+    padding: var(--space-3);
+  }
+
+  .region-cards {
+    display: flex;
+    justify-content: space-evenly;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .region-card {
+    @apply bg-surface border-2 border-border rounded-md;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 180px;
+    max-width: 220px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .region-card:hover {
+    @apply border-navy-700;
+  }
+
+  .region-card.selected {
+    @apply border-navy-700 bg-info-bg;
+  }
+
+  .region-card input[type="radio"] {
+    pointer-events: none;
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .region-card__image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    display: block;
+  }
+
+  .region-card__label {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    text-align: center;
+  }
+
+  .region-card__text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .region-card__region {
+    @apply text-sm text-tm-gray-900;
+    font-weight: 600;
+  }
+
+  .region-card__url {
+    @apply text-xs text-tm-gray-600;
+    font-weight: 400;
+  }
+
+  .setup-summary {
+    @apply bg-success-bg rounded-md;
+    border: 1px solid #b7dfc0;
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  .setup-summary__title {
+    @apply text-tm-gray-900;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .setup-summary__item {
+    @apply text-success text-sm;
+    font-weight: 600;
+  }
+
+  /* Stacks .setup-summary__item lines one per row (e.g. Sync Data's
+     completion summary: one stat per line reads as a stronger, more
+     scannable structure than a run-on horizontal row). */
+  .setup-summary__stats {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-top: var(--space-2);
+  }
+
+  /* Sync Data's completion summary title — puts the checkmark at the panel's
+     right edge instead of leading the text, additive to .setup-summary__title
+     (used bare, without this class, by Setup's own "Your setup:" heading). */
+  .sync-summary-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sync-summary-check {
+    @apply text-success;
+    font-weight: 700;
+  }
+
+  .setup-summary__footer {
+    @apply text-sm text-tm-gray-900;
+    margin: var(--space-3) 0 0;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Sync Data: page intro + per-source status cards                        */
+  /* ---------------------------------------------------------------------- */
+
+  .page-intro {
+    margin-bottom: var(--space-5);
+  }
+
+  .page-intro h1 {
+    @apply text-xl;
+    margin: 0 0 4px;
+  }
+
+  .page-intro__desc {
+    @apply text-md text-tm-gray-700;
+    margin: 0;
+  }
+
+  .page-intro--with-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+
+  .export-popover-wrapper {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .export-menu-btn__caret {
+    font-size: 10px;
+    margin-left: 2px;
+  }
+
+  .export-popover {
+    @apply bg-surface border border-border rounded-md;
+    position: absolute;
+    right: 0;
+    top: calc(100% + var(--space-2));
+    z-index: 20;
+    width: 300px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
+    padding: var(--space-4);
+  }
+
+  .export-popover__title {
+    @apply text-sm text-tm-gray-900;
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+  }
+
+  .sync-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+  }
+
+  @media (max-width: 720px) {
+    .sync-cards {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .sync-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  .sync-card__title {
+    font-weight: 600;
+  }
+
+  /* Empty unless onScrapeClick has a transient loading/error/complete message
+     to show — no reserved height, so it takes no space until it has content. */
+  .sync-card__status-text {
+    margin: 0;
+  }
+
+  /* Three-line imported-state result (see options/sync-data.ts's
+     renderSourceCard): status line, member count, imported-at time — one
+     fact per line rather than a single run-on sentence. */
+  .sync-card__result {
+    @apply text-sm text-tm-gray-700;
+    margin: 0 0 var(--space-2);
+  }
+
+  .sync-card__result div {
+    margin-bottom: 2px;
+  }
+
+  .sync-card__result-status {
+    @apply text-success;
+    font-weight: 600;
+  }
+
+  .sync-card__action {
+    width: 100%;
+  }
+
+  .sync-card__details {
+    @apply text-sm;
+    margin-top: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .sync-card__details summary {
+    @apply text-tm-gray-600;
+    cursor: pointer;
+  }
+
+  /* De-emphasized "Re-import data" action shown once a source already has
+     data — a plain text-style link rather than a full button, so it doesn't
+     compete with the page's primary Continue action. */
+  .link-btn {
+    @apply text-sm text-navy-700;
+    background: none;
+    border: none;
+    padding: 0;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .link-btn:hover:not(:disabled) {
+    @apply text-navy-800;
+  }
+
+  .link-btn:disabled {
+    @apply text-tm-gray-600;
+    text-decoration: none;
+    cursor: not-allowed;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* KPI row                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+  }
+
+  .kpi-card {
+    @apply bg-surface border border-border rounded-md;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .kpi-card__value {
+    @apply text-tm-gray-900;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .kpi-card__label {
+    @apply text-xs text-tm-gray-600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Buttons                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  .btn {
+    @apply text-base rounded-sm;
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-primary {
+    @apply bg-navy-700;
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    @apply bg-navy-800;
+  }
+
+  .btn-primary:active:not(:disabled) {
+    @apply bg-navy-900;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-alt text-tm-gray-700 border border-border;
+  }
+
+  /* Smaller variant, same colors as .btn-primary/.btn-secondary — used
+     where a bare .btn's default size is too large (e.g. Member Review's
+     inline row actions). Additive: pair with .btn/.btn-primary or
+     .btn/.btn-secondary rather than standing alone. */
+  .btn-sm {
+    @apply text-xs;
+    padding: 4px 8px;
+  }
+
+  .btn:disabled {
+    @apply bg-disabled;
+    color: white;
+    border-color: transparent;
+    cursor: not-allowed;
+  }
+
+  /* Mirrors .btn:disabled for the non-button <span> case used by a locked
+     step-footer Next button (see shared/app-shell.ts's renderStepFooter()) —
+     a <span> can't be a real disabled form control. */
+  .btn[aria-disabled="true"] {
+    @apply bg-disabled;
+    color: white;
+    border-color: transparent;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Step footer — Next/Previous navigation between the five options pages  */
+  /* ---------------------------------------------------------------------- */
+
+  .step-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-5);
+  }
+
+  /* Bigger + "raised" versions of .btn-primary/.btn-secondary, scoped to this
+     footer only (not a change to .btn itself, which is used all over the rest
+     of the app) — same colors as everywhere else, just more tactile: a soft
+     drop shadow for volume, a hover lift, and a press-down on click. */
+  .step-footer__btn {
+    @apply text-md rounded-md;
+    padding: var(--space-2) var(--space-4);
+    font-weight: 600;
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.12);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  .step-footer__btn:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
+    transform: translateY(-1px);
+  }
+
+  .step-footer__btn:active {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    transform: translateY(0);
+  }
+
+  /* No lift/press affordance for the inert disabled span — pointer-events is
+     already none on it, but the shadow alone would still hint "clickable". */
+  .step-footer__btn[aria-disabled="true"] {
+    box-shadow: none;
+  }
+
+  /* Sync Data's "why is Continue disabled" hint — right-aligned so it sits
+     directly below the Continue button, which is itself right-aligned by
+     .step-footer's justify-content: space-between. */
+  .sync-continue-helper {
+    text-align: right;
+    margin: var(--space-2) 0 0;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Tables                                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  /* Named .data-table, not .table — Tailwind's own core utilities include a
+     `.table { display: table }` utility, and Tailwind's class scanner is a
+     plain text regex over source files, so a literal `.table` component
+     class would collide: both rules have equal specificity, and the
+     utilities layer always compiles after the components layer, so
+     Tailwind's bare `display: table` would silently win and strip every
+     property below (zebra striping, border-collapse, background). */
+  .data-table {
+    @apply bg-surface;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+    /* Gives odd rows a guaranteed white base so the nth-child(2n) zebra
+       stripe below actually contrasts, even on pages (Member Review, Club
+       Progress) where the table sits directly on the page body — whose
+       background is itself --surface-alt, the same gray as an even row,
+       which otherwise made the striping invisible outside a white .card. */
+  }
+
+  .data-table th,
+  .data-table td {
+    @apply border-b border-border;
+    text-align: left;
+    padding: var(--space-2);
+    vertical-align: top;
+  }
+
+  .data-table th {
+    @apply bg-surface-alt;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .data-table tbody tr:nth-child(2n) {
+    @apply bg-surface-alt;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-info-bg;
+  }
+
+  .data-table tr.muted-row {
+    @apply text-tm-gray-600;
+    font-style: italic;
+  }
+
+  /* A level's requirements are already satisfied in EasySpeak but not yet
+     reported in Basecamp (realMissing === 0) — it can be taken anytime. */
+  .data-table tr.ready-row {
+    font-weight: 700;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Badges — grouped into exactly the 4 statuses the Member Matching table  */
+  /* distinguishes (Exact/green, Resolved Manually/blue, Unmatched/red, Needs */
+  /* Review/orange, also reused by Flagged); Report's own presence badges    */
+  /* (basecamp-only/easyspeak-only) reuse the same 4 tokens rather than a    */
+  /* separate 5th color.                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  .badge {
+    @apply text-xs rounded-pill;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-weight: 600;
+    padding: 2px 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  /* Club Progress's Status badges (report/main.ts) — icon-less badges just
+     have no .status-icon child, so this doesn't affect them. */
+  .badge .status-icon {
+    flex-shrink: 0;
+  }
+
+  .badge-both,
+  .badge-exact {
+    @apply bg-success-bg text-success;
+  }
+
+  .badge-confirmed,
+  .badge-easyspeak-only {
+    @apply bg-info-bg text-info;
+  }
+
+  .badge-basecamp-only,
+  .badge-fuzzy,
+  .badge-flagged {
+    @apply bg-warning-bg text-warning-text;
+  }
+
+  .badge-unmatched,
+  .badge-path-issue {
+    @apply bg-danger-bg text-danger;
+  }
+
+  /* Generic status tones — additive to the 4 Member Review-specific pairs
+     above, for contexts (like Sync Data's status cards) that aren't part of
+     that specific vocabulary. */
+  .badge-success {
+    @apply bg-success-bg text-success;
+  }
+
+  .badge-pending {
+    @apply bg-warning-bg text-warning-text;
+  }
+
+  .badge-info {
+    @apply bg-info-bg text-info;
+  }
+
+  .badge-danger {
+    @apply bg-danger-bg text-danger;
+  }
+
+  .badge-muted {
+    @apply bg-surface-alt text-tm-gray-600;
+  }
+
+  /* Kept under their existing names (not renamed to something generic like
+     ".count-badge") since members.ts constructs these class names as plain
+     literal strings in its template code — no dynamic interpolation, so
+     there's no correctness reason to rename, only churn. */
+  .tab-count {
+    @apply bg-danger rounded-pill;
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+    vertical-align: middle;
+  }
+
+  .chip-count {
+    @apply text-tm-gray-700 bg-surface rounded-pill;
+    display: inline-block;
+    min-width: 14px;
+    padding: 0 5px;
+    margin-left: 2px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Tabs + warning icon + conflict banner                                  */
+  /* ---------------------------------------------------------------------- */
+
+  .tabs {
+    @apply border-b border-border;
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .tab-btn {
+    @apply text-base text-tm-gray-600;
+    padding: 8px 14px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+  }
+
+  .tab-btn:hover {
+    @apply text-tm-gray-900;
+  }
+
+  .tab-btn.active {
+    @apply text-navy-700 border-navy-700;
+    font-weight: 600;
+    border-bottom-width: 3px;
+    border-bottom-style: solid;
+  }
+
+  .warning-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+
+  .warning-icon svg {
+    @apply fill-danger;
+    display: block;
+  }
+
+  .conflict-warning {
+    @apply bg-warning-bg text-warning-text rounded-md text-base;
+    border: 1px solid #f0d0a0;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+
+  .conflict-warning .warning-icon {
+    margin-right: 6px;
+  }
+
+  .conflict-warning a {
+    @apply text-navy-700;
+    font-weight: 600;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Toolbar (filter chips row) — a flatter, GitHub-issue-filter-style       */
+  /* treatment: plain text links with an active underline, not solid pills. */
+  /* ---------------------------------------------------------------------- */
+
+  .toolbar {
+    @apply border-b border-border;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    @apply text-sm text-tm-gray-700 rounded-sm;
+    padding: 5px 10px;
+    cursor: pointer;
+    background: none;
+    border: 1px solid transparent;
+  }
+
+  .chip:hover {
+    @apply bg-surface-alt;
+  }
+
+  .chip.active {
+    @apply bg-surface-alt border-border text-navy-700;
+    font-weight: 600;
+  }
+
+  .chip.active .chip-count {
+    @apply text-navy-700 bg-surface;
+  }
+
+  .search-input {
+    @apply text-sm border border-border rounded-sm;
+    display: block;
+    padding: 6px 10px;
+    width: 100%;
+    max-width: 280px;
+    box-sizing: border-box;
+    margin-bottom: var(--space-3);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Popup-only: compact status summary rows                                */
+  /* ---------------------------------------------------------------------- */
+
+  .status-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin: var(--space-3) 0;
+  }
+
+  .status-summary__row {
+    @apply bg-surface-alt border border-border rounded-sm text-sm;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .status-summary__label {
+    @apply text-tm-gray-900;
+    font-weight: 600;
+  }
+
+  .status-summary__value {
+    @apply text-tm-gray-600;
+  }
+
+  .status-summary__value.is-success {
+    @apply text-success;
+    font-weight: 600;
+  }
+
+  .status-summary__value.is-pending {
+    @apply text-warning-text;
+    font-weight: 600;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Status pages: centered confirmation card                               */
+  /* ---------------------------------------------------------------------- */
+
+  .confirmation-card {
+    @apply bg-surface border border-border rounded-md;
+    padding: var(--space-5) var(--space-4);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Status pages: confirmation-icon + heading + note used identically by   */
+  /* basecamp-auth and easyspeak-done, previously two byte-identical inline */
+  /* <style> blocks per page.                                               */
+  /* ---------------------------------------------------------------------- */
+
+  .confirmation-card .icon {
+    margin-bottom: 12px;
+  }
+
+  .confirmation-card h1 {
+    @apply text-lg text-success;
+    margin: 0 0 12px;
+  }
+
+  .confirmation-card p {
+    @apply text-base text-tm-gray-600;
+    line-height: 1.5;
+  }
+
+  .confirmation-card .note {
+    @apply text-sm text-tm-gray-600;
+    margin-top: 24px;
+  }
+
+  .confirmation-card button {
+    margin-top: 10px;
+  }
 }
 
 /* ---------------------------------------------------------------------- */

@@ -9,10 +9,6 @@
     body {
       max-width: 1100px;
     }
-    h1 {
-      font-size: var(--text-xl);
-      margin: 0 0 4px;
-    }
     table.members {
       margin-bottom: 20px;
     }
@@ -22,30 +18,11 @@
     table.members tr.detail-row td {
       border-left: 3px solid var(--tm-silver);
     }
-    .muted-text {
-      color: var(--gray-600);
-    }
     .actions {
       white-space: nowrap;
     }
     .actions button {
-      font-size: var(--text-xs);
-      padding: 4px 8px;
       margin-right: 4px;
-      cursor: pointer;
-      background: var(--primary);
-      color: white;
-      border: none;
-      border-radius: var(--radius-sm);
-    }
-    .actions button.secondary {
-      background: var(--surface-alt);
-      color: var(--gray-700);
-      border: 1px solid var(--border);
-    }
-    .actions button:disabled {
-      background: var(--disabled-bg);
-      cursor: not-allowed;
     }
     input.link-search {
       font-size: var(--text-sm);
@@ -76,7 +53,7 @@
 </head>
 <body class="page--wide">
   <div id="appShell"></div>
-  <h1>Member Review</h1>
+  <h1 class="page-title">Member Review</h1>
   <div class="meta" id="pageMeta"></div>
 
   <div id="conflictWarning" aria-live="polite"></div>

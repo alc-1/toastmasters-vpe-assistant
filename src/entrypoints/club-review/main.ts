@@ -105,7 +105,7 @@ function renderClubLookupSection(matches: ClubPair[]): string {
 
   const sorted = [...matches].sort(compareClubPairs);
   const rows = sorted.map(renderClubMatchRow).join("");
-  const table = `<table class="table lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  const table = `<table class="data-table lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 
   return `${table}${renderClubAddForm(matches)}`;
 }
@@ -261,7 +261,7 @@ function renderPathLookupSection(pathLookup: PathLookup): string {
     .join("");
 
   const table = rows
-    ? `<table class="table lookup"><thead><tr><th>Canonical path name</th><th>Alternate spellings (comma-separated)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+    ? `<table class="data-table lookup"><thead><tr><th>Canonical path name</th><th>Alternate spellings (comma-separated)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
     : '<p class="empty-state">No path aliases configured.</p>';
 
   return `

@@ -360,7 +360,7 @@ function renderClubMembers(clubPair: ClubPairReport): string {
 
   return `
     ${datalists}
-    <table class="table members">
+    <table class="data-table members">
       <thead>
         <tr>
           <th>Basecamp name</th>
@@ -401,7 +401,7 @@ function renderMemberRows(member: MemberReport, pools: { easyspeakOnly: Candidat
 
   // Only emit the detail <tr> when actually expanded (renderActiveClub()
   // does a full re-render on every toggle, see onTogglePaths()) — an
-  // always-present-but-hidden sibling row would throw off .table tbody
+  // always-present-but-hidden sibling row would throw off .data-table tbody
   // tr:nth-child(2n)'s zebra striping (shared/styles.css) for every row
   // after it.
   if (!expandedMemberKeys.has(key)) return mainRow;
@@ -484,8 +484,8 @@ function renderActionsCell(member: MemberReport): string {
   const buttons: string[] = [];
 
   if (member.presence === "both" && member.matchConfidence === "fuzzy") {
-    buttons.push(`<button data-action="confirm" data-member-key="${key}">Confirm</button>`);
-    buttons.push(`<button class="secondary" data-action="reject" data-member-key="${key}">Not this one</button>`);
+    buttons.push(`<button class="btn btn-primary btn-sm" data-action="confirm" data-member-key="${key}">Confirm</button>`);
+    buttons.push(`<button class="btn btn-secondary btn-sm" data-action="reject" data-member-key="${key}">Not this one</button>`);
   }
 
   if (member.presence === "both" && member.matchConfidence !== "fuzzy") {
@@ -499,18 +499,18 @@ function renderActionsCell(member: MemberReport): string {
       member.matchConfidence === "exact"
         ? "Excludes this pairing so it won't auto-match again, and marks both members as unmatched so you can find the correct match manually."
         : "Removes this confirmed link so the pairing can be re-matched or re-linked.";
-    buttons.push(`<button class="secondary" data-action="unlink" data-member-key="${key}" title="${escapeAttr(title)}">Unlink</button>`);
+    buttons.push(`<button class="btn btn-secondary btn-sm" data-action="unlink" data-member-key="${key}" title="${escapeAttr(title)}">Unlink</button>`);
   }
 
   if (member.presence !== "both") {
     if (member.matchConfidence === "confirmed" && member.matchSource === "orphan") {
       buttons.push(
-        `<button class="secondary" data-action="unorphan" data-member-key="${key}" title="Returns this member to Unmatched so it can be linked or re-resolved.">Unmark orphan</button>`
+        `<button class="btn btn-secondary btn-sm" data-action="unorphan" data-member-key="${key}" title="Returns this member to Unmatched so it can be linked or re-resolved.">Unmark orphan</button>`
       );
     } else {
-      buttons.push(`<button data-action="link" data-member-key="${key}" disabled>Link</button>`);
+      buttons.push(`<button class="btn btn-primary btn-sm" data-action="link" data-member-key="${key}" disabled>Link</button>`);
       buttons.push(
-        `<button class="secondary" data-action="mark-orphan" data-member-key="${key}" title="Marks this as having no counterpart in the other system, so it stops showing as needing review.">Mark as orphan</button>`
+        `<button class="btn btn-secondary btn-sm" data-action="mark-orphan" data-member-key="${key}" title="Marks this as having no counterpart in the other system, so it stops showing as needing review.">Mark as orphan</button>`
       );
     }
   }
@@ -518,7 +518,7 @@ function renderActionsCell(member: MemberReport): string {
   if (hasReviewablePaths(member)) {
     const expanded = expandedMemberKeys.has(key);
     const label = member.hasOrphanedPaths ? (expanded ? "Hide path issue" : "Review path issue") : expanded ? "Hide paths" : "Review paths";
-    buttons.push(`<button class="secondary" data-action="toggle-paths" data-member-key="${key}">${label}</button>`);
+    buttons.push(`<button class="btn btn-secondary btn-sm" data-action="toggle-paths" data-member-key="${key}">${label}</button>`);
   }
 
   return buttons.join("") || '<span class="muted-text">—</span>';

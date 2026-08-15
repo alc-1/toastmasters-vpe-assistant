@@ -256,7 +256,7 @@ interface SummaryTableState {
   // tab-button click handler below). The detail <tr> is only ever rendered
   // into the DOM for this one row, not toggled via a "collapsed" class on an
   // always-present sibling — that keeps every other row's position in the
-  // tbody stable, which .table tbody tr:nth-child(2n) (shared/styles.css)
+  // tbody stable, which .data-table tbody tr:nth-child(2n) (shared/styles.css)
   // relies on for zebra striping.
   expandedRowKey: string | null;
 }
@@ -373,7 +373,7 @@ function renderSummaryTable(state: SummaryTableState, rows: LevelSummaryRow[]) {
 
   const colgroupHtml = SUMMARY_COLUMNS.map((col) => `<col class="${col.colClass}">`).join("");
   const theadHtml = SUMMARY_COLUMNS.map((col) => `<th data-key="${col.key}">${escapeHtml(col.label)}</th>`).join("");
-  root.innerHTML = `<table class="table summary"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>`;
+  root.innerHTML = `<table class="data-table summary"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>`;
 
   root.querySelectorAll<HTMLTableCellElement>("th").forEach((th) => {
     th.addEventListener("click", () => {
@@ -549,7 +549,7 @@ const APPROVED_CHECK = approvedCheckIconHtml("Approved");
 function renderLevelsTable(path: PathReport): string {
   const levels = [1, 2, 3, 4, 5].map((n) => getLevel(path, n));
   return `
-    <table class="table levels">
+    <table class="data-table levels">
       <thead>
         <tr>
           <th>Source</th>
