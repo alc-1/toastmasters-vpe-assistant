@@ -1251,19 +1251,33 @@ A few decisions worth knowing before changing the config:
   two jobs: `release` bumps `package.json`'s version, tags it, builds+zips all 4 combinations (via
   `wxt zip`, which builds and zips in one step — see above) plus the Firefox sources zip, and creates
   a GitHub Release attaching all 6 files with tester-facing install instructions in the release body
-  (kept in sync with whichever store the Chrome build is actually on — see below); then
-  `publish-store` (depends on `release`, its own job so a Chrome Web Store API failure never blocks
-  the GitHub Release itself) downloads the just-built Chrome store zip and runs `wxt submit
-  --chrome-zip ...` against the `chrome-web-store` GitHub Environment's secrets (`CHROME_EXTENSION_ID`/
-  `CHROME_PUBLISHER_ID`/a service-account client email + private key — `CHROME_API_VERSION: v2`,
-  since the older client-ID/secret/refresh-token v1.1 flow is deprecated and shuts down October 15,
-  2026). **The extension is live on the Chrome Web Store** (see README's Installation section for the
+  (kept in sync with whichever store the Chrome build is actually on — see below); then two
+  independent, parallel jobs, both depending only on `release` (each with its own GitHub Environment
+  approval gate and its own concurrency group, so neither store's outage/rejection/approval delay
+  blocks the other or the GitHub Release itself): `publish-store` downloads the just-built Chrome
+  store zip and runs `wxt submit --chrome-zip ...` against the `chrome-web-store` GitHub
+  Environment's secrets (`CHROME_EXTENSION_ID`/`CHROME_PUBLISHER_ID`/a service-account client email +
+  private key — `CHROME_API_VERSION: v2`, since the older client-ID/secret/refresh-token v1.1 flow is
+  deprecated and shuts down October 15, 2026); `publish-firefox-store` downloads the just-built
+  Firefox store zip + its companion sources zip and runs `wxt submit --firefox-zip ...
+  --firefox-sources-zip ... --firefox-extension-id ...` against the `firefox-addon-store` GitHub
+  Environment's secrets (`FIREFOX_EXTENSION_ID`/`FIREFOX_JWT_ISSUER`/`FIREFOX_JWT_SECRET`),
+  submitting to AMO's `listed` channel (public review) — `wxt submit`'s own default, left unset in
+  the workflow rather than pinned to a variable since there's no current need to switch channels.
+  **The extension is live on the Chrome Web Store** (see README's Installation section for the
   listing URL) — don't write or leave copy anywhere implying otherwise (a stale line to that effect
   in `release.yml`'s own GitHub Release body template is a known leftover from before this job
   existed, not a discovered-and-still-true fact; check `landing/src/data/releaseInfo.ts`'s
   `CHROME_WEB_STORE_URL` for the canonical live listing link before writing install instructions
-  anywhere). Firefox has no equivalent auto-publish step — no AMO submission has happened yet, so a
-  Firefox install stays "Load Temporary Add-on" only (see README).
+  anywhere). **Firefox submission is automated but the extension is not yet live on
+  addons.mozilla.org** — `publish-firefox-store` submits each release for Mozilla's review, but
+  submission and approval are different things: AMO's listed-channel review can take anywhere from
+  hours to weeks, and the very first submission additionally requires the maintainer to have manually
+  created the AMO listing (registering the real `gecko.id`, replacing the placeholder in
+  `wxt.config.ts`, and provisioning the three `FIREFOX_*` secrets above) before this job can even
+  authenticate. Until Mozilla approves a first review, a Firefox install still requires "Load
+  Temporary Add-on" (see README) — don't update README's or `landing/`'s copy to claim a live AMO
+  listing exists until it verifiably does.
 - `npm run dev`/`dev:firefox` are useful for iterating on options/popup page markup with faster
   feedback, but MV3/MV2 background + `browser.scripting` behavior (the EasySpeak flow especially)
   should always get a real build + reload before you trust it — same reasoning as the old crxjs

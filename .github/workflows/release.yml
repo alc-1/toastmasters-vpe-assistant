@@ -25,6 +25,8 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       chrome_store_zip: ${{ steps.zip.outputs.chrome_store_zip }}
+      firefox_store_zip: ${{ steps.zip.outputs.firefox_store_zip }}
+      firefox_store_sources_zip: ${{ steps.zip.outputs.firefox_store_sources_zip }}
     steps:
       - uses: actions/checkout@v4
 
@@ -146,6 +148,14 @@ jobs:
           name: store-build
           path: .output/${{ steps.zip.outputs.chrome_store_zip }}
 
+      - name: Upload Firefox Add-on store build
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-store-build
+          path: |
+            .output/${{ steps.zip.outputs.firefox_store_zip }}
+            .output/${{ steps.zip.outputs.firefox_store_sources_zip }}
+
   publish-store:
     needs: release
     runs-on: ubuntu-latest
@@ -182,3 +192,39 @@ jobs:
           CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
           CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
         run: npx wxt submit --chrome-zip .output/${{ needs.release.outputs.chrome_store_zip }}
+
+  publish-firefox-store:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: firefox-addon-store
+    permissions:
+      contents: read
+    concurrency:
+      group: firefox-addon-store-publish
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Download Firefox Add-on store build
+        uses: actions/download-artifact@v4
+        with:
+          name: firefox-store-build
+          path: .output
+
+      - name: Submit to Firefox Add-on Store
+        env:
+          FIREFOX_EXTENSION_ID: ${{ secrets.FIREFOX_EXTENSION_ID }}
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
+        run: |
+          npx wxt submit \
+            --firefox-zip .output/${{ needs.release.outputs.firefox_store_zip }} \
+            --firefox-sources-zip .output/${{ needs.release.outputs.firefox_store_sources_zip }} \
+            --firefox-extension-id "$FIREFOX_EXTENSION_ID"

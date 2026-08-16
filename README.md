@@ -25,7 +25,10 @@ Web Store release: grab the relevant zip from the
 — that page's own instructions walk through unzipping and loading it for
 each browser. Firefox doesn't support permanently loading an unsigned
 extension, so a Firefox preview install is temporary (cleared on browser
-restart) until this extension is submitted to addons.mozilla.org.
+restart) until this extension is approved and listed on addons.mozilla.org —
+each release is now submitted there automatically for review, but Mozilla's
+review process takes time, so a temporary install is still what you'll need
+for now.
 
 ## Feedback / bugs
 
@@ -232,7 +235,8 @@ runs), then the remaining store/preview × Chrome/Firefox build combinations
 `.github/workflows/release.yml` (Actions tab → "Release" → "Run workflow"),
 which bumps the version, tags it, builds + zips all 4 combinations (plus a
 Firefox sources zip for AMO), attaches them to a new GitHub Release, and
-publishes the Chrome build to the Chrome Web Store.
+publishes the Chrome build to the Chrome Web Store and the Firefox build to
+addons.mozilla.org for review.
 
 ## Known limitations
 
@@ -242,8 +246,10 @@ publishes the Chrome build to the Chrome Web Store.
   "Complete N elective speech(es)" groups — roles and named series
   (Successful/Better Speaker/Leadership Series, optional roles) aren't
   counted
-- Firefox isn't on addons.mozilla.org yet, so a Firefox install is a
-  temporary add-on cleared on every browser restart (see Installation above)
+- Firefox isn't approved/listed on addons.mozilla.org yet (each release is
+  submitted there automatically, but Mozilla review takes time), so a
+  Firefox install is still a temporary add-on cleared on every browser
+  restart (see Installation above)
 - If the background service worker/script is killed mid-scrape in a way
   that aborts the scrape itself, its status can stay stuck on "loading"
   until the browser restarts

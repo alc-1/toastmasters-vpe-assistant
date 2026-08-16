@@ -46,8 +46,13 @@ export default defineConfig({
         default_title: `Toastmasters VPE Assistant${titleSuffix}`,
       },
 
-      // Required for AMO submission (listed) — placeholder id, confirm the
-      // exact string with the maintainer before the first real submission.
+      // Required for AMO submission (listed) — placeholder id.
+      // .github/workflows/release.yml's publish-firefox-store job submits this
+      // build to AMO automatically (gated behind the firefox-addon-store GitHub
+      // Environment), but this ID must be replaced with the real gecko ID AMO
+      // assigns once the maintainer creates the listing by hand — and
+      // secrets.FIREFOX_EXTENSION_ID kept in sync with it — before that job can
+      // succeed for real.
       // data_collection_permissions is Mozilla's data-collection-consent requirement (mzl.la/firefox-builtin-data-consent);
       // "none" is accurate since nothing is transmitted off-device — revisit if that ever changes.
       browser_specific_settings:
