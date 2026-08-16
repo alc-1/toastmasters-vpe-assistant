@@ -12,6 +12,7 @@
 // the POPUP_OPENED message (see messaging.ts) and never touches
 // browser.storage.session or browser.action itself.
 
+import { actionApi } from "../shared/browser-action";
 import { session } from "../shared/storage";
 import type { IconStatuses, SourceKey, SourceStatus } from "../shared/types";
 
@@ -102,15 +103,15 @@ async function applyIcon(statuses: IconStatuses): Promise<void> {
     return;
   }
   stopLoadingAnimation();
-  await browser.action.setIcon({ path: STATIC_ICON_PATHS[combined] });
+  await actionApi.setIcon({ path: STATIC_ICON_PATHS[combined] });
 }
 
 function startLoadingAnimation(): void {
   if (animationTimer) return; // already animating
-  browser.action.setIcon({ path: loadingFramePath(animationFrame) });
+  actionApi.setIcon({ path: loadingFramePath(animationFrame) });
   animationTimer = setInterval(() => {
     animationFrame = (animationFrame + 1) % LOADING_FRAME_COUNT;
-    browser.action.setIcon({ path: loadingFramePath(animationFrame) });
+    actionApi.setIcon({ path: loadingFramePath(animationFrame) });
   }, LOADING_FRAME_INTERVAL_MS);
 }
 

@@ -231,6 +231,30 @@ inspection — don't trust a single green run of a new SPA-shell change, repeat 
 isolation reasoning as the `vitest.config.ts` bullet above, and `e2e/**/*.spec.ts` lives outside
 `tests/` so Vitest's own `include` glob never picks it up.
 
+**This e2e suite cannot be extended to Firefox — confirmed by testing, not assumption.** Chromium's
+`--load-extension`/`--disable-extensions-except` args (`e2e/fixtures.ts`'s `context` fixture) are
+Chromium-only: passing them to `firefox.launchPersistentContext()` gets them silently ignored (with
+`DEBUG=pw:browser` on, Firefox itself logs `"Warning: unrecognized command line flag"
+"-disable-extensions-except"`) — no extension loads, `context.pages()` stays empty. The classic
+"extension proxy file" sideloading trick (a pointer file in the profile's `extensions/` folder) also
+does not work against Playwright's bundled Firefox: modern Firefox removed profile-directory
+sideloading entirely as an anti-malware measure, regardless of `xpinstall.signatures.required`/
+`extensions.autoDisableScopes` prefs. Even if a working install method existed, `BrowserContext
+.backgroundPages()` is hardcoded to return `[]` outside Chromium (the Playwright type itself says
+"Background pages have been removed from Chromium together with Manifest V2 extensions" — Firefox
+was never supported here at all), so there'd be no way to read a Firefox background page's console
+through Playwright regardless. **Practical consequence: this repo has zero automated regression
+coverage for Firefox-specific `browser.*` behavior.** Every Firefox bug found so far (see the
+`background/messaging.ts`, `background/icon-state.ts`/`shared/browser-action.ts`, and
+`background/api/basecamp.ts` bullets below) was caught only by manual testing against a real
+Firefox build — the manual walkthrough in "Running / testing changes" above is not optional
+diligence for a Firefox-touching change, it is the *only* diligence available. When debugging a
+Firefox-only issue with no other lead, the most direct path is: add temporary `console.log`s in the
+suspect background code, have the tester reload the build, reproduce, and open
+`about:debugging#/runtime/this-firefox` → "Inspect" on the extension *before* reproducing (so the
+background console's history isn't already gone) — then remove the logging once fixed, as this
+project's own history in `background/api/basecamp.ts` did.
+
 ## Architecture
 
 WXT imposes structure only on **entrypoints** — background, popup, and every other page/script
@@ -281,12 +305,14 @@ src/
 │       └── update-checker.ts        # preview-build-only GitHub-release poller
 └── shared/                          # no browser.* dependency except storage.ts/resolution-store.ts/
                                       # settings-store.ts/sync-status-panel.ts/update-store.ts/
-                                      # countdown.ts/app-tab.ts
+                                      # countdown.ts/app-tab.ts/browser-action.ts
     ├── types.ts             # the domain type catalog — read this first when touching data shapes
     ├── storage.ts           # the ONLY file allowed to call browser.storage.* directly
     ├── pages.ts             # extension page URL constants (browser.runtime.getURL wrapper), plus
     │                        # AppRoute/appRouteUrl() addressing the merged app's hash-routed views
     ├── send-message.ts      # typed browser.runtime.sendMessage() client for entrypoints/popup/main.ts
+    ├── browser-action.ts    # actionApi = browser.action ?? browser.browserAction — see
+    │                        # background/icon-state.ts below for why this fallback is required
     ├── countdown.ts         # shared auto-close-in-5s behavior for the two status pages above
     ├── app-shell.ts         # shared header/nav bar (renderAppShell), rendered into #appShell once
     │                        # by entrypoints/app/main.ts (not per-view — see below)
@@ -437,6 +463,39 @@ background entrypoint → source-specific scraper**.
   `shared/types.ts`'s `ResponseFor<M>` type rather than implicit). `entrypoints/background.ts` is
   also the intended home for future work (`browser.alarms` scheduling, centralizing storage across
   both sources, delta computation).
+
+  **The listener must `return` each branch's response promise, not a bare `true`** — this was a real,
+  shipped Firefox bug, not a style preference. The original code called `runScrape(...)`/
+  `acknowledgeIconStatuses().then(sendResponse)` without returning the resulting promise, then
+  separately `return true`d to signal "responding asynchronously" (the Chrome-only callback-style
+  idiom). On Firefox this produced an uncaught `"Promised response from onMessage listener went out
+  of scope"` error on essentially every message — Firefox needs the listener's own return value to
+  *be* the pending promise it tracks, not a disconnected boolean, or its internal bookkeeping for that
+  pending response can be torn down before `sendResponse` ever fires. Silent-looking but not
+  harmless: `entrypoints/popup/main.ts`'s `init()` and `entrypoints/app/views/syncData.ts`'s
+  `refresh()` both `await sendMessage({type: "POPUP_OPENED"})` with no error handling at the time,
+  so the resulting rejection aborted their whole function before ever reaching the actual UI
+  render — the popup showed its header with no stepper, and Sync Data never updated its cards. Fixed
+  by having every branch `return` its response promise (a `Promise` object is exactly as truthy as
+  literal `true`, so Chrome's callback-style channel-keepalive check is unaffected) *and* by making
+  `sendMessage({type: "POPUP_OPENED"})` calls resilient to rejection instead of letting them gate
+  rendering (both call sites now fall back to a default rather than throwing).
+
+  A second, easy-to-miss layer of the same bug: **the returned promise's own resolved *value* also
+  matters on Firefox**, independent of the `sendResponse()` call. Chrome only ever looks at the
+  `sendResponse()` callback for the actual payload and ignores what the returned promise resolves to
+  — but Firefox uses the *returned promise's resolution* as the authoritative response. The first fix
+  above returned `runScrape(...)`'s promise correctly (silencing the Firefox error) but `runScrape()`
+  itself only called `sendResponse(envelope)` as a side effect and implicitly returned `void` —
+  meaning Firefox delivered `undefined` as every scrape's response even though `sendResponse` had
+  sent the real data. Symptom: the "went out of scope" error disappeared, but Import buttons did
+  nothing (Chrome, tested via the e2e suite, was completely unaffected by either the bug or the fix,
+  since it never looks at the resolved value at all). Fixed by having `runScrape()` (and the
+  `POPUP_OPENED` branch) build the response value once and both `sendResponse()` it *and* `return` it
+  — so Chrome and Firefox always end up with the identical payload regardless of which delivery
+  mechanism actually wins. If a new message type is ever added here, it must follow this same
+  "build once, `sendResponse()` it, `return` it" shape — anything that only calls `sendResponse()`
+  without returning that same value reintroduces this exact bug on Firefox, invisibly on Chrome.
 - **`background/icon-state.ts`** — toolbar icon state machine, imported only by
   `entrypoints/background.ts` (via `messaging.ts`) — see the layering rule above for why it must
   never be imported by a page. It owns a running `setInterval` for the spin animation. Follows
@@ -451,6 +510,23 @@ background entrypoint → source-specific scraper**.
   every build's output root by WXT, same as before the WXT migration, just under `.output/<mode>/
   <browser>-mv<version>/` now instead of `dist/<target>/`); the interval only runs while the combined
   state is `loading` and is stopped the moment it isn't.
+
+  Every icon mutation goes through `shared/browser-action.ts`'s `actionApi` (`browser.action ??
+  browser.browserAction`), never `browser.action` directly — this was a real, shipped Firefox bug.
+  `browser.action` is the MV3-era name; Firefox only aliases it onto its native MV2
+  `browser.browserAction` starting in **Firefox 128** (mid-2024), and WXT does not polyfill this
+  itself (verified against its bundled output — no `browserAction` string appears anywhere in it).
+  On an older Firefox, `browser.action` is simply `undefined`, and `applyIcon()`'s
+  `actionApi.setIcon(...)` call — reached as the very first `await` inside `runScrape()`, before any
+  network activity — threw immediately, silently failing every single scrape with **no** visible
+  error anywhere a tester would normally look (not the status line, since the failure happened before
+  `runScrape()`'s own `try`/`catch`; the rejection just propagated out as the message response — see
+  the `background/messaging.ts` bullet above for why *that* was silent too, before its own fix).
+  `shared/update-store.ts` and `background/api/update-checker.ts` (preview-build-only) hit the exact
+  same API and use the same `actionApi` import for the same reason. If a future browser API split
+  like this shows up elsewhere (MV3 name existing only from some Firefox version onward), this is the
+  established pattern to follow: a tiny `shared/*.ts` module exporting a `?? `-fallback constant, not
+  a scattered `browser.foo ?? browser.bar` inline at each call site.
 - **`background/api/basecamp.ts`** — all Basecamp scraping logic. Data fetching itself needs no tab:
   `fetch(..., { credentials: "include" })` runs directly from the privileged background context,
   and because the manifest's `host_permissions` covers the Basecamp hosts, the browser's existing
@@ -467,16 +543,47 @@ background entrypoint → source-specific scraper**.
      a brand-new `apps.basecamp.toastmasters.org` tab via `ensureBasecampDashboardTab()` (mirroring
      `ensureEasySpeakTab()` below — neither ever reuses an already-open tab, so the user's own open
      tabs are never hijacked mid-navigation) and navigates it to `/dashboard/bcm-dashboard/approvals`
-     — a page that itself redirects an unauthenticated visitor to Basecamp's own auth flow, then
-     redirects back to that same approvals URL once login succeeds. `waitForLoginRedirect()`
-     registers its `browser.tabs.onUpdated`/`onRemoved` listeners **before** calling
-     `browser.tabs.update()`, for the identical race-avoidance reason documented below for
-     `navigateAndWaitForRealPage()`, and simply ignores every "complete" event until the tab's URL is
-     exactly the approvals URL again (no Cloudflare-challenge or restricted-text checks are needed
-     here, unlike EasySpeak, since Basecamp's own redirect is the only signal that matters) — capped
-     at a flat 5-minute timeout. Once resolved, `fetchJson()` retries the original request exactly
-     once; a second 401/403 (e.g. wrong account) throws instead of looping. Once
-     `waitForLoginRedirect()` resolves, `waitForBasecampLogin()` redirects the tab to
+     (`APPROVALS_URL`) via `waitForLoginRedirect()`, which registers its `browser.tabs.onUpdated`/
+     `onRemoved` listeners **before** calling `browser.tabs.update()`, for the identical
+     race-avoidance reason documented below for `navigateAndWaitForRealPage()`.
+
+     **`waitForLoginRedirect()` cannot just wait for the tab's URL to equal `APPROVALS_URL`
+     again — this was a real, shipped Firefox bug, found and fixed only through live testing against
+     a real (unauthenticated) account, not something apparent from reading the code.**
+     `APPROVALS_URL` is a **client-rendered SPA**, not a server-redirected page: an unauthenticated
+     visit's static shell reaches the browser's `"complete"` state almost immediately — well before
+     the page's own JS has even made the auth-check call that decides whether to redirect — and only
+     afterward (confirmed over a second later against a real account) does it client-side-redirect,
+     via `window.location`, to an Azure AD B2C login page under `login.toastmasters.org`
+     (`BASECAMP_LOGIN_ORIGIN`). A first fix trusted a single `"complete"`-at-`APPROVALS_URL` snapshot
+     immediately, resolving with no real Basecamp page ever shown and no real login ever attempted — a
+     false positive that made every scrape appear to hang with zero network activity, since the retry
+     fetch after the "resolved" login was still unauthenticated. A second fix added a fixed re-check
+     delay (250ms, then 2s) before trusting that snapshot, which reduced but did not eliminate the
+     false positive, since the real redirect's timing varies per attempt and can exceed any fixed
+     guess. The actual, current fix mirrors `navigateAndWaitForRealPage()` below exactly instead of
+     guessing a delay: `checkTab()` explicitly recognizes a `"complete"` at a URL starting with
+     `BASECAMP_LOGIN_ORIGIN` as "still waiting for the human to log in" (`awaitingLogin`, its own long
+     5-minute timeout, mirroring EasySpeak's `login.php` handling) rather than treating absence of a
+     redirect as proof of success. Every `"complete"`-at-`APPROVALS_URL` candidate — the first sighting
+     *and* the one after a real login — must then survive a 3-second settle window
+     (`APPROVALS_SETTLE_MS`) before being trusted. Critically, that settle window's own expiry
+     **re-reads the tab's actual live state via a fresh `browser.tabs.get()` call, rather than
+     trusting only whether the `onUpdated`-driven `awaitingLogin` flag had already flipped** — an
+     even subtler race than the delay-length one: `onUpdated` firing for the login redirect is not
+     guaranteed to be *processed* before the settle timer's callback runs, so trusting the flag alone
+     let a real, visibly-occurring redirect lose that race (the user watched the real Microsoft login
+     page appear, then get yanked away to the extension's own confirmation page underneath them,
+     because the flag hadn't been set yet when the timer fired even though the tab had already
+     navigated). The live re-read is what actually closes this: it reflects the tab's true current
+     state regardless of event-delivery timing. **If a similar "trusted a `complete` event/absence of
+     a redirect too early" symptom shows up in a browser-tab-navigation flow again, this is the
+     pattern to reach for: explicit recognition of the known "not authenticated" URL/content signal
+     (matching `navigateAndWaitForRealPage()`'s `loginPath`/`RESTRICTED_ACCESS_TEXT` checks), not a
+     bare status+URL match, and never trust a settle timer's expiry without an independent live
+     re-read alongside whatever event-driven flag exists.** Once resolved, `fetchJson()` retries the
+     original request exactly once; a second 401/403 (e.g. wrong account) throws instead of looping.
+     Once `waitForLoginRedirect()` resolves, `waitForBasecampLogin()` redirects the tab to
      `entrypoints/basecamp-auth/index.html` (via `shared/pages.ts`'s `pageUrl()`) — a confirmation page
      explaining that auth succeeded and the scrape is continuing in the background — instead of
      closing it, so the user gets explicit confirmation of a successful login. Like EasySpeak's
@@ -804,8 +911,8 @@ interstitials are tab-lifecycle-driven single-purpose confirmation pages.
   testing changes" above for the crash this guards against and why it wasn't optional.
 - **`shared/app-tab.ts`** — `focusOrOpenAppTab(route)`, `browser.tabs`/`browser.windows`-dependent
   (same established `shared/**`-with-a-`browser.*`-exception category as `storage.ts`/
-  `settings-store.ts`/`sync-status-panel.ts`/`update-store.ts`/`countdown.ts`, listed at the top of
-  this section). Used by the popup's gear icon and vertical-stepper clicks instead of
+  `settings-store.ts`/`sync-status-panel.ts`/`update-store.ts`/`countdown.ts`/`browser-action.ts`,
+  listed at the top of this section). Used by the popup's gear icon and vertical-stepper clicks instead of
   `browser.tabs.create()` directly: finds an existing tab already showing the merged app (any route,
   via a wildcarded `browser.tabs.query({url: base + "*"})`, since a plain URL match wouldn't see past
   the fragment) and `browser.tabs.update()`s it to the requested route + focuses its window, rather

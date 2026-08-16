@@ -28,8 +28,22 @@ import type { BasecampMember, BasecampScrape } from "../../shared/types";
 const API_ROOT = "https://basecamp.toastmasters.org/api";
 const DASHBOARD_ROOT = "https://apps.basecamp.toastmasters.org";
 const APPROVALS_URL = `${DASHBOARD_ROOT}/dashboard/bcm-dashboard/approvals`;
+// The Azure AD B2C login page an unauthenticated visit to APPROVALS_URL
+// eventually client-side-redirects to (see waitForLoginRedirect() below) —
+// matched by origin, not a fixed path, since the full URL carries a
+// per-attempt client_id/state/nonce query string.
+const BASECAMP_LOGIN_ORIGIN = "https://login.toastmasters.org";
 const BASECAMP_LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 const BASECAMP_LOGIN_TIMEOUT_MESSAGE = "Basecamp Toastmasters requires you to log in. Switch to the Basecamp tab, log in, then try again.";
+// How long to wait, after first seeing the tab "complete" at APPROVALS_URL,
+// for Basecamp's own client-side auth check to possibly redirect it away to
+// BASECAMP_LOGIN_ORIGIN, before trusting that arrival as genuine. Confirmed
+// against a real (unauthenticated) account that this redirect is not
+// instant — the approvals page's static shell reaches the browser's
+// "complete" state well before its own JS has even made the auth-check call
+// that decides whether to redirect, so a short/no delay here produces a
+// false-positive "logged in" read with no real page ever shown.
+const APPROVALS_SETTLE_MS = 3000;
 
 interface BasecampRole {
   is_bcm?: boolean;
@@ -127,22 +141,50 @@ async function ensureBasecampDashboardTab(): Promise<number> {
 }
 
 /**
- * Navigates tabId to APPROVALS_URL and resolves once that exact page has
- * finished loading. An unauthenticated visit gets redirected by Basecamp
- * itself to its own auth page, then redirected back to APPROVALS_URL once
- * login succeeds — so every intermediate "complete" event whose url isn't
- * APPROVALS_URL (the auth page, any SSO hop) is simply ignored under one
- * flat timeout, and an already-authenticated visit resolves immediately.
+ * Navigates tabId to APPROVALS_URL and resolves once the tab has genuinely
+ * landed there authenticated.
+ *
+ * Basecamp's approvals page is a client-rendered SPA, not a plain
+ * server-redirected one: an unauthenticated visit's static shell reaches the
+ * browser's "complete" state almost immediately — well before its own JS has
+ * even made the auth-check call that decides whether to redirect — and only
+ * afterward (confirmed against a real account: this can take over a second)
+ * does it client-side-redirect (via window.location, not an HTTP redirect)
+ * to an Azure AD B2C login page under BASECAMP_LOGIN_ORIGIN. So a "complete"
+ * event at APPROVALS_URL is not by itself trustworthy; this explicitly
+ * watches for that redirect instead, the same way
+ * background/api/easyspeak.ts's navigateAndWaitForRealPage() explicitly
+ * watches for EasySpeak's login.php redirect rather than guessing a delay:
+ * once seen, switch into "awaiting login" mode with a long timeout, and
+ * require every "complete" at APPROVALS_URL — including the final,
+ * post-login one — to survive a settle window with no redirect to the login
+ * domain before trusting it. The settle window's own expiry re-reads the
+ * tab's live state directly (rather than trusting only the onUpdated-driven
+ * flag) as a backstop: onUpdated firing for that redirect is not guaranteed
+ * to be processed before the settle timer is, so relying on the flag alone
+ * let a real redirect lose that race once already — a candidate that
+ * "survived" the window only because its own redirect's event hadn't been
+ * handled yet, not because no redirect happened.
  *
  * Listeners are registered before browser.tabs.update() is called, not
- * after — same race avoidance as navigateAndWaitForRealPage() in
- * background/api/easyspeak.ts: update()'s resolved promise only confirms
- * the navigation was requested, not that it started.
+ * after — same race avoidance as navigateAndWaitForRealPage(): update()'s
+ * resolved promise only confirms the navigation was requested, not that it
+ * started.
  */
 function waitForLoginRedirect(tabId: number, timeoutMs = BASECAMP_LOGIN_TIMEOUT_MS): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
+    let awaitingLogin = false;
     let timeoutId: ReturnType<typeof setTimeout>;
+    // Bumped on every fresh "complete at APPROVALS_URL" candidate (and on
+    // every login-domain sighting) so an in-flight settle check for a
+    // superseded candidate can never resolve.
+    let candidateToken = 0;
+
+    function armTimeout(ms: number, message: string) {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => finish(() => reject(new Error(message))), ms);
+    }
 
     function finish(action: () => void) {
       if (settled) return;
@@ -162,7 +204,53 @@ function waitForLoginRedirect(tabId: number, timeoutMs = BASECAMP_LOGIN_TIMEOUT_
         return; // tab gone; onRemoved will handle settling
       }
       if (tab.status !== "complete") return;
-      if (tab.url !== APPROVALS_URL) return; // auth page, SSO hop, etc. — keep waiting
+      const tabUrl = tab.url ?? "";
+
+      if (tabUrl.startsWith(BASECAMP_LOGIN_ORIGIN)) {
+        candidateToken++; // invalidate any settle check in flight for an earlier, now-superseded APPROVALS_URL candidate
+        if (!awaitingLogin) {
+          awaitingLogin = true;
+          armTimeout(BASECAMP_LOGIN_TIMEOUT_MS, BASECAMP_LOGIN_TIMEOUT_MESSAGE);
+        }
+        return; // still waiting for the user to submit the login form
+      }
+
+      if (tabUrl !== APPROVALS_URL) return; // some other intermediate hop (auth callback, etc.) — keep waiting
+
+      if (awaitingLogin) {
+        awaitingLogin = false;
+        armTimeout(BASECAMP_LOGIN_TIMEOUT_MS, BASECAMP_LOGIN_TIMEOUT_MESSAGE); // in case this candidate turns out stale too
+      }
+
+      const myToken = ++candidateToken;
+      await new Promise((r) => setTimeout(r, APPROVALS_SETTLE_MS));
+      if (settled || myToken !== candidateToken) return; // a login-domain redirect's onUpdated event was processed during the wait
+
+      // Backstop: independently re-read the tab's actual live state rather
+      // than trusting the token check alone. onUpdated firing (and us
+      // processing it) is not guaranteed to happen before this timer does —
+      // that race is exactly what let a real login-domain redirect lose to
+      // this settle check once already: the tab had genuinely already
+      // navigated to BASECAMP_LOGIN_ORIGIN, but our listener hadn't gotten
+      // to it yet, so candidateToken was still unchanged when this timer
+      // fired. tabs.get() always reflects the tab's current reality
+      // regardless of event delivery timing.
+      let recheck: Browser.tabs.Tab;
+      try {
+        recheck = await browser.tabs.get(tabId);
+      } catch {
+        return;
+      }
+      const recheckUrl = recheck.url ?? "";
+      if (recheckUrl.startsWith(BASECAMP_LOGIN_ORIGIN)) {
+        candidateToken++;
+        if (!awaitingLogin) {
+          awaitingLogin = true;
+          armTimeout(BASECAMP_LOGIN_TIMEOUT_MS, BASECAMP_LOGIN_TIMEOUT_MESSAGE);
+        }
+        return;
+      }
+      if (recheck.status !== "complete" || recheckUrl !== APPROVALS_URL) return; // changed to something else — keep waiting for onUpdated to fire again
       finish(resolve);
     }
 

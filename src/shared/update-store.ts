@@ -23,6 +23,7 @@
 // release page and let them click the asset themselves, same as the
 // release notes' own instructions already tell them to do.
 
+import { actionApi } from "./browser-action";
 import { local } from "./storage";
 import type { UpdateCheckInfo } from "./types";
 
@@ -43,7 +44,7 @@ export async function getDismissedUpdateVersion(): Promise<string | undefined> {
  */
 export async function dismissUpdate(version: string): Promise<void> {
   await local.set({ updateDismissedVersion: version });
-  await browser.action.setBadgeText({ text: "" });
+  await actionApi.setBadgeText({ text: "" });
 }
 
 /**
@@ -53,5 +54,5 @@ export async function dismissUpdate(version: string): Promise<void> {
  */
 export async function openUpdateRelease(info: UpdateCheckInfo): Promise<void> {
   await browser.tabs.create({ url: info.releaseUrl });
-  await browser.action.setBadgeText({ text: "" });
+  await actionApi.setBadgeText({ text: "" });
 }

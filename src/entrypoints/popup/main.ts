@@ -40,8 +40,11 @@ async function init() {
   // error) result, reverting the toolbar icon to idle — a still-loading
   // source is left alone. The popup itself no longer shows per-source
   // status (that moved to Sync Data), but opening it still counts as
-  // acknowledging the toolbar icon.
-  await sendMessage({ type: "POPUP_OPENED" });
+  // acknowledging the toolbar icon. Fire-and-forget: its result isn't used
+  // here, and it must never block the stepper below from rendering — a
+  // dropped response (e.g. Firefox's message-port teardown quirk) would
+  // otherwise leave the popup blank.
+  sendMessage({ type: "POPUP_OPENED" }).catch(() => {});
   await renderPopup();
   await renderUpdateBanner();
 }

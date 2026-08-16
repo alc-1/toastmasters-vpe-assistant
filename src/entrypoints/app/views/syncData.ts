@@ -289,7 +289,11 @@ export const syncDataView: ViewModule = {
     async function refresh() {
       const myToken = ++refreshToken;
 
-      const statuses = (await sendMessage({ type: "POPUP_OPENED" })) || { basecamp: "idle", easyspeak: "idle" };
+      // A dropped response (e.g. Firefox's message-port teardown quirk — see
+      // background/messaging.ts) must never break this view's render, so a
+      // rejection falls back to the same "idle" default a falsy response
+      // already does.
+      const statuses = (await sendMessage({ type: "POPUP_OPENED" }).catch(() => null)) || { basecamp: "idle", easyspeak: "idle" };
       const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
 
       if (disposed || myToken !== refreshToken) return; // this view was navigated away from, or a newer refresh() has since started — this one is stale

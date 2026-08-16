@@ -20,6 +20,7 @@
 // evaluation (the .then() callback fires on a microtask shortly after, still
 // within the same wake cycle), so this ordering constraint is preserved.
 
+import { actionApi } from "../../shared/browser-action";
 import { local } from "../../shared/storage";
 import { openUpdateRelease } from "../../shared/update-store";
 import type { UpdateCheckInfo } from "../../shared/types";
@@ -78,7 +79,7 @@ async function checkForUpdate(): Promise<void> {
 
   if (!isNewerVersion(latestVersion, currentVersion)) {
     await local.remove(["updateCheck"]);
-    await browser.action.setBadgeText({ text: "" });
+    await actionApi.setBadgeText({ text: "" });
     return;
   }
 
@@ -91,8 +92,8 @@ async function checkForUpdate(): Promise<void> {
   const info: UpdateCheckInfo = { latestVersion, releaseUrl: release.html_url, checkedAt: Date.now() };
   await local.set({ updateCheck: info });
 
-  await browser.action.setBadgeText({ text: "1" });
-  await browser.action.setBadgeBackgroundColor({ color: "#004165" }); // --tm-navy — informational, not the red "error" icon state
+  await actionApi.setBadgeText({ text: "1" });
+  await actionApi.setBadgeBackgroundColor({ color: "#004165" }); // --tm-navy — informational, not the red "error" icon state
 
   if (isFirstSightingOfThisVersion) {
     browser.notifications.create(UPDATE_NOTIFICATION_ID, {
