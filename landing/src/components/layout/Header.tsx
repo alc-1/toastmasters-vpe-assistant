@@ -1,6 +1,6 @@
 import logo from "../../assets/logo-512.png";
 import { navLinks } from "../../data/nav";
-import { CHROME_WEB_STORE_URL } from "../../data/releaseInfo";
+import { getStoreSelection } from "../../data/releaseInfo";
 import { scrollToId } from "../../lib/scrollToId";
 import Button from "../ui/Button";
 import Container from "../ui/Container";
@@ -11,6 +11,7 @@ interface Props {
 
 export default function Header({ page = "home" }: Props) {
   const isHome = page === "home";
+  const { main } = getStoreSelection();
 
   return (
     <header className="sticky top-0 z-50 border-b border-silver-light bg-white/90 backdrop-blur">
@@ -58,11 +59,11 @@ export default function Header({ page = "home" }: Props) {
           <Button
             variant="primary"
             className="px-4 py-2"
-            href={CHROME_WEB_STORE_URL}
+            href={main.url}
             target="_blank"
             rel="noopener noreferrer"
           >
-            Install
+            Add to {main.name}
           </Button>
         </div>
       </Container>

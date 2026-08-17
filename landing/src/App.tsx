@@ -7,7 +7,6 @@ import FinalCTA from "./components/sections/FinalCTA";
 import Hero from "./components/sections/Hero";
 import PreviewProgram from "./components/sections/PreviewProgram";
 import Problem from "./components/sections/Problem";
-import ReleaseChannels from "./components/sections/ReleaseChannels";
 import ScreenshotShowcase from "./components/sections/ScreenshotShowcase";
 import Solution from "./components/sections/Solution";
 import TrustPrivacy from "./components/sections/TrustPrivacy";
@@ -24,7 +23,6 @@ export default function App() {
         <BenefitsGrid />
         <ScreenshotShowcase />
         <Workflow />
-        <ReleaseChannels />
         <PreviewProgram />
         <BuiltByToastmaster />
         <TrustPrivacy />

@@ -1,5 +1,6 @@
 import dashboardScreenshot from "../../assets/screenshot_club_progress.png";
-import { CHROME_WEB_STORE_URL, PREVIEW_SIGNUP_URL } from "../../data/releaseInfo";
+import { getStoreSelection } from "../../data/releaseInfo";
+import AlsoAvailableLinks from "../ui/AlsoAvailableLinks";
 import Button from "../ui/Button";
 import BrowserFrameMockup from "../ui/BrowserFrameMockup";
 import Container from "../ui/Container";
@@ -9,13 +10,13 @@ const dashboardAlt =
   "Toastmasters VPE Assistant Club Progress dashboard, showing member counts, paths, and a Next Level Summary table";
 
 const trustSignals = [
-  "Available on Chrome Web Store",
   "Built for Toastmasters VPEs",
   "No additional credentials required",
 ];
 
 export default function Hero() {
   const lightbox = useLightbox();
+  const { main, others } = getStoreSelection();
 
   return (
     <section id="top" className="bg-navy-950 pt-16 pb-20 sm:pt-24 sm:pb-28">
@@ -28,18 +29,11 @@ export default function Hero() {
             <p className="text-lg text-navy-100 max-w-xl leading-relaxed">
               Get a complete view of your club's Pathways progress in minutes instead of hours.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 mt-2">
-              <Button
-                variant="primary"
-                href={CHROME_WEB_STORE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Install from Chrome Web Store
+            <div className="flex flex-col gap-3 mt-2 items-center lg:items-start">
+              <Button variant="primary" href={main.url} target="_blank" rel="noopener noreferrer">
+                Add to {main.name}
               </Button>
-              <Button variant="ghost" href={PREVIEW_SIGNUP_URL}>
-                Join Preview Program
-              </Button>
+              <AlsoAvailableLinks stores={others} className="text-sm text-navy-300" />
             </div>
             <ul className="flex flex-wrap justify-center lg:justify-start gap-x-5 gap-y-1 text-sm text-navy-300 mt-2">
               {trustSignals.map((signal) => (
