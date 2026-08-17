@@ -1251,10 +1251,10 @@ A few decisions worth knowing before changing the config:
   two jobs: `release` bumps `package.json`'s version, tags it, builds+zips all 4 combinations (via
   `wxt zip`, which builds and zips in one step — see above) plus the Firefox sources zip, and creates
   a GitHub Release attaching all 6 files with tester-facing install instructions in the release body
-  (kept in sync with whichever store the Chrome build is actually on — see below); then two
-  independent, parallel jobs, both depending only on `release` (each with its own GitHub Environment
+  (kept in sync with whichever store the Chrome build is actually on — see below); then three
+  independent, parallel jobs, all depending only on `release` (each with its own GitHub Environment
   approval gate and its own concurrency group, so neither store's outage/rejection/approval delay
-  blocks the other or the GitHub Release itself): `publish-store` downloads the just-built Chrome
+  blocks the others or the GitHub Release itself): `publish-store` downloads the just-built Chrome
   store zip and runs `wxt submit --chrome-zip ...` against the `chrome-web-store` GitHub
   Environment's secrets (`CHROME_EXTENSION_ID`/`CHROME_PUBLISHER_ID`/a service-account client email +
   private key — `CHROME_API_VERSION: v2`, since the older client-ID/secret/refresh-token v1.1 flow is
@@ -1263,7 +1263,16 @@ A few decisions worth knowing before changing the config:
   --firefox-sources-zip ... --firefox-extension-id ...` against the `firefox-addon-store` GitHub
   Environment's secrets (`FIREFOX_EXTENSION_ID`/`FIREFOX_JWT_ISSUER`/`FIREFOX_JWT_SECRET`),
   submitting to AMO's `listed` channel (public review) — `wxt submit`'s own default, left unset in
-  the workflow rather than pinned to a variable since there's no current need to switch channels.
+  the workflow rather than pinned to a variable since there's no current need to switch channels;
+  `publish-edge-store` re-downloads the **same** `store-build` artifact `publish-store` uses (Edge
+  accepts the identical Chromium MV3 package — no separate Edge build/zip exists) and runs
+  `wxt submit --edge-zip ...` against the `edge-addon-store` GitHub Environment's secrets
+  (`EDGE_PRODUCT_ID`/`EDGE_CLIENT_ID`/`EDGE_API_KEY`). **`EDGE_API_KEY` has a fixed
+  Microsoft-imposed expiry** (unlike Chrome's service-account key or Firefox's JWT secret, neither of
+  which expire on a schedule) — an auth failure in this job most likely means the key needs
+  regenerating at https://partner.microsoft.com/en-us/dashboard/microsoftedge/overview and the
+  `edge-addon-store` secret needs updating; the job's own post-failure step emits a `::error::`
+  annotation saying the same thing, so check the Actions run summary first before digging further.
   **The extension is live on the Chrome Web Store** (see README's Installation section for the
   listing URL) — don't write or leave copy anywhere implying otherwise (a stale line to that effect
   in `release.yml`'s own GitHub Release body template is a known leftover from before this job

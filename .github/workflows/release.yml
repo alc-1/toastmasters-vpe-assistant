@@ -228,3 +228,41 @@ jobs:
             --firefox-zip .output/${{ needs.release.outputs.firefox_store_zip }} \
             --firefox-sources-zip .output/${{ needs.release.outputs.firefox_store_sources_zip }} \
             --firefox-extension-id "$FIREFOX_EXTENSION_ID"
+
+  publish-edge-store:
+    needs: release
+    runs-on: ubuntu-latest
+    environment: edge-addon-store
+    permissions:
+      contents: read
+    concurrency:
+      group: edge-addon-store-publish
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Download Chrome Web Store build
+        uses: actions/download-artifact@v4
+        with:
+          name: store-build
+          path: .output
+
+      - name: Submit to Edge Add-ons Store
+        id: submit
+        env:
+          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+        run: npx wxt submit --edge-zip .output/${{ needs.release.outputs.chrome_store_zip }}
+
+      - name: Note on failure
+        if: failure() && steps.submit.outcome == 'failure'
+        run: |
+          echo "::error::Submitting to the Edge Add-ons Store failed. If the error above is an auth/401 error, EDGE_API_KEY likely expired — Microsoft's Edge Add-ons API keys have a fixed expiry. Generate a new one at https://partner.microsoft.com/en-us/dashboard/microsoftedge/overview and update the EDGE_API_KEY secret in the edge-addon-store environment."
