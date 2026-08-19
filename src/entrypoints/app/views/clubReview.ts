@@ -81,7 +81,7 @@ export const clubReviewView: ViewModule = {
       const rows = sorted.map(renderClubMatchRow).join("");
       const table = `<table class="data-table lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 
-      return `${table}${renderClubAddForm(matches)}`;
+      return `<div class="table-scroll">${table}</div>${renderClubAddForm(matches)}`;
     }
 
     function renderClubMatchRow(pair: ClubPair): string {

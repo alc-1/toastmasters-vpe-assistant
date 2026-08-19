@@ -147,11 +147,22 @@
     text-align: center;
   }
 
+  @media (max-width: 640px) {
+    .page--status {
+      margin-top: 24px;
+    }
+  }
+
   /* The popup's own body sizing/spacing — distinct from every other page
      (fixed width, no shared `body` padding above), so it gets its own
-     class rather than reusing .page--wide/--narrow/--status. */
+     class rather than reusing .page--wide/--narrow/--status. Fluid with a
+     360px cap (not a hard width) so it can't overflow a narrower-than-360px
+     Android viewport if a browser ever renders the action popup that small —
+     a no-op on desktop, where popups are always ≥360px wide in practice. */
   .page--popup {
-    @apply w-[360px] m-0 p-3 bg-surface;
+    @apply m-0 p-3 bg-surface;
+    width: 100%;
+    max-width: 360px;
   }
 
   /* Page title — was copy-pasted identically (bare `h1` selector) across
@@ -299,6 +310,17 @@
     color: rgba(255, 255, 255, 0.85);
   }
 
+  /* Clamp the full-sentence subtitle to one line on phones — full height would
+     otherwise push the stepper/content further below the fold than needed. */
+  @media (max-width: 640px) {
+    .app-header__subtitle {
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  }
+
   /* Stepper — its own section, deliberately outside .app-header. Steps are
      plain nav links (direct navigation, not a gated wizard); only the
      *current* step is highlighted, the connecting line is neutral throughout
@@ -361,6 +383,45 @@
     display: block;
     text-align: center;
     margin-top: 2px;
+  }
+
+  /* Phone width: the horizontal 5-across layout above has no room for 5 full
+     labels + info lines side by side, so it becomes a plain top-to-bottom
+     stack of the same markup instead — each step reading icon-then-label in
+     a row, like a simple step list. The diagonal connecting line between
+     circles doesn't translate to a vertical stack, so it's just dropped
+     rather than redrawn (the popup's separate .app-stepper--vertical variant
+     has a proper connecting rail, but reusing its extra DOM nodes here would
+     mean always emitting them just for the phone case — not worth it for a
+     cosmetic connector). */
+  @media (max-width: 640px) {
+    .app-stepper {
+      flex-direction: column;
+    }
+
+    .app-stepper__step {
+      flex-direction: row;
+      align-items: center;
+      gap: var(--space-2);
+      width: 100%;
+      padding: var(--space-2);
+    }
+
+    .app-stepper__step:not(:first-child)::before {
+      display: none;
+    }
+
+    .app-stepper__label {
+      text-align: left;
+    }
+
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__info {
+      text-align: left;
+      margin-top: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 
   .app-stepper__step:hover .app-stepper__circle {
@@ -786,6 +847,12 @@
     padding: var(--space-4);
   }
 
+  @media (max-width: 640px) {
+    .export-popover {
+      width: min(300px, calc(100vw - 32px));
+    }
+  }
+
   .export-popover__title {
     @apply text-sm text-tm-gray-900;
     font-weight: 600;
@@ -892,6 +959,23 @@
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-3);
     margin-bottom: var(--space-5);
+  }
+
+  /* Stay 3-across even at phone width (kept side by side rather than
+     stacked) — tighter gap/padding/value size so "READY TO LEVEL UP" and
+     friends still fit a ~110px column without forcing horizontal overflow. */
+  @media (max-width: 640px) {
+    .kpi-grid {
+      gap: var(--space-2);
+    }
+
+    .kpi-card {
+      padding: var(--space-2);
+    }
+
+    .kpi-card__value {
+      font-size: 20px;
+    }
   }
 
   .kpi-card {
@@ -1008,6 +1092,21 @@
     box-shadow: none;
   }
 
+  /* Two full-sentence buttons ("Continue to Member Review") side by side
+     don't both fit at phone width — stack them full-width instead. */
+  @media (max-width: 640px) {
+    .step-footer {
+      flex-direction: column;
+      gap: var(--space-2);
+      align-items: stretch;
+    }
+
+    .step-footer__btn {
+      width: 100%;
+      text-align: center;
+    }
+  }
+
   /* Sync Data's "why is Continue disabled" hint — right-aligned so it sits
      directly below the Continue button, which is itself right-aligned by
      .step-footer's justify-content: space-between. */
@@ -1019,6 +1118,18 @@
   /* ---------------------------------------------------------------------- */
   /* Tables                                                                  */
   /* ---------------------------------------------------------------------- */
+
+  /* Baseline phone-width safety net for any table-containing root that isn't
+     given a dedicated redesign of its own (see Club Progress's summary/levels
+     tables below for the two that do get one) — lets a table too wide for the
+     viewport scroll within its own container instead of forcing the whole
+     page wider than the screen. No effect above the breakpoint. */
+  @media (max-width: 640px) {
+    .table-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
 
   /* Named .data-table, not .table — Tailwind's own core utilities include a
      `.table { display: table }` utility, and Tailwind's class scanner is a
@@ -1211,6 +1322,20 @@
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
+  }
+
+  /* A club-tab row that doesn't fit at phone width becomes swipeable instead
+     of silently overflowing the page. */
+  @media (max-width: 640px) {
+    .tabs {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tab-btn {
+      flex-shrink: 0;
+    }
   }
 
   .tab-btn:hover {
@@ -1647,6 +1772,52 @@ table.levels td.check-cell {
   height: 20px;
 }
 
+/* Phone-width companion to table.levels above: same per-level data,
+   transposed to one row per level/path-completion category (readable at
+   ~360-400px) instead of one row per source (unreadable at 7 columns). Only
+   one of the two is ever visible at a time. */
+.levels-table--narrow {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .levels-table--wide {
+    display: none;
+  }
+
+  .levels-table--narrow {
+    display: block;
+  }
+}
+
+table.levels-narrow {
+  background: var(--surface);
+  margin: 16px 0;
+  width: 100%;
+}
+
+table.levels-narrow th:not(:first-child),
+table.levels-narrow td:not(:first-child) {
+  text-align: center;
+}
+
+table.levels-narrow td.pending-cell {
+  background: var(--warning-bg);
+}
+
+table.levels-narrow tbody td:first-child {
+  font-weight: 600;
+}
+
+table.levels-narrow td[title] {
+  cursor: help;
+}
+
+table.levels-narrow td.check-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
 table.summary {
   table-layout: fixed;
   margin-bottom: 30px;
@@ -1656,6 +1827,28 @@ table.summary col.col-path { width: 30%; }
 table.summary col.col-level { width: 5%; }
 table.summary col.col-status { width: 15%; }
 table.summary col.col-detail { width: 25%; }
+
+/* The Path column adds little value at phone width (it's implied by which
+   member/row you tapped to expand) — hide it and give the freed-up space to
+   the remaining columns rather than shrinking all 5 to illegibility. */
+@media (max-width: 640px) {
+  /* Direct-child combinators, not bare descendant selectors — a plain
+     `table.summary td:nth-child(2)` also matches the Basecamp column (the
+     2nd <td> in each row) of the unrelated nested table.levels-narrow that
+     an expanded detail row renders inside itself, since that's a descendant
+     of table.summary too. Scoping to table.summary's own direct thead/tbody
+     rows keeps this from reaching into that nested table at all. */
+  table.summary col.col-path,
+  table.summary > thead > tr > th:nth-child(2),
+  table.summary > tbody > tr > td:nth-child(2) {
+    display: none;
+  }
+
+  table.summary col.col-member { width: 20%; }
+  table.summary col.col-level { width: 12%; }
+  table.summary col.col-status { width: 28%; }
+  table.summary col.col-detail { width: 40%; }
+}
 
 table.summary th, table.summary td {
   overflow: hidden;
@@ -1740,6 +1933,13 @@ body[data-view="syncData"] details summary {
 body[data-view="syncData"] .summary {
   margin-top: 8px;
   font-size: var(--text-sm);
+}
+
+@media (max-width: 640px) {
+  body[data-view="syncData"] .summary {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 body[data-view="syncData"] .summary table {

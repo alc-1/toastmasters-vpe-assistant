@@ -40,7 +40,7 @@ const SHELL_HTML = `
   <div id="clubTabs" class="tabs"></div>
   <div id="filterChips" class="toolbar"></div>
   <input type="text" id="memberSearch" class="search-input" placeholder="Search by member or path name…">
-  <div id="membersRoot"></div>
+  <div id="membersRoot" class="table-scroll"></div>
 `;
 
 interface FilterDef {

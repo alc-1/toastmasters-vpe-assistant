@@ -88,7 +88,7 @@ export const globalSettingsView: ViewModule = {
         .join("");
 
       const table = rows
-        ? `<table class="data-table lookup"><thead><tr><th>Canonical path name</th><th>Alternate spellings (comma-separated)</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+        ? `<div class="table-scroll"><table class="data-table lookup"><thead><tr><th>Canonical path name</th><th>Alternate spellings (comma-separated)</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
         : '<p class="empty-state">No path aliases configured.</p>';
 
       return `

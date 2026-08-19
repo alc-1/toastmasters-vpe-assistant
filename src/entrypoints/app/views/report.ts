@@ -30,7 +30,7 @@ const SHELL_HTML = `
     One row is displayed per member per path. Click a column header to sort (click again to reverse).
     Click a row to reveal its level-by-level detail.
   </p>
-  <div id="summaryTableRoot"></div>
+  <div id="summaryTableRoot" class="table-scroll"></div>
 
   <h2 class="section-header">Pending review</h2>
   <p class="help-text">
@@ -38,7 +38,7 @@ const SHELL_HTML = `
     <a href="#members">Member Review</a> — numbers here may be incomplete
     until that's resolved, so they're kept separate from Next Level Summary.
   </p>
-  <div id="pendingReviewTableRoot"></div>
+  <div id="pendingReviewTableRoot" class="table-scroll"></div>
 `;
 
 interface SummaryColumn {
@@ -464,23 +464,28 @@ export const reportView: ViewModule = {
     function renderLevelsTable(path: PathReport): string {
       const levels = [1, 2, 3, 4, 5].map((n) => getLevel(path, n));
       return `
-        <table class="data-table levels">
-          <thead>
-            <tr>
-              <th>Source</th>
-              <th>Level 1</th><th>Level 2</th><th>Level 3</th><th>Level 4</th>
-              <th>Level 5</th>
-              <th>Path Completion</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${renderBasecampRow(levels, path.pathCompletion)}
-            ${renderEasyspeakRow(levels)}
-          </tbody>
-          <tfoot>
-            ${renderDiscrepancyFooterRow(levels)}
-          </tfoot>
-        </table>
+        <div class="levels-table levels-table--wide">
+          <table class="data-table levels">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Level 1</th><th>Level 2</th><th>Level 3</th><th>Level 4</th>
+                <th>Level 5</th>
+                <th>Path Completion</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderBasecampRow(levels, path.pathCompletion)}
+              ${renderEasyspeakRow(levels)}
+            </tbody>
+            <tfoot>
+              ${renderDiscrepancyFooterRow(levels)}
+            </tfoot>
+          </table>
+        </div>
+        <div class="levels-table levels-table--narrow">
+          ${renderLevelsTableNarrow(path, levels)}
+        </div>
       `;
     }
 
@@ -489,13 +494,27 @@ export const reportView: ViewModule = {
       return classes.length ? ` class="${classes.join(" ")}"` : "";
     }
 
+    function basecampCellContent(level: LevelDiff): { content: string; approved: boolean } {
+      const approved = !!level.basecamp?.approved;
+      const content = !level.basecamp ? "—" : approved ? APPROVED_CHECK : `${level.basecamp.completed} of ${level.basecamp.total}`;
+      return { content, approved };
+    }
+
+    function easyspeakCellContent(level: LevelDiff): string {
+      return !level.easyspeak ? "—" : level.basecamp?.approved === true ? "" : `${level.easyspeak.done} speeches done`;
+    }
+
+    function discrepancyContent(level: LevelDiff): string {
+      if (!level.basecamp || !level.easyspeak || level.basecamp.approved) return "—";
+      return level.discrepancy && level.discrepancy > 0 ? `${level.discrepancy} to report` : "—";
+    }
+
     function renderBasecampRow(levels: LevelDiff[], pathCompletion: PathReport["pathCompletion"]): string {
       return `<tr><td>Basecamp</td>${levels.map(basecampCell).join("")}${basecampPathCompletionCell(pathCompletion)}</tr>`;
     }
 
     function basecampCell(level: LevelDiff): string {
-      const approved = !!level.basecamp?.approved;
-      const content = !level.basecamp ? "—" : approved ? APPROVED_CHECK : `${level.basecamp.completed} of ${level.basecamp.total}`;
+      const { content, approved } = basecampCellContent(level);
       return `<td${cellAttr(level, approved ? "check-cell" : undefined)}>${content}</td>`;
     }
 
@@ -511,8 +530,7 @@ export const reportView: ViewModule = {
     function easyspeakCell(level: LevelDiff, colspan?: number, title?: string): string {
       const span = colspan ? ` colspan="${colspan}"` : "";
       const titleAttr = title ? ` title="${escapeAttr(title)}"` : "";
-      const content = !level.easyspeak ? "—" : level.basecamp?.approved === true ? "" : `${level.easyspeak.done} speeches done`;
-      return `<td${cellAttr(level)}${span}${titleAttr}>${content}</td>`;
+      return `<td${cellAttr(level)}${span}${titleAttr}>${easyspeakCellContent(level)}</td>`;
     }
 
     function renderDiscrepancyFooterRow(levels: LevelDiff[]): string {
@@ -522,9 +540,60 @@ export const reportView: ViewModule = {
 
     function discrepancyCell(level: LevelDiff, colspan?: number): string {
       const span = colspan ? ` colspan="${colspan}"` : "";
-      if (!level.basecamp || !level.easyspeak || level.basecamp.approved) return `<td${span}>—</td>`;
-      const content = level.discrepancy && level.discrepancy > 0 ? `${level.discrepancy} to report` : "—";
-      return `<td${span}>${content}</td>`;
+      return `<td${span}>${discrepancyContent(level)}</td>`;
+    }
+
+    // Phone-width companion to renderLevelsTable(): the same per-level data,
+    // transposed to one row per level/path-completion category (readable at
+    // ~360-400px) instead of one row per source (unreadable at 7 columns).
+    // Reuses the exact same content/approval computations as the wide table
+    // above so the two never drift — only the row/column arrangement differs.
+    function renderLevelsTableNarrow(path: PathReport, levels: LevelDiff[]): string {
+      const bodyRows = [1, 2, 3, 4]
+        .map((n) => {
+          const level = levels[n - 1];
+          const { content: bcContent, approved } = basecampCellContent(level);
+          const gap = discrepancyContent(level);
+          const esContent = easyspeakCellContent(level);
+          const esCombined = gap !== "—" ? `${esContent} · ${gap}` : esContent;
+          return `
+            <tr>
+              <td>Level ${n}</td>
+              <td${cellAttr(level, approved ? "check-cell" : undefined)}>${bcContent}</td>
+              <td${cellAttr(level)}>${esCombined}</td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      // Level 5's EasySpeak cell spans down into the Path Completion row —
+      // the vertical equivalent of the wide table's colspan="2" on that same
+      // cell — since EasySpeak has no completion metric distinct from Level 5.
+      const level5 = levels[4];
+      const { content: bc5Content, approved: bc5Approved } = basecampCellContent(level5);
+      const gap5 = discrepancyContent(level5);
+      const es5Content = easyspeakCellContent(level5);
+      const es5Combined = gap5 !== "—" ? `${es5Content} · ${gap5}` : es5Content;
+
+      return `
+        <table class="data-table levels-narrow">
+          <thead>
+            <tr><th>Level</th><th>Basecamp</th><th>EasySpeak</th></tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+            <tr>
+              <td>Level 5</td>
+              <td${cellAttr(level5, bc5Approved ? "check-cell" : undefined)}>${bc5Content}</td>
+              <td${cellAttr(level5)} rowspan="2" title="${escapeAttr(LEVEL5_NOTE_TITLE)}">${es5Combined}</td>
+            </tr>
+            <tr>
+              <td>Path Completion</td>
+              ${basecampPathCompletionCell(path.pathCompletion)}
+            </tr>
+          </tbody>
+        </table>
+      `;
     }
 
     function formatReportMeta(basecampScrapedAt: number | undefined, easyspeakScrapedAt: number | undefined): string {
