@@ -1669,6 +1669,25 @@ select:focus-visible {
   margin-bottom: 12px;
 }
 
+/* Next Level Summary's help text describes rows/columns on a wide screen
+   but cards on a phone (see table.summary's own card layout further below)
+   — two pre-rendered variants toggled by width, same pattern as
+   .levels-table--wide/--narrow, rather than one sentence trying to describe
+   both layouts at once. */
+.summary-help-text--narrow {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .summary-help-text--wide {
+    display: none;
+  }
+
+  .summary-help-text--narrow {
+    display: block;
+  }
+}
+
 .no-active-path {
   font-size: var(--text-xs);
   color: var(--gray-600);
@@ -1828,26 +1847,153 @@ table.summary col.col-level { width: 5%; }
 table.summary col.col-status { width: 15%; }
 table.summary col.col-detail { width: 25%; }
 
-/* The Path column adds little value at phone width (it's implied by which
-   member/row you tapped to expand) — hide it and give the freed-up space to
-   the remaining columns rather than shrinking all 5 to illegibility. */
+/* Phone width: each summary row becomes a tap-to-expand card instead of a
+   cramped table row — column headers make no sense once a row looks like a
+   card, so the whole <thead> is hidden (sorting logic keeps running, it's
+   just not user-triggerable at this width). Direct-child combinators, not
+   bare descendant selectors — a plain `table.summary td:nth-child(2)` would
+   also match the Basecamp column (the 2nd <td> in each row) of the
+   unrelated nested table.levels-narrow that an expanded detail row renders
+   inside itself, since that's a descendant of table.summary too. Scoping to
+   table.summary's own direct thead/tbody rows keeps this from reaching into
+   that nested table (whose own rows have no data-row-key attribute anyway,
+   and whose own wide/narrow toggle above is untouched by this). */
 @media (max-width: 640px) {
-  /* Direct-child combinators, not bare descendant selectors — a plain
-     `table.summary td:nth-child(2)` also matches the Basecamp column (the
-     2nd <td> in each row) of the unrelated nested table.levels-narrow that
-     an expanded detail row renders inside itself, since that's a descendant
-     of table.summary too. Scoping to table.summary's own direct thead/tbody
-     rows keeps this from reaching into that nested table at all. */
-  table.summary col.col-path,
-  table.summary > thead > tr > th:nth-child(2),
-  table.summary > tbody > tr > td:nth-child(2) {
+  /* .data-table's own background (bg-surface, styles.css:1142) is removed
+     from the <table> element itself at this width — each card supplies its
+     own white fill directly (see tr[data-row-key] below) so the gaps
+     between cards show the page behind instead of one solid white sheet. */
+  table.summary {
+    display: block;
+    background: none;
+  }
+
+  table.summary > thead {
     display: none;
   }
 
-  table.summary col.col-member { width: 20%; }
-  table.summary col.col-level { width: 12%; }
-  table.summary col.col-status { width: 28%; }
-  table.summary col.col-detail { width: 40%; }
+  table.summary > tbody {
+    display: block;
+  }
+
+  /* One row -> one card. 2-column grid: name/path on the left, the status
+     badge with the level underneath it (extra row-gap so the two don't feel
+     cramped) on the right; the detail sentence becomes a separated footer
+     spanning both columns, with room on its right for the expand chevron
+     (absolutely positioned — see .row-chevron below — since it needs to
+     visually leave the name and sit in the footer despite still being
+     nested inside td:nth-child(1) in the DOM). */
+  table.summary > tbody > tr[data-row-key] {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "member status"
+      "path   level"
+      "detail detail";
+    gap: 6px 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  /* Cards drop the table's own zebra striping (bg-surface-alt on even rows,
+     styles.css:1168) — every card stays plain white above the footer, odd
+     or even. */
+  table.summary > tbody > tr:nth-child(2n) {
+    background: var(--surface);
+  }
+
+  table.summary > tbody > tr[data-row-key] > td {
+    display: block;
+    border: none;
+    padding: 0;
+  }
+
+  table.summary > tbody > tr[data-row-key] > td:nth-child(1) {
+    grid-area: member;
+    font-weight: 600;
+  }
+
+  /* .ready-row (below) bolds the whole <tr>, member name included — reset
+     every other cell back to normal weight so only the name stays bold. */
+  table.summary > tbody > tr[data-row-key] > td:nth-child(2),
+  table.summary > tbody > tr[data-row-key] > td:nth-child(3),
+  table.summary > tbody > tr[data-row-key] > td:nth-child(4),
+  table.summary > tbody > tr[data-row-key] > td:nth-child(5) {
+    font-weight: normal;
+  }
+
+  table.summary > tbody > tr[data-row-key] > td:nth-child(2) {
+    grid-area: path;
+  }
+
+  table.summary > tbody > tr[data-row-key] > td:nth-child(3) {
+    grid-area: level;
+    justify-self: end;
+  }
+
+  table.summary > tbody > tr[data-row-key] > td:nth-child(4) {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  /* Footer: a distinct light band, separated from the header cluster above
+     by its own top border. Bleeds out to the card's own edges via negative
+     margins that cancel the card's 10px/12px padding (rather than just
+     tinting an inset cell), with matching bottom corner radii so it reads
+     as part of the card, not a box floating inside it — and right-side
+     padding cleared for the absolutely-positioned chevron. */
+  table.summary > tbody > tr[data-row-key] > td:nth-child(5) {
+    grid-area: detail;
+    font-size: var(--text-xs);
+    margin: 4px -12px -10px;
+    padding: 8px 32px 10px 12px;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    background-color: rgb(247 248 250 / var(--tw-bg-opacity, 1));
+  }
+
+  /* Moved out of the name (its DOM parent, td:nth-child(1)) to the card's
+     bottom-right corner — i.e. the right side of the footer row above —
+     via absolute positioning against the card itself. Rotation is
+     unchanged from the desktop rule (styles.css ~1710): the base SVG
+     already points right, and .expanded rotates it 90deg to point down,
+     which is exactly closed-right/open-down as requested. */
+  table.summary > tbody > tr[data-row-key] .row-chevron {
+    position: absolute;
+    right: 12px;
+    bottom: 11px;
+    margin-right: 0;
+  }
+
+  /* Expanded detail content sits directly under its card, visually attached
+     (no gap, squared-off shared top corners) instead of looking like a
+     separate table row. */
+  table.summary > tbody > tr.detail-row {
+    display: block;
+    margin: -8px 0 8px;
+    padding: 10px 12px;
+    background: var(--info-bg);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+
+  table.summary > tbody > tr.detail-row > td {
+    display: block;
+    border-left: none;
+    padding: 0;
+  }
+
+  /* Full-width search input on mobile, scoped to Club Progress only —
+     Member Review's #memberSearch shares .search-input's base 280px cap
+     and should keep it. */
+  body[data-view="report"] .search-input {
+    max-width: none;
+  }
 }
 
 table.summary th, table.summary td {

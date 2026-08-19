@@ -6,7 +6,7 @@
 // separate from shared/sync/* so the pure matching/diff logic stays
 // browser.*-free and independently testable.
 
-import { approvedCheckIconHtml, escapeAttr, escapeHtml, warningIconHtml } from "../../../shared/dom-utils";
+import { approvedCheckIconHtml, escapeAttr, escapeHtml, shortenClubName, warningIconHtml } from "../../../shared/dom-utils";
 import { local } from "../../../shared/storage";
 import { loadResolutionData } from "../../../shared/resolution-store";
 import { getAnonymizeMode } from "../../../shared/settings-store";
@@ -26,9 +26,12 @@ const SHELL_HTML = `
   <input type="text" id="summarySearch" class="search-input" placeholder="Search by member or path name…">
 
   <h2 class="section-header section-header--first">Next Level Summary</h2>
-  <p class="help-text">
+  <p class="help-text summary-help-text--wide">
     One row is displayed per member per path. Click a column header to sort (click again to reverse).
     Click a row to reveal its level-by-level detail.
+  </p>
+  <p class="help-text summary-help-text--narrow">
+    One card is displayed per member per path. Click a card to reveal its level-by-level detail.
   </p>
   <div id="summaryTableRoot" class="table-scroll"></div>
 
@@ -283,7 +286,8 @@ export const reportView: ViewModule = {
           const warningIcon = unmatched ? warningIconHtml("No match found between Basecamp and EasySpeak for this club") : "";
           const missingCount = s.clubPair.members.filter(needsAction).length;
           const countBadge = missingCount > 0 ? `<span class="tab-count">${missingCount}</span>` : "";
-          return `<button class="tab-btn" data-club-key="${s.clubKey}">${warningIcon}${escapeHtml(s.clubName ?? "(unnamed club)")}${countBadge}</button>`;
+          const fullName = s.clubName ?? "(unnamed club)";
+          return `<button class="tab-btn" data-club-key="${s.clubKey}" title="${escapeAttr(fullName)}">${warningIcon}${escapeHtml(shortenClubName(fullName))}${countBadge}</button>`;
         })
         .join("");
 

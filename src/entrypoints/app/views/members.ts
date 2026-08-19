@@ -8,7 +8,7 @@
 // via shared/resolution-store.ts, then calls refresh(), which re-reads
 // storage and rebuilds the whole report.
 
-import { escapeAttr, escapeHtml, warningIconHtml } from "../../../shared/dom-utils";
+import { escapeAttr, escapeHtml, shortenClubName, warningIconHtml } from "../../../shared/dom-utils";
 import { local } from "../../../shared/storage";
 import {
   confirmMemberLink,
@@ -188,7 +188,7 @@ export const membersView: ViewModule = {
           const warningIcon = unmatchedClub ? warningIconHtml("No match found between Basecamp and EasySpeak for this club") : "";
           const missingCount = s.clubPair.members.filter(needsAction).length;
           const countBadge = missingCount > 0 ? `<span class="tab-count">${missingCount}</span>` : "";
-          return `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}">${warningIcon}${escapeHtml(s.clubName)}${countBadge}</button>`;
+          return `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}" title="${escapeAttr(s.clubName)}">${warningIcon}${escapeHtml(shortenClubName(s.clubName))}${countBadge}</button>`;
         })
         .join("");
 

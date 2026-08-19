@@ -49,6 +49,22 @@ export function approvedCheckIconHtml(title: string): string {
   `;
 }
 
+// Club tabs (report.ts and members.ts) show a shortened name — every club
+// here is a Toastmasters club, so the words "Toastmasters"/"Club" are
+// implied and just eat horizontal space in an already-tight tab strip.
+// Word-boundary + case-insensitive so it doesn't clip inside another word
+// (e.g. "Clubhouse") or miss a differently-cased scrape. Falls back to the
+// original name if stripping those words would leave nothing (a club
+// literally named just "Toastmasters Club").
+export function shortenClubName(name: string): string {
+  const shortened = name
+    .replace(/\btoastmasters\b/gi, "")
+    .replace(/\bclub\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return shortened || name;
+}
+
 // Used by the Club Progress stepper step, which always shows this instead of
 // its step number/checkmark regardless of state — see shared/app-shell.ts.
 // stroke="currentColor" (not a fixed fill, unlike warningIconHtml above) so
