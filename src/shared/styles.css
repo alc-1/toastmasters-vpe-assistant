@@ -2294,9 +2294,9 @@ table.summary col.col-detail { width: 25%; }
     padding: 0;
   }
 
-  /* Full-width search input on mobile, scoped to Club Progress only —
-     Member Review's #memberSearch shares .search-input's base 280px cap
-     and should keep it. */
+  /* Full-width search input on mobile, scoped to Club Progress — Member
+     Review's own #memberSearch gets the identical override, next to its
+     own card layout further below. */
   body[data-view="report"] .search-input {
     max-width: none;
   }
@@ -2329,6 +2329,14 @@ table.summary td.numeric {
 /* Member Review */
 table.members {
   margin-bottom: 20px;
+}
+
+/* Desktop hides both — see the "Basecamp: "/"EasySpeak: " prefix and
+   "(Not linked)" swap under Member Review's mobile card section further
+   below, which turns each back on (and off) as needed at phone width. */
+.member-name-label,
+.not-linked-label {
+  display: none;
 }
 
 table.members tr.detail-row {
@@ -2368,6 +2376,270 @@ input.link-search {
   width: auto;
   flex: 1 1 220px;
   min-width: 160px;
+}
+
+/* Member Review — phone-width card layout. Reuses the exact grid/detail-row
+   spacing constants table.summary's own card conversion established above
+   (10px/12px padding, 8px margin-bottom, -8px negative-margin attached
+   detail row) rather than inventing new numbers. Relies on :has() (Chrome
+   105+ / Firefox 121+) to tell apart a row's three shapes — suggested match,
+   unmatched (one side is a search <input> instead of a name), and an
+   already-linked row with or without a path issue — from the data attributes
+   and markup members.ts already renders, with no extra DOM added for mobile
+   specifically. */
+@media (max-width: 1024px) {
+  body[data-view="members"] .search-input {
+    max-width: none;
+  }
+
+  table.members {
+    display: block;
+    background: none;
+  }
+
+  table.members > thead {
+    display: none;
+  }
+
+  table.members > tbody {
+    display: block;
+  }
+
+  table.members > tbody > tr:not(.detail-row) {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "bcname linkbadge"
+      "esname pathbadge"
+      "actions actions";
+    gap: 6px 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  /* Cards drop the table's own zebra striping — every card stays plain
+     white, odd or even, same reasoning as table.summary's own cards. */
+  table.members > tbody > tr:nth-child(2n) {
+    background: var(--surface);
+  }
+
+  table.members > tbody > tr:not(.detail-row) > td {
+    display: block;
+    border: none;
+    padding: 0;
+  }
+
+  table.members td:nth-child(1) {
+    grid-area: bcname;
+  }
+
+  table.members td:nth-child(2) {
+    grid-area: esname;
+  }
+
+  table.members td:nth-child(3) {
+    grid-area: linkbadge;
+    justify-self: end;
+  }
+
+  table.members td:nth-child(4) {
+    grid-area: pathbadge;
+    justify-self: end;
+    margin-top: 2px;
+  }
+
+  table.members td:nth-child(5).actions {
+    grid-area: actions;
+    margin-top: 8px;
+    white-space: normal;
+  }
+
+  /* "Basecamp: "/"EasySpeak: " prefix — real markup (members.ts's
+     renderNameCell), not a ::before/attr(data-label) pseudo-element like
+     Club Review's own mobile cards use, since the search-input branch below
+     needs its wrapper split apart via display: contents, and a
+     pseudo-element on a display:contents box would become its own unplaced
+     grid item instead of just going along for the ride. Hidden outside this
+     media query (member-name-label's own bare rule, above the view-specific
+     block) — desktop already has "Basecamp name"/"EasySpeak name" column
+     headers doing this job. */
+  body[data-view="members"] .member-name-label {
+    display: inline;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-600);
+  }
+
+  table.members td:nth-child(1) .name-header {
+    font-weight: 600;
+  }
+
+  table.members td:nth-child(2) .name-header {
+    color: var(--gray-600);
+  }
+
+  /* A missing name's fuller desktop-only wording ("No unmatched
+     candidates", "No counterpart (resolved)") collapses to a plain
+     "(Not linked)" here — swapped by the pair of rules below, not by
+     members.ts rendering different text per breakpoint. */
+  body[data-view="members"] .cell-detail {
+    display: none;
+  }
+
+  body[data-view="members"] .not-linked-label {
+    display: inline;
+  }
+
+  /* Unmatched-member shape: the one name cell holding the type-ahead
+     <input> (see members.ts's renderNameCell) gets one extra grid row of
+     its own — display: contents lets that cell's two children, the
+     ".name-header" ("(Not linked)") and the <input> itself, be placed
+     independently, the header staying put in its normal bcname/esname row
+     while the input drops into the new full-width "search" row below. The
+     path-bind badge (never meaningful for an unmatched member — it's always
+     the muted "—") is dropped entirely. */
+  table.members > tbody > tr:not(.detail-row):has(input.link-search) {
+    grid-template-areas:
+      "bcname linkbadge"
+      "esname pathbadge"
+      "search search"
+      "actions actions";
+  }
+
+  table.members > tbody > tr:not(.detail-row) > td:nth-child(1):has(input.link-search),
+  table.members > tbody > tr:not(.detail-row) > td:nth-child(2):has(input.link-search) {
+    display: contents;
+  }
+
+  table.members > tbody > tr:not(.detail-row) > td:nth-child(1):has(input.link-search) .name-header {
+    grid-area: bcname;
+    font-weight: 600;
+  }
+
+  table.members > tbody > tr:not(.detail-row) > td:nth-child(2):has(input.link-search) .name-header {
+    grid-area: esname;
+    color: var(--gray-600);
+  }
+
+  table.members > tbody > tr:not(.detail-row):has(input.link-search) input.link-search {
+    grid-area: search;
+  }
+
+  table.members > tbody > tr:not(.detail-row):has(input.link-search) > td:nth-child(4) {
+    display: none;
+  }
+
+  /* Action buttons: base shape is one full-width button per row (state 2,
+     Unmatched: Link then Mark as orphan); the two more specific shapes below
+     override this for state 1 (Suggested) and state 3 (Path issue).
+     Selector must match the ">td" reset rule's own ancestor chain
+     (table.members > tbody > tr:not(.detail-row) > td, above) — that rule's
+     descendant-combinator specificity otherwise beats a bare
+     "table.members td.actions", silently leaving this "display: flex" a
+     dead declaration (the td stays "display: block") and state 3's
+     "order: -1" below with nothing to reorder within. */
+  table.members > tbody > tr:not(.detail-row) > td.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  table.members td.actions button {
+    margin: 0;
+    width: 100%;
+  }
+
+  table.members td.actions [data-action="link"] {
+    min-height: 44px;
+  }
+
+  table.members td.actions [data-action="mark-orphan"] {
+    background: transparent;
+    border: none;
+    color: var(--gray-600);
+    text-decoration: underline;
+    padding: 4px 2px;
+    font-size: var(--text-xs);
+  }
+
+  /* State 1, Suggested match: Confirm + Not this one as a paired, large
+     (44px) row; Review paths (if any) demoted to a plain text link below.
+     Same ancestor-chain-prefixed selector as the base rule above, plus
+     :has() itself — needed so this reliably outranks that base rule rather
+     than a coin-flip on declaration order. */
+  table.members > tbody > tr:not(.detail-row) > td.actions:has([data-action="confirm"]) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  table.members td.actions [data-action="confirm"],
+  table.members td.actions [data-action="reject"] {
+    min-height: 44px;
+  }
+
+  table.members td.actions:has([data-action="confirm"]) [data-action="toggle-paths"] {
+    grid-column: 1 / -1;
+    background: transparent;
+    border: none;
+    color: var(--tm-navy);
+    text-decoration: underline;
+    font-weight: 400;
+    padding: 4px 2px;
+    font-size: var(--text-xs);
+    justify-self: start;
+    width: auto;
+  }
+
+  /* State 3, Path issue (data-path-issue, set by members.ts's
+     renderActionsCell only when member.hasOrphanedPaths): Review path issue
+     promoted to the primary, full-width CTA — order: -1 moves it above
+     Unlink regardless of DOM order — and Unlink demoted to a small text
+     action tucked in the corner. A matched row with no path issue (plain
+     Unlink + "Review paths") is left at the flex-column default above: two
+     equally-weighted secondary buttons, nothing to highlight or demote. */
+  table.members td.actions [data-path-issue="true"] {
+    order: -1;
+    background: var(--primary);
+    color: #ffffff;
+    border: none;
+    min-height: 44px;
+    font-weight: 600;
+  }
+
+  table.members td.actions:has([data-path-issue="true"]) [data-action="unlink"] {
+    align-self: flex-end;
+    background: transparent;
+    border: none;
+    color: var(--gray-600);
+    text-decoration: underline;
+    padding: 4px 2px;
+    font-size: var(--text-xs);
+    width: auto;
+  }
+
+  /* Expanded path-review detail — visually attached under its card, same
+     treatment as table.summary's own detail-row above. */
+  table.members > tbody > tr.detail-row {
+    display: block;
+    margin: -8px 0 8px;
+    padding: 10px 12px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+
+  table.members > tbody > tr.detail-row > td {
+    display: block;
+    border-left: none;
+    padding: 0;
+  }
 }
 
 /* Sync Data — scoped defensively: .summary is generic enough that a future

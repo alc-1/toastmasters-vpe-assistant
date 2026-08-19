@@ -362,20 +362,34 @@ export const membersView: ViewModule = {
     }
 
     function renderNameCell(member: MemberReport, side: "basecamp" | "easyspeak", pools: { easyspeakOnly: Candidate[]; basecampOnly: Candidate[] }): string {
+      const label = side === "easyspeak" ? "EasySpeak" : "Basecamp";
+      // Mobile-only prefix (hidden on desktop via CSS) — see styles.css's
+      // Member Review mobile card section for why this is real markup
+      // rather than a ::before/attr(data-label) pseudo-element like Club
+      // Review's own mobile cards use: the interactive-search branch below
+      // needs its wrapper split apart via display:contents on mobile, and a
+      // pseudo-element on a display:contents box becomes its own unplaced
+      // grid item, which a plain text node sidesteps entirely.
+      const labelPrefix = `<span class="member-name-label">${label}: </span>`;
+
       const name = side === "easyspeak" ? member.easyspeakName : member.basecampName;
-      if (name) return escapeHtml(name);
+      if (name) return `<span class="name-header">${labelPrefix}${escapeHtml(name)}</span>`;
 
       if (member.matchConfidence === "confirmed" && member.matchSource === "orphan") {
-        return '<span class="muted-text">No counterpart (resolved)</span>';
+        return `<span class="name-header">${labelPrefix}<span class="cell-detail muted-text">No counterpart (resolved)</span><span class="not-linked-label">(Not linked)</span></span>`;
       }
 
       const candidates = side === "easyspeak" ? pools.easyspeakOnly : pools.basecampOnly;
-      if (candidates.length === 0) return '<span class="muted-text">No unmatched candidates</span>';
+      if (candidates.length === 0) {
+        return `<span class="name-header">${labelPrefix}<span class="cell-detail muted-text">No unmatched candidates</span><span class="not-linked-label">(Not linked)</span></span>`;
+      }
 
       const datalistId = side === "easyspeak" ? `dl-es-${activeClubKey}` : `dl-bc-${activeClubKey}`;
       const key = memberKey(member);
-      const label = side === "easyspeak" ? "EasySpeak" : "Basecamp";
-      return `<input type="text" class="link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" aria-label="Search ${label} members to link" autocomplete="off">`;
+      return (
+        `<span class="name-header">${labelPrefix}<span class="not-linked-label">(Not linked)</span></span>` +
+        `<input type="text" class="link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" aria-label="Search ${label} members to link" autocomplete="off">`
+      );
     }
 
     function renderLinkStatusCell(member: MemberReport): string {
@@ -446,7 +460,7 @@ export const membersView: ViewModule = {
             `<button class="btn btn-secondary btn-sm" data-action="unorphan" data-member-key="${key}" title="Returns this member to Unmatched so it can be linked or re-resolved.">Unmark orphan</button>`
           );
         } else {
-          buttons.push(`<button class="btn btn-primary btn-sm" data-action="link" data-member-key="${key}" disabled>Link</button>`);
+          buttons.push(`<button class="btn btn-primary btn-sm" data-action="link" data-member-key="${key}" disabled>Link selected member</button>`);
           buttons.push(
             `<button class="btn btn-secondary btn-sm" data-action="mark-orphan" data-member-key="${key}" title="Marks this as having no counterpart in the other system, so it stops showing as needing review.">Mark as orphan</button>`
           );
@@ -456,7 +470,8 @@ export const membersView: ViewModule = {
       if (hasReviewablePaths(member)) {
         const expanded = expandedMemberKeys.has(key);
         const label = member.hasOrphanedPaths ? (expanded ? "Hide path issue" : "Review path issue") : expanded ? "Hide paths" : "Review paths";
-        buttons.push(`<button class="btn btn-secondary btn-sm" data-action="toggle-paths" data-member-key="${key}">${label}</button>`);
+        const pathIssueAttr = member.hasOrphanedPaths ? ' data-path-issue="true"' : "";
+        buttons.push(`<button class="btn btn-secondary btn-sm" data-action="toggle-paths" data-member-key="${key}"${pathIssueAttr}>${label}</button>`);
       }
 
       return buttons.join("") || '<span class="muted-text">—</span>';
