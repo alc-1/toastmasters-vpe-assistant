@@ -1346,6 +1346,45 @@
     padding: 4px 6px;
   }
 
+  /* Club Review's arrow between the two club dropdowns: a left-right arrow
+     reads fine in the wide, side-by-side layout, but once .add-form stacks
+     vertically below a down arrow matches the actual visual flow — two
+     pre-rendered variants toggled by width, same pattern as
+     .summary-help-text--wide/--narrow above. Global Settings' add-form has
+     no arrow span at all, so this is a no-op there. */
+  .add-form-arrow--narrow {
+    display: none;
+  }
+
+  /* Same .add-form is shared by Club Review's dual-select mapping form and
+     Global Settings' single-input form — stacking it vertically and
+     full-widthing its controls below the breakpoint is a plain improvement
+     for both, not something that needs per-page scoping. */
+  @media (max-width: 1024px) {
+    .add-form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .add-form select,
+    .add-form input[type="text"],
+    .add-form > button {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .add-form-arrow--wide {
+      display: none;
+    }
+
+    .add-form-arrow--narrow {
+      display: block;
+      text-align: center;
+      font-size: var(--text-lg);
+      color: var(--gray-600);
+    }
+  }
+
   /* ---------------------------------------------------------------------- */
   /* Badges — grouped into exactly the 4 statuses the Member Matching table  */
   /* distinguishes (Exact/green, Resolved Manually/blue, Unmatched/red, Needs */
@@ -1799,6 +1838,126 @@ select:focus-visible {
 /* Shared by both Club Review's and Member Review's action-buttons column. */
 .actions button {
   margin-right: 4px;
+}
+
+/* Club Review — phone-width companion to table.lookup's default (desktop)
+   rows: same per-club-pair data, transposed to one card per row (readable
+   at ~360-400px) instead of a cramped 4-column table. Scoped to this view
+   only, not table.lookup generally — Global Settings' own table.lookup
+   (path-name aliases) has a different 3-column shape and stays a plain
+   horizontally-scrollable table (table-scroll) at this width. */
+@media (max-width: 1024px) {
+  body[data-view="clubReview"] table.lookup {
+    display: block;
+    background: none;
+  }
+
+  body[data-view="clubReview"] table.lookup > thead {
+    display: none;
+  }
+
+  body[data-view="clubReview"] table.lookup > tbody {
+    display: block;
+  }
+
+  body[data-view="clubReview"] table.lookup > tbody > tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "bc      status"
+      "es      status"
+      "actions actions";
+    gap: 6px 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  /* Cards drop the table's own zebra striping — every card stays plain
+     white, odd or even. */
+  body[data-view="clubReview"] table.lookup > tbody > tr:nth-child(2n) {
+    background: var(--surface);
+  }
+
+  body[data-view="clubReview"] table.lookup > tbody > tr > td {
+    display: block;
+    border: none;
+    padding: 0;
+  }
+
+  body[data-view="clubReview"] table.lookup > tbody > tr > td:nth-child(1) {
+    grid-area: bc;
+  }
+
+  body[data-view="clubReview"] table.lookup > tbody > tr > td:nth-child(2) {
+    grid-area: es;
+  }
+
+  body[data-view="clubReview"] table.lookup > tbody > tr > td:nth-child(3) {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  /* Platform label ("Basecamp"/"EasySpeak") rendered above each club name —
+     with <thead> hidden there's nothing else on a card telling the two
+     names apart. clubReview.ts sets data-label on exactly these two cells. */
+  body[data-view="clubReview"] table.lookup td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-600);
+    margin-bottom: 2px;
+  }
+
+  /* Actions become a right-aligned footer row spanning the card's full
+     width. A Linked Clubs card only ever shows one action, Unlink — styled
+     here as a subtle ghost/text button tucked in the card's corner (not a
+     solid button) specifically so an accidental tap doesn't casually break
+     a working match; Unmatched Clubs' Confirm/"Not this one" pair are left
+     as regular buttons, since those are meant to invite a tap. */
+  body[data-view="clubReview"] table.lookup > tbody > tr > td.actions {
+    grid-area: actions;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  body[data-view="clubReview"] table.lookup > tbody > tr > td.actions [data-action="unlink-club"] {
+    background: transparent;
+    border: none;
+    color: var(--gray-600);
+    text-decoration: underline;
+    padding: 4px 2px;
+    font-size: var(--text-xs);
+  }
+
+  /* Pins "Continue to Member Review →" to the bottom of the viewport so it's
+     reachable without scrolling past the (now often long, card-based) club
+     list above — .step-footer (rendered into #stepFooter, the last element
+     in body's normal flow) stays in place during scroll via position:
+     sticky, no fixed positioning or JS needed. body's own bottom padding is
+     cleared here so the footer's own padding is the only bottom spacing,
+     not both stacked. */
+  body[data-view="clubReview"] {
+    padding-bottom: 0;
+  }
+
+  body[data-view="clubReview"] .step-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    margin: 0 -20px;
+    padding: var(--space-3) 20px calc(var(--space-3) + 20px);
+    background: var(--surface-alt);
+    border-top: 1px solid var(--border);
+  }
 }
 
 /* Club Progress */

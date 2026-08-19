@@ -62,13 +62,15 @@ export const clubReviewView: ViewModule = {
       return String(pair.basecamp?.name ?? pair.easyspeak?.name ?? "");
     }
 
-    function compareClubPairs(a: ClubPair, b: ClubPair): number {
-      const aRank = needsClubAction(a) ? 0 : 1;
-      const bRank = needsClubAction(b) ? 0 : 1;
-      if (aRank !== bRank) return aRank - bRank;
-      return clubSortName(a).localeCompare(clubSortName(b), undefined, { sensitivity: "base" });
+    function sortClubPairs(pairs: ClubPair[]): ClubPair[] {
+      return [...pairs].sort((a, b) => clubSortName(a).localeCompare(clubSortName(b), undefined, { sensitivity: "base" }));
     }
 
+    // Split into two groups rather than one combined table: linked clubs
+    // (nothing to do) rendered first, unmatched/suggested clubs (action
+    // required) rendered last, directly above the manual mapping form —
+    // that ordering puts the thing a reviewer needs to act on right next to
+    // the tool they'd use to act on it.
     function renderClubLookupSection(matches: ClubPair[]): string {
       if (!basecampData || !easyspeakData) {
         return '<p class="empty-state">Extract both Basecamp and EasySpeak data first to review club matches.</p>';
@@ -77,18 +79,38 @@ export const clubReviewView: ViewModule = {
         return '<p class="empty-state">No clubs found in either data source.</p>';
       }
 
-      const sorted = [...matches].sort(compareClubPairs);
-      const rows = sorted.map(renderClubMatchRow).join("");
-      const table = `<table class="data-table lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      const linked = sortClubPairs(matches.filter((m) => !needsClubAction(m)));
+      const unmatched = sortClubPairs(matches.filter(needsClubAction));
 
-      return `<div class="table-scroll">${table}</div>${renderClubAddForm(matches)}`;
+      const linkedSection = linked.length
+        ? `<h2 class="section-header section-header--first">Linked Clubs</h2><div class="table-scroll">${renderClubTable(linked)}</div>`
+        : "";
+
+      const unmatchedSection = unmatched.length
+        ? `
+            <h2 class="section-header${linked.length ? "" : " section-header--first"}">Unmatched Clubs</h2>
+            <p class="help-text">These clubs need a decision — confirm or reject a suggested match, or use the form below to pin one manually.</p>
+            <div class="table-scroll">${renderClubTable(unmatched)}</div>
+          `
+        : "";
+
+      // Heading ties the form below back to the unmatched cards above it,
+      // so it doesn't read as an unrelated "add a club" feature.
+      const addFormSection = `<h2 class="section-header">Link Unmatched Clubs</h2>${renderClubAddForm(matches)}`;
+
+      return `${linkedSection}${unmatchedSection}${addFormSection}`;
+    }
+
+    function renderClubTable(pairs: ClubPair[]): string {
+      const rows = pairs.map(renderClubMatchRow).join("");
+      return `<table class="data-table lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
     }
 
     function renderClubMatchRow(pair: ClubPair): string {
       return `
         <tr>
-          <td>${pair.basecamp ? escapeHtml(pair.basecamp.name) : '<span class="muted-text">—</span>'}</td>
-          <td>${pair.easyspeak ? escapeHtml(pair.easyspeak.name) : '<span class="muted-text">—</span>'}</td>
+          <td data-label="Basecamp">${pair.basecamp ? escapeHtml(pair.basecamp.name) : '<span class="muted-text">—</span>'}</td>
+          <td data-label="EasySpeak">${pair.easyspeak ? escapeHtml(pair.easyspeak.name) : '<span class="muted-text">—</span>'}</td>
           <td>${renderClubStatusCell(pair)}</td>
           <td class="actions">${renderClubActionsCell(pair)}</td>
         </tr>
@@ -109,7 +131,9 @@ export const clubReviewView: ViewModule = {
     }
 
     function renderClubActionsCell(pair: ClubPair): string {
-      if (!pair.basecamp || !pair.easyspeak) return '<span class="muted-text">Use the form below to pin manually</span>';
+      // No per-row instructions here — the Unmatched Clubs section above the
+      // table already carries that guidance once, not once per row.
+      if (!pair.basecamp || !pair.easyspeak) return "";
 
       const bcId = escapeAttr(pair.basecamp.id as string);
       const esId = escapeAttr(pair.easyspeak.id as string);
@@ -154,7 +178,8 @@ export const clubReviewView: ViewModule = {
       return `
         <div class="add-form">
           <select id="newClubPinBc" aria-label="Basecamp club">${bcOptions}</select>
-          <span>&harr;</span>
+          <span class="add-form-arrow add-form-arrow--wide">&harr;</span>
+          <span class="add-form-arrow add-form-arrow--narrow">&darr;</span>
           <select id="newClubPinEs" aria-label="EasySpeak club">${esOptions}</select>
           <button class="btn btn-primary" data-action="add-club-pin">Add mapping</button>
         </div>
