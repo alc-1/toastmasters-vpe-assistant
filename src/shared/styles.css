@@ -147,7 +147,7 @@
     text-align: center;
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 1024px) {
     .page--status {
       margin-top: 24px;
     }
@@ -312,7 +312,7 @@
 
   /* Clamp the full-sentence subtitle to one line on phones — full height would
      otherwise push the stepper/content further below the fold than needed. */
-  @media (max-width: 640px) {
+  @media (max-width: 1024px) {
     .app-header__subtitle {
       display: -webkit-box;
       -webkit-line-clamp: 1;
@@ -385,34 +385,178 @@
     margin-top: 2px;
   }
 
-  /* Phone width: the horizontal 5-across layout above has no room for 5 full
-     labels + info lines side by side, so it becomes a plain top-to-bottom
-     stack of the same markup instead — each step reading icon-then-label in
-     a row, like a simple step list. The diagonal connecting line between
-     circles doesn't translate to a vertical stack, so it's just dropped
-     rather than redrawn (the popup's separate .app-stepper--vertical variant
-     has a proper connecting rail, but reusing its extra DOM nodes here would
-     mean always emitting them just for the phone case — not worth it for a
-     cosmetic connector). */
-  @media (max-width: 640px) {
+  /* Desktop/default: the main stepper's .app-stepper__rail/__body wrappers
+     (added so its per-step markup can be shared with the popup's vertical
+     stepper's rail-and-line look — see shared/app-shell.ts's stepBody())
+     collapse to `display: contents`, i.e. invisible passthrough — circle,
+     line, label and info stay direct flex children of .app-stepper__step
+     exactly as before that markup was shared, and the connecting .app-
+     stepper__line is hidden outright since the horizontal layout already
+     draws its own connector via the ::before diagonal above. Mobile/tablet
+     width below turns both back into real layouts, matching the popup's
+     .app-stepper--vertical treatment one-for-one. */
+  .app-stepper__summary {
+    display: none;
+  }
+
+  .app-stepper__list {
+    display: contents;
+  }
+
+  .app-stepper:not(.app-stepper--vertical) .app-stepper__rail,
+  .app-stepper:not(.app-stepper--vertical) .app-stepper__body {
+    display: contents;
+  }
+
+  .app-stepper:not(.app-stepper--vertical) .app-stepper__line {
+    display: none;
+  }
+
+  /* Tablet/phone width: the horizontal 5-across layout above has no room for
+     5 full labels + info lines side by side. Two things happen together:
+     1) the step list adopts the exact same rail-and-line / bold-label-over-
+        info-line look as the popup's .app-stepper--vertical stepper (see
+        shared/app-shell.ts's stepBody() — both now share identical markup,
+        this block just turns the wrappers back into real layouts instead of
+        the desktop `display: contents` passthrough above).
+     2) the whole thing becomes a collapsible accordion: .app-stepper__summary
+        (hidden on desktop above) is the always-visible one-line current-step
+        bar; .app-stepper__list (the full step list) starts hidden and only
+        shows once entrypoints/app/main.ts's delegated click handler toggles
+        .expanded on .app-stepper — see that file for the toggle wiring, this
+        file only owns the resulting show/hide + chevron rotation. */
+  @media (max-width: 1024px) {
     .app-stepper {
       flex-direction: column;
-    }
-
-    .app-stepper__step {
-      flex-direction: row;
-      align-items: center;
-      gap: var(--space-2);
-      width: 100%;
-      padding: var(--space-2);
     }
 
     .app-stepper__step:not(:first-child)::before {
       display: none;
     }
 
-    .app-stepper__label {
+    .app-stepper__summary {
+      @apply rounded-sm;
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      width: 100%;
+      padding: var(--space-2);
+      background: none;
+      border: none;
+      font: inherit;
+      color: inherit;
       text-align: left;
+      cursor: pointer;
+    }
+
+    .app-stepper__summary:hover {
+      @apply bg-surface-alt;
+    }
+
+    /* The summary bar always represents the current step, which never sits
+       inside a ".app-stepper__step.active" element (that class only exists
+       on the full list's own steps) — so its plain numbered/document circle
+       needs the same "filled navy" active look applied directly here.
+       Excluded when .completed/.warning (higher-specificity rules further
+       above already color those) so a done/pending-review current step keeps
+       showing its own green/red tint instead of being painted over navy. */
+    .app-stepper__summary .app-stepper__circle:not(.completed, .warning) {
+      @apply bg-navy-700 border-navy-700;
+      color: #ffffff;
+    }
+
+    .app-stepper__summary-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .app-stepper__summary-title {
+      @apply text-sm text-tm-gray-900;
+    }
+
+    .app-stepper__summary-info {
+      @apply text-xs text-tm-gray-600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .app-stepper__summary-chevron {
+      display: flex;
+      flex-shrink: 0;
+      color: var(--gray-600);
+      transition: transform 0.15s ease;
+    }
+
+    .app-stepper.expanded .app-stepper__summary-chevron {
+      transform: rotate(90deg);
+    }
+
+    .app-stepper__list {
+      display: none;
+      flex-direction: column;
+      margin-top: var(--space-2);
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--border);
+    }
+
+    .app-stepper.expanded .app-stepper__list {
+      display: flex;
+    }
+
+    /* Scoped to :not(.app-stepper--vertical) — the popup's own vertical
+       stepper is always narrower than this breakpoint (fixed ~360px) and
+       already has its own equivalent rule (.app-stepper--vertical
+       .app-stepper__step, further below, unconditioned by width); redefining
+       the same properties here without the guard would fight that rule's
+       `gap`/spacing instead of leaving it alone. */
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__step {
+      flex-direction: row;
+      align-items: stretch;
+      gap: 0;
+      width: 100%;
+      padding: var(--space-1) var(--space-2);
+    }
+
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__rail,
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__body {
+      display: flex;
+    }
+
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__rail {
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      margin-right: var(--space-3);
+    }
+
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__circle {
+      margin-bottom: 0;
+    }
+
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__line {
+      display: block;
+    }
+
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__step:last-child .app-stepper__line {
+      visibility: hidden;
+    }
+
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__body {
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      padding-bottom: var(--space-1);
+      min-width: 0;
+    }
+
+    .app-stepper:not(.app-stepper--vertical) .app-stepper__label {
+      @apply text-sm text-tm-gray-900;
+      text-align: left;
+      font-weight: 600;
     }
 
     .app-stepper:not(.app-stepper--vertical) .app-stepper__info {
@@ -847,7 +991,7 @@
     padding: var(--space-4);
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 1024px) {
     .export-popover {
       width: min(300px, calc(100vw - 32px));
     }
@@ -866,7 +1010,7 @@
     margin-bottom: var(--space-5);
   }
 
-  @media (max-width: 720px) {
+  @media (max-width: 1024px) {
     .sync-cards {
       grid-template-columns: 1fr;
     }
@@ -964,7 +1108,7 @@
   /* Stay 3-across even at phone width (kept side by side rather than
      stacked) — tighter gap/padding/value size so "READY TO LEVEL UP" and
      friends still fit a ~110px column without forcing horizontal overflow. */
-  @media (max-width: 640px) {
+  @media (max-width: 1024px) {
     .kpi-grid {
       gap: var(--space-2);
     }
@@ -1094,7 +1238,7 @@
 
   /* Two full-sentence buttons ("Continue to Member Review") side by side
      don't both fit at phone width — stack them full-width instead. */
-  @media (max-width: 640px) {
+  @media (max-width: 1024px) {
     .step-footer {
       flex-direction: column;
       gap: var(--space-2);
@@ -1124,7 +1268,7 @@
      tables below for the two that do get one) — lets a table too wide for the
      viewport scroll within its own container instead of forcing the whole
      page wider than the screen. No effect above the breakpoint. */
-  @media (max-width: 640px) {
+  @media (max-width: 1024px) {
     .table-scroll {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
@@ -1326,7 +1470,7 @@
 
   /* A club-tab row that doesn't fit at phone width becomes swipeable instead
      of silently overflowing the page. */
-  @media (max-width: 640px) {
+  @media (max-width: 1024px) {
     .tabs {
       overflow-x: auto;
       flex-wrap: nowrap;
@@ -1678,7 +1822,7 @@ select:focus-visible {
   display: none;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 1024px) {
   .summary-help-text--wide {
     display: none;
   }
@@ -1799,7 +1943,7 @@ table.levels td.check-cell {
   display: none;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 1024px) {
   .levels-table--wide {
     display: none;
   }
@@ -1858,7 +2002,7 @@ table.summary col.col-detail { width: 25%; }
    table.summary's own direct thead/tbody rows keeps this from reaching into
    that nested table (whose own rows have no data-row-key attribute anyway,
    and whose own wide/narrow toggle above is untouched by this). */
-@media (max-width: 640px) {
+@media (max-width: 1024px) {
   /* .data-table's own background (bg-surface, styles.css:1142) is removed
      from the <table> element itself at this width — each card supplies its
      own white fill directly (see tr[data-row-key] below) so the gaps
@@ -2081,7 +2225,7 @@ body[data-view="syncData"] .summary {
   font-size: var(--text-sm);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 1024px) {
   body[data-view="syncData"] .summary {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;

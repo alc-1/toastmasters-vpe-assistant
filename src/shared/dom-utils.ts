@@ -78,6 +78,15 @@ export function documentIconHtml(title: string): string {
   `;
 }
 
+// Caret toggle indicator — points right by default, rotates 90deg to point
+// down when its containing accordion/expandable is open (see the
+// ".expanded"/aria-expanded-driven rotation rule wherever this is used, e.g.
+// shared/app-shell.ts's mobile stepper accordion). stroke="currentColor" so
+// it tints with whatever text color its container already sets.
+export function chevronIconHtml(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>`;
+}
+
 // The header gear icon linking to the Global Settings page (shared/app-shell.ts).
 // stroke="currentColor" so it tints via CSS (default vs. hover vs. the
 // page's own "active" state) without needing its own fill override, same

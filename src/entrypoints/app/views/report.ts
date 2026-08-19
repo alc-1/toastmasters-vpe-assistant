@@ -35,13 +35,15 @@ const SHELL_HTML = `
   </p>
   <div id="summaryTableRoot" class="table-scroll"></div>
 
-  <h2 class="section-header">Pending review</h2>
-  <p class="help-text">
-    Members whose Basecamp/EasySpeak match still needs a decision in
-    <a href="#members">Member Review</a> — numbers here may be incomplete
-    until that's resolved, so they're kept separate from Next Level Summary.
-  </p>
-  <div id="pendingReviewTableRoot" class="table-scroll"></div>
+  <div id="pendingReviewSection">
+    <h2 class="section-header">Pending review</h2>
+    <p class="help-text">
+      Members whose Basecamp/EasySpeak match still needs a decision in
+      <a href="#members">Member Review</a> — numbers here may be incomplete
+      until that's resolved, so they're kept separate from Next Level Summary.
+    </p>
+    <div id="pendingReviewTableRoot" class="table-scroll"></div>
+  </div>
 `;
 
 interface SummaryColumn {
@@ -159,6 +161,7 @@ export const reportView: ViewModule = {
         getRoot("summaryTableRoot").innerHTML =
           '<p class="empty-state">Both Basecamp and EasySpeak data are needed to build this report. ' +
           "Click the extension's toolbar icon and run both extractions first.</p>";
+        (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "none";
         return;
       }
 
@@ -276,6 +279,7 @@ export const reportView: ViewModule = {
         tabsRoot.innerHTML = "";
         getRoot("summaryTableRoot").innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
         getRoot("pendingReviewTableRoot").innerHTML = "";
+        (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "none";
         return;
       }
 
@@ -318,8 +322,10 @@ export const reportView: ViewModule = {
       renderConflictWarning(clubPair);
       renderKpiRow(clubPair);
       const rows = (section ? section.rows : []).filter((r) => matchesSearch(r, activeSearchQuery));
+      const pendingRows = rows.filter((r) => r.pendingReview);
       renderSummaryTable(mainTable, rows.filter((r) => !r.pendingReview));
-      renderSummaryTable(pendingTable, rows.filter((r) => r.pendingReview));
+      renderSummaryTable(pendingTable, pendingRows);
+      (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = pendingRows.length === 0 ? "none" : "";
     }
 
     function matchesSearch(row: LevelSummaryRow, query: string): boolean {

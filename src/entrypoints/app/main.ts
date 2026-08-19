@@ -26,6 +26,24 @@ const appShellRoot = document.getElementById("appShell")!;
 const stepFooterRoot = document.getElementById("stepFooter")!;
 const viewRoot = document.getElementById("viewRoot")!;
 
+// Delegated once — renderChrome() replaces appShellRoot's innerHTML on every
+// navigation, but the root element itself never changes, so a single
+// listener covers every re-render (same pattern as popup/main.ts's own
+// delegated stepper click listener). Mobile/tablet width's collapsible
+// stepper accordion (see shared/app-shell.ts's .app-stepper__summary and
+// shared/styles.css's ".app-stepper.expanded" rules) is a pure CSS class
+// flip — no app state to track, so a fresh renderChrome() call (route
+// change, or a storage-triggered chrome-only refresh) naturally resets it
+// back to collapsed, which is the desired default each time.
+appShellRoot.addEventListener("click", (e) => {
+  const toggle = (e.target as HTMLElement).closest<HTMLElement>(".app-stepper__summary");
+  if (!toggle) return;
+  const nav = toggle.closest<HTMLElement>(".app-stepper");
+  if (!nav) return;
+  const expanded = nav.classList.toggle("expanded");
+  toggle.setAttribute("aria-expanded", String(expanded));
+});
+
 let currentDispose: (() => void) | null = null;
 let currentRoute: AppRoute | null = null;
 // Bumped on every navigate() call — lets a call bail out early if a newer

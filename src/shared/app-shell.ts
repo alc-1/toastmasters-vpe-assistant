@@ -26,7 +26,7 @@
 // the same per-step info line (e.g. "12 clubs followed") shown under each
 // step's label, so both steppers surface identical information.
 
-import { documentIconHtml, escapeHtml, settingsIconHtml, warningIconHtml } from "./dom-utils";
+import { chevronIconHtml, documentIconHtml, escapeHtml, settingsIconHtml, warningIconHtml } from "./dom-utils";
 
 export type AppShellPage = "report" | "members" | "setup" | "syncData" | "clubReview";
 
@@ -116,6 +116,40 @@ function visibleInfo(meta: StepMeta | undefined): string | undefined {
   return meta?.info;
 }
 
+// The rail (circle + connecting line) + body (label + info) markup shared by
+// both renderAppShell()'s steps and renderVerticalStepper()'s — the same
+// nesting the popup's vertical stepper has always used. renderAppShell()'s
+// own desktop CSS collapses .app-stepper__rail/__body back to `display:
+// contents` (see shared/styles.css) so this extra nesting is invisible at
+// that width; at mobile/tablet width (and always, for the popup's vertical
+// variant) it's what draws the connecting line between circles and stacks
+// the bold label above the lighter info line, matching the popup's look —
+// see shared/styles.css's mobile ".app-stepper:not(.app-stepper--vertical)"
+// block.
+// `alwaysShowInfo` (renderVerticalStepper only) renders an empty
+// .app-stepper__info span even with no info text, since the popup's fixed-
+// height rows rely on every step reserving that line's space for alignment;
+// renderAppShell() omits the element entirely when there's nothing to show,
+// since its steps have no such alignment requirement across siblings.
+function stepBody(item: (typeof NAV_ITEMS)[number], index: number, meta: StepMeta | undefined, alwaysShowInfo = false): string {
+  const infoText = visibleInfo(meta);
+  const infoHtml = alwaysShowInfo
+    ? `<span class="app-stepper__info">${escapeHtml(infoText ?? "")}</span>`
+    : infoText
+      ? `<span class="app-stepper__info">${escapeHtml(infoText)}</span>`
+      : "";
+  return `
+      <span class="app-stepper__rail">
+        <span class="app-stepper__circle${circleClass(meta)}">${circleGlyph(item, index, meta)}</span>
+        <span class="app-stepper__line"></span>
+      </span>
+      <span class="app-stepper__body">
+        <span class="app-stepper__label">${escapeHtml(item.label)}</span>
+        ${infoHtml}
+      </span>
+    `;
+}
+
 export interface AppShellOptions {
   /** `null` for the Global Settings page — it isn't one of the five wizard
    *  steps, so no step should render as "active" there (see `settingsActive`
@@ -131,15 +165,15 @@ export interface AppShellOptions {
 }
 
 export function renderAppShell({ active, info, settingsActive }: AppShellOptions): string {
+  const activeIndex = active !== null ? NAV_ITEMS.findIndex((item) => item.key === active) : -1;
+  const activeItem = activeIndex >= 0 ? NAV_ITEMS[activeIndex] : null;
+  const activeMeta = activeItem ? info?.[activeItem.key] : undefined;
+  const activeInfoText = activeItem ? visibleInfo(activeMeta) : undefined;
+
   const stepsHtml = NAV_ITEMS.map((item, index) => {
     const isActive = active !== null && item.key === active;
     const meta = info?.[item.key];
-    const infoText = visibleInfo(meta);
-    const body = `
-        <span class="app-stepper__circle${circleClass(meta)}">${circleGlyph(item, index, meta)}</span>
-        <span class="app-stepper__label">${item.label}</span>
-        ${infoText ? `<span class="app-stepper__info">${escapeHtml(infoText)}</span>` : ""}
-      `;
+    const body = stepBody(item, index, meta);
     // The active step always stays a live link even if flagged disabled/
     // locked — you're already on that page, graying it out here would be
     // confusing.
@@ -148,6 +182,20 @@ export function renderAppShell({ active, info, settingsActive }: AppShellOptions
     }
     return `<a href="${item.href}" class="app-stepper__step${isActive ? " active" : ""}"${isActive ? ' aria-current="page"' : ""}>${body}</a>`;
   }).join("");
+
+  // Mobile/tablet-only accordion header (shared/styles.css hides it above
+  // that breakpoint) — collapsed by default, showing just the current step
+  // ("Step 5: Club Progress • 6 members ready"); tapping it reveals the full
+  // step list below via a plain CSS class flip on .app-stepper, wired up in
+  // entrypoints/app/main.ts (the one caller with a persistent #appShell node
+  // to attach a delegated listener to — this file stays browser.*-free and
+  // builds markup only, no listeners). "Steps" is the fallback title on
+  // Global Settings, which isn't one of the five wizard steps and so has no
+  // "current step" of its own to summarize.
+  const summaryTitle = activeItem ? `Step ${activeIndex + 1}: ${escapeHtml(activeItem.label)}` : "Steps";
+  const summaryInfoHtml = activeInfoText ? `<span class="app-stepper__summary-info">${escapeHtml(activeInfoText)}</span>` : "";
+  const summaryGlyph = activeItem ? circleGlyph(activeItem, activeIndex, activeMeta) : "&#8226;";
+  const summaryCircleClass = activeItem ? circleClass(activeMeta) : "";
 
   return `
     <header class="app-header">
@@ -160,7 +208,17 @@ export function renderAppShell({ active, info, settingsActive }: AppShellOptions
       </div>
       <a href="#globalSettings" class="app-header__settings-btn${settingsActive ? " active" : ""}" title="Global Settings" aria-label="Global Settings">${settingsIconHtml()}</a>
     </header>
-    <nav class="app-stepper" aria-label="Primary">${stepsHtml}</nav>
+    <nav class="app-stepper" aria-label="Primary">
+      <button type="button" class="app-stepper__summary" aria-expanded="false">
+        <span class="app-stepper__circle${summaryCircleClass}">${summaryGlyph}</span>
+        <span class="app-stepper__summary-text">
+          <strong class="app-stepper__summary-title">${summaryTitle}</strong>
+          ${summaryInfoHtml}
+        </span>
+        <span class="app-stepper__summary-chevron" aria-hidden="true">${chevronIconHtml()}</span>
+      </button>
+      <div class="app-stepper__list">${stepsHtml}</div>
+    </nav>
   `;
 }
 
@@ -209,17 +267,7 @@ export function renderStepFooter(active: AppShellPage, info?: StepperInfo): stri
 export function renderVerticalStepper(info: StepperInfo): string {
   const stepsHtml = NAV_ITEMS.map((item, index) => {
     const meta = info[item.key];
-    const infoText = visibleInfo(meta) ?? "";
-    const body = `
-        <span class="app-stepper__rail">
-          <span class="app-stepper__circle${circleClass(meta)}">${circleGlyph(item, index, meta)}</span>
-          <span class="app-stepper__line"></span>
-        </span>
-        <span class="app-stepper__body">
-          <span class="app-stepper__label">${escapeHtml(item.label)}</span>
-          <span class="app-stepper__info">${escapeHtml(infoText)}</span>
-        </span>
-      `;
+    const body = stepBody(item, index, meta, true);
     // No data-page-key on a disabled/locked step, so the popup's delegated
     // click handler (which only matches "[data-page-key]") simply never
     // fires for it.
