@@ -1033,9 +1033,10 @@
     margin: 0;
   }
 
-  /* Three-line imported-state result (see options/sync-data.ts's
-     renderSourceCard): status line, member count, imported-at time — one
-     fact per line rather than a single run-on sentence. */
+  /* Imported-state result (see entrypoints/app/views/syncData.ts's
+     renderSourceCard): member count + imported-at time on one line — the
+     "imported" fact itself is already shown by the badge above, so it's
+     not repeated here. */
   .sync-card__result {
     @apply text-sm text-tm-gray-700;
     margin: 0 0 var(--space-2);
@@ -1045,13 +1046,28 @@
     margin-bottom: 2px;
   }
 
-  .sync-card__result-status {
-    @apply text-success;
+  .sync-card__action {
+    width: 100%;
+  }
+
+  /* Each source's Import/Re-import button carries its "opens a new tab"
+     explanation as a permanent second line rather than a separate <p>
+     below it — display:block stacks the two spans without needing flex
+     on the button itself. */
+  .sync-card__action-label {
+    display: block;
     font-weight: 600;
   }
 
-  .sync-card__action {
-    width: 100%;
+  .sync-card__action-sublabel {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    margin-top: 2px;
+    opacity: 0.75; /* inherits the button's own text color (white on
+                       .btn-primary, navy on .btn-secondary once re-import
+                       swaps the button's tone) rather than a fixed gray
+                       that would only read correctly against one of them */
   }
 
   .sync-card__details {
@@ -1070,28 +1086,6 @@
      <pre> elements. */
   .raw-data {
     @apply max-h-[220px] overflow-auto bg-surface-alt p-1.5 text-[10px];
-  }
-
-  /* De-emphasized "Re-import data" action shown once a source already has
-     data — a plain text-style link rather than a full button, so it doesn't
-     compete with the page's primary Continue action. */
-  .link-btn {
-    @apply text-sm text-navy-700;
-    background: none;
-    border: none;
-    padding: 0;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .link-btn:hover:not(:disabled) {
-    @apply text-navy-800;
-  }
-
-  .link-btn:disabled {
-    @apply text-tm-gray-600;
-    text-decoration: none;
-    cursor: not-allowed;
   }
 
   /* ---------------------------------------------------------------------- */

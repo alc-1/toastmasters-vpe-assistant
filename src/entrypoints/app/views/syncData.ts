@@ -61,7 +61,10 @@ const SHELL_HTML = `
         <p id="statusBasecamp" class="sync-card__status-text help-text" aria-live="polite"></p>
         <p id="progressBasecamp" class="sync-card__status-text help-text" aria-live="polite"></p>
         <div id="metaBasecamp" class="sync-card__result"></div>
-        <button id="scrapeBasecampBtn" class="btn btn-primary sync-card__action">Import Basecamp Data</button>
+        <button id="scrapeBasecampBtn" class="btn btn-primary sync-card__action">
+          <span class="sync-card__action-label">Import Basecamp Data</span>
+          <span class="sync-card__action-sublabel">Opens a new Basecamp tab if you aren't already logged in.</span>
+        </button>
         <details id="detailsBasecamp" class="sync-card__details" hidden>
           <summary>View details</summary>
           <div id="summaryBasecamp" class="summary"></div>
@@ -78,8 +81,10 @@ const SHELL_HTML = `
       <div class="card-body sync-card__body">
         <p id="statusEasySpeak" class="sync-card__status-text help-text" aria-live="polite"></p>
         <div id="metaEasySpeak" class="sync-card__result"></div>
-        <button id="scrapeEasySpeakBtn" class="btn btn-primary sync-card__action">Import EasySpeak Data</button>
-        <p class="help-text">Opens a new EasySpeak tab during import.</p>
+        <button id="scrapeEasySpeakBtn" class="btn btn-primary sync-card__action">
+          <span class="sync-card__action-label">Import EasySpeak Data</span>
+          <span class="sync-card__action-sublabel">Opens a new EasySpeak tab during import.</span>
+        </button>
         <details id="detailsEasySpeak" class="sync-card__details" hidden>
           <summary>View details</summary>
           <div id="summaryEasySpeak" class="summary"></div>
@@ -99,7 +104,7 @@ type BadgeTone = "danger" | "pending" | "success";
 const BADGE_LABEL: Record<BadgeTone, string> = {
   danger: "Not Imported",
   pending: "Importing",
-  success: "Imported",
+  success: "✓ Imported",
 };
 
 const EXPORT_OPTION_DESC: Record<ExportType, string> = {
@@ -119,12 +124,13 @@ function setBadge(el: HTMLElement, tone: BadgeTone) {
   el.textContent = BADGE_LABEL[tone];
 }
 
-// Time-only ("7:42 AM") rather than shared/sync-status-panel.ts's formatDate
-// (full date + time) — a freshly imported source is always "today", so the
-// date part is redundant noise in the card's 3-line result.
+// Full date + time, in the browser's own locale (no explicit locale arg —
+// same as shared/sync-status-panel.ts's formatDate) — just with a "just now"
+// fallback for a missing timestamp instead of that function's "never" (this
+// view only ever calls it once a source's data is actually present).
 function formatTime(timestamp: number | undefined): string {
   if (!timestamp) return "just now";
-  return new Date(timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return new Date(timestamp).toLocaleString();
 }
 
 export const syncDataView: ViewModule = {
@@ -356,7 +362,7 @@ export const syncDataView: ViewModule = {
         setBadge(badge, "pending");
         els.btn.className = "btn btn-primary sync-card__action";
         els.btn.disabled = true;
-        els.btn.textContent = "Importing…";
+        els.btnLabel.textContent = "Importing…";
         details.hidden = true;
         return;
       }
@@ -365,21 +371,17 @@ export const syncDataView: ViewModule = {
 
       if (data) {
         setBadge(badge, "success");
-        els.btn.className = "link-btn";
-        els.btn.textContent = "Re-import data";
+        els.btn.className = "btn btn-secondary sync-card__action";
+        els.btnLabel.textContent = "Re-import data";
         const count = countMembers(data);
-        result.innerHTML = `
-          <div class="sync-card__result-status">Imported ✓</div>
-          <div>${count} member${count === 1 ? "" : "s"}</div>
-          <div>Imported ${formatTime(scrapedAt)}</div>
-        `;
+        result.innerHTML = `<div>[${formatTime(scrapedAt)}] Imported ${count} member${count === 1 ? "" : "s"}</div>`;
         els.status.textContent = "";
         details.hidden = false;
         renderScrapeResult(els, data, source, anonymize);
       } else {
         setBadge(badge, "danger");
         els.btn.className = "btn btn-primary sync-card__action";
-        els.btn.textContent = idleLabel;
+        els.btnLabel.textContent = idleLabel;
         result.innerHTML = "";
         els.status.textContent = "";
         details.hidden = true;

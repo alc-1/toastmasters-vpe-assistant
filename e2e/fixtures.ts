@@ -113,6 +113,6 @@ export async function seedDemoData(page: Page, pageUrl: (page: (typeof PAGES)[ke
   await page.locator("#scrapeEasySpeakBtn").click();
   // Exact match matters: the not-yet-imported badge text is "Not Imported",
   // which itself contains "Imported" as a substring.
-  await page.locator("#badgeBasecamp", { hasText: /^Imported$/ }).waitFor();
-  await page.locator("#badgeEasySpeak", { hasText: /^Imported$/ }).waitFor();
+  await page.locator("#badgeBasecamp", { hasText: /^✓ Imported$/ }).waitFor();
+  await page.locator("#badgeEasySpeak", { hasText: /^✓ Imported$/ }).waitFor();
 }

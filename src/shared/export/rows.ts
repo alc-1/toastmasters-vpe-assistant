@@ -39,7 +39,7 @@ export const EXPORT_TYPE_LABEL: Record<ExportType, string> = {
 };
 
 function formatTimestamp(ms: number): string {
-  return new Date(ms).toLocaleString("en-US");
+  return new Date(ms).toLocaleString();
 }
 
 // ---------------------------------------------------------------------------
@@ -583,18 +583,18 @@ export interface MetadataInput {
 export function buildMetadataRows(input: MetadataInput): MetadataRow[] {
   const { matched, total } = computeMatchSummary(input.report);
   return [
-    { key: "Export Timestamp", value: new Date(input.exportedAt).toLocaleString("en-US") },
+    { key: "Export Timestamp", value: new Date(input.exportedAt).toLocaleString() },
     { key: "Export Schema Version", value: input.schemaVersion },
     { key: "Extension Version", value: input.extensionVersion },
     { key: "Active Profile", value: input.activeProfileLabel },
     { key: "Export Type", value: EXPORT_TYPE_LABEL[input.exportType] },
     {
       key: "Basecamp Scraped At",
-      value: input.basecampScrapedAt ? new Date(input.basecampScrapedAt).toLocaleDateString("en-US") : "Not yet extracted",
+      value: input.basecampScrapedAt ? new Date(input.basecampScrapedAt).toLocaleDateString() : "Not yet extracted",
     },
     {
       key: "EasySpeak Scraped At",
-      value: input.easyspeakScrapedAt ? new Date(input.easyspeakScrapedAt).toLocaleDateString("en-US") : "Not yet extracted",
+      value: input.easyspeakScrapedAt ? new Date(input.easyspeakScrapedAt).toLocaleDateString() : "Not yet extracted",
     },
     { key: "Basecamp Clubs", value: Object.keys(input.basecampData).length },
     { key: "Basecamp Members", value: countBasecampMembers(input.basecampData) },

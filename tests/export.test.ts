@@ -182,7 +182,7 @@ describe("buildMatchesRows", () => {
     const rows = buildMatchesRows(report, resolution);
     const owen = rows.find((r) => r.recordType === "Member Match" && r.basecampName === "Owen Bright")!;
     expect(owen.matchConfidence).toBe("confirmed");
-    expect(owen.recordedAt).toBe(new Date(1700000000000).toLocaleString("en-US"));
+    expect(owen.recordedAt).toBe(new Date(1700000000000).toLocaleString());
     expect(owen.notes).toBe("Confirmed from a suggested match");
   });
 

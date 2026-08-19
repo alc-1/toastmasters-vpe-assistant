@@ -609,8 +609,8 @@ export const reportView: ViewModule = {
     function formatReportMeta(basecampScrapedAt: number | undefined, easyspeakScrapedAt: number | undefined): string {
       if (!basecampScrapedAt || !easyspeakScrapedAt) return "Report generated with incomplete data — both sources need to be extracted first.";
 
-      const basecampDate = new Date(basecampScrapedAt).toLocaleDateString("en-US");
-      const easyspeakDate = new Date(easyspeakScrapedAt).toLocaleDateString("en-US");
+      const basecampDate = new Date(basecampScrapedAt).toLocaleDateString();
+      const easyspeakDate = new Date(easyspeakScrapedAt).toLocaleDateString();
 
       return basecampDate === easyspeakDate
         ? `Report generated with data extracted from Basecamp & EasySpeak the ${basecampDate}`

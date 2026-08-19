@@ -57,14 +57,14 @@ test("upgrades the automatic fallback pick to All data once it becomes available
   const basecampOption = options.filter({ hasText: "Basecamp" });
 
   await page.locator("#scrapeBasecampBtn").click();
-  await page.locator("#badgeBasecamp", { hasText: /^Imported$/ }).waitFor();
+  await page.locator("#badgeBasecamp", { hasText: /^✓ Imported$/ }).waitFor();
 
   // Only Basecamp is loaded — "All data" isn't available, so the automatic
   // fallback picks the one option that is.
   await expect(basecampOption).toHaveClass(/selected/);
 
   await page.locator("#scrapeEasySpeakBtn").click();
-  await page.locator("#badgeEasySpeak", { hasText: /^Imported$/ }).waitFor();
+  await page.locator("#badgeEasySpeak", { hasText: /^✓ Imported$/ }).waitFor();
 
   // Now that both sources are loaded, the automatic pick should upgrade to
   // "All data" rather than staying stuck on the earlier fallback.
@@ -90,7 +90,7 @@ test("does not override a manual pick on a later refresh", async ({ page, pageUr
   // Trigger another refresh() the way re-importing a source would (a
   // browser.storage.onChanged event) — the manual pick must survive it,
   // not get silently upgraded back to "All data". #scrapeBasecampBtn is now
-  // the "Re-import data" link (see renderSourceCard()), still the same id.
+  // the "Re-import data" button (see renderSourceCard()), still the same id.
   await page.locator("#scrapeBasecampBtn").click();
   await page.waitForTimeout(300); // demo re-import + refresh() settle
 

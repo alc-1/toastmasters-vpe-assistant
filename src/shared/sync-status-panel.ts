@@ -27,6 +27,14 @@ export type ScrapeRequest = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSP
 
 export interface SourceEls {
   btn: HTMLButtonElement;
+  // The element whose textContent is the button's actual label. Both
+  // source buttons carry a permanent ".sync-card__action-sublabel" child
+  // (their "opens a new tab" explanation) alongside a
+  // ".sync-card__action-label" child, so label updates must target that
+  // label child specifically, or they'd blow away the sublabel along with
+  // it — falls back to the button itself if a caller's markup has no such
+  // split (there is none today, but the fallback keeps this generic).
+  btnLabel: HTMLElement;
   status: HTMLElement;
   summary: HTMLElement;
   rawData: HTMLElement;
@@ -42,17 +50,19 @@ export interface SourceElIds {
 
 export function bindSourceEls(ids: SourceElIds): SourceEls {
   const btn = document.getElementById(ids.btn) as HTMLButtonElement;
+  const btnLabel = (btn.querySelector<HTMLElement>(".sync-card__action-label")) ?? btn;
   return {
     btn,
+    btnLabel,
     status: document.getElementById(ids.status)!,
     summary: document.getElementById(ids.summary)!,
     rawData: document.getElementById(ids.rawData)!,
-    idleLabel: btn.textContent ?? "",
+    idleLabel: btnLabel.textContent ?? "",
   };
 }
 
 export function formatDate(timestamp: number | undefined): string {
-  return timestamp ? new Date(timestamp).toLocaleString("en-US") : "never";
+  return timestamp ? new Date(timestamp).toLocaleString() : "never";
 }
 
 export function setStatus(els: SourceEls, text: string) {
@@ -63,7 +73,7 @@ export function setStatus(els: SourceEls, text: string) {
 // not the status line — that keeps showing the last extraction time.
 export function setButtonLoading(els: SourceEls, isLoading: boolean, loadingLabel: string) {
   els.btn.disabled = isLoading;
-  els.btn.textContent = isLoading ? loadingLabel : els.idleLabel;
+  els.btnLabel.textContent = isLoading ? loadingLabel : els.idleLabel;
 }
 
 // `anonymize` runs `data` through the standalone (no ReportResult/`maps`)

@@ -859,7 +859,7 @@ export const membersView: ViewModule = {
     }
 
     function formatDate(timestamp: number | undefined): string {
-      return timestamp ? new Date(timestamp).toLocaleString("en-US") : "never";
+      return timestamp ? new Date(timestamp).toLocaleString() : "never";
     }
 
     root.querySelector("#memberSearch")!.addEventListener("input", (e) => {
