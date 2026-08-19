@@ -1246,7 +1246,6 @@
     }
 
     .step-footer__btn {
-      width: 100%;
       text-align: center;
     }
   }
@@ -2072,6 +2071,16 @@ table.summary col.col-detail { width: 25%; }
 
   table.summary > tbody > tr[data-row-key] > td:nth-child(2) {
     grid-area: path;
+  }
+
+  /* Path name + its "Basecamp only"/"EasySpeak only" badge share the same
+     narrow grid column as the level cell (grid-template-areas: "path level"
+     above) — force the badge onto its own line rather than letting it wrap
+     mid-word or crowd the name at this width. */
+  table.summary > tbody > tr[data-row-key] > td:nth-child(2) .badge {
+    display: block;
+    width: fit-content;
+    margin-top: 4px;
   }
 
   table.summary > tbody > tr[data-row-key] > td:nth-child(3) {
