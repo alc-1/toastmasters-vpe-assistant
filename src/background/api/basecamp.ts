@@ -23,7 +23,7 @@ import { pageUrl } from "../../shared/pages";
 import { resolveActiveProfile } from "../../shared/settings-store";
 import { MOCK_BASECAMP_DATA } from "../../shared/mock/mockData";
 import { setScrapeProgress } from "../scrape-progress";
-import type { BasecampMember, BasecampScrape } from "../../shared/types";
+import type { BasecampMember, BasecampOverviewMember, BasecampOverviewScrape, BasecampScrape } from "../../shared/types";
 
 const API_ROOT = "https://basecamp.toastmasters.org/api";
 const DASHBOARD_ROOT = "https://apps.basecamp.toastmasters.org";
@@ -63,6 +63,12 @@ interface BasecampProgressPage {
   next: string | null;
 }
 
+interface BasecampOverviewPage {
+  count: number;
+  results: unknown[];
+  next: string | null;
+}
+
 /**
  * Entry point: lists the user's "BCM" clubs, then fetches the full progress
  * for each club.
@@ -76,8 +82,10 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
 
   if (profileId === "demo") {
     // Mirrors the real path's storage write below, so popup/index.ts and
-    // every options page behave identically regardless of data origin.
-    await local.setForProfile(profileId, { basecampData: MOCK_BASECAMP_DATA, basecampScrapedAt: Date.now() });
+    // every options page behave identically regardless of data origin. No
+    // demo member-overview data exists yet, so this is an empty map — every
+    // demo path falls back to the manual "Mark as completed" flag instead.
+    await local.setForProfile(profileId, { basecampData: MOCK_BASECAMP_DATA, basecampScrapedAt: Date.now(), basecampCompletedPaths: {} });
     return MOCK_BASECAMP_DATA;
   }
 
@@ -94,6 +102,7 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
   }
 
   const result: BasecampScrape = {};
+  const overviewResult: BasecampOverviewScrape = {};
   let clubIndex = 0;
   for (const club of bcmClubs) {
     clubIndex += 1;
@@ -116,6 +125,7 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
         });
       }),
     };
+    overviewResult[club.uuid] = { members: await fetchClubMemberOverviewPaginated(club.uuid) };
   }
 
   // Persist directly rather than leaving it to the popup: if the popup
@@ -123,7 +133,7 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
   // mid-scrape), the result would otherwise be lost even though the scrape
   // itself succeeded. popup/index.ts's init() reads from storage on open, so
   // this is picked up regardless of whether the popup survives.
-  await local.setForProfile(profileId, { basecampData: result, basecampScrapedAt: Date.now() });
+  await local.setForProfile(profileId, { basecampData: result, basecampScrapedAt: Date.now(), basecampCompletedPaths: overviewResult });
 
   return result;
 }
@@ -328,6 +338,48 @@ function stripUnneededUserFields(member: BasecampMember): BasecampMember {
   delete user.member_photo_url;
   delete user.email;
   return { ...member, user: user as BasecampMember["user"] };
+}
+
+/**
+ * Fetches every page of GET /api/bcm/member/overview/ for a given club — a
+ * separate Basecamp endpoint from /api/bcm/progress/, listing every member's
+ * already-COMPLETED Pathways paths by name (see BasecampOverviewMember).
+ * Same pagination/auth handling as fetchClubProgressPaginated() (reuses
+ * fetchJson(), follows the response's own "next" field).
+ */
+async function fetchClubMemberOverviewPaginated(uuid: string): Promise<BasecampOverviewMember[]> {
+  let url: string | null = `${API_ROOT}/bcm/member/overview/?club=${uuid}&page_size=500&page=1`;
+  const members: BasecampOverviewMember[] = [];
+  let safety = 0;
+
+  while (url) {
+    safety += 1;
+    if (safety > 200) {
+      throw new Error(`Too many pages for club ${uuid} member overview (>200) — stopping as a safety measure.`);
+    }
+
+    const data = (await fetchJson(url)) as BasecampOverviewPage;
+    if (!Array.isArray(data.results)) {
+      throw new Error(`Unexpected response for ${url} (no "results" field).`);
+    }
+    members.push(...(data.results as BasecampOverviewMember[]).map(stripOverviewUserFields));
+    url = data.next;
+  }
+
+  return members;
+}
+
+/**
+ * Same privacy stripping as stripUnneededUserFields(), for the member-overview
+ * endpoint's own "user" object shape.
+ */
+function stripOverviewUserFields(member: BasecampOverviewMember): BasecampOverviewMember {
+  if (!member.user) return member;
+  const user = { ...member.user } as Record<string, unknown>;
+  delete user.profile_image;
+  delete user.member_photo_url;
+  delete user.email;
+  return { ...member, user: user as BasecampOverviewMember["user"] };
 }
 
 /**

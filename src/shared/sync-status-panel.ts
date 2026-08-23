@@ -21,7 +21,7 @@ import { sendMessage } from "./send-message";
 import { loadResolutionData } from "./resolution-store";
 import { anonymizeBasecampScrape, anonymizeEasySpeakScrape } from "./anonymize";
 import { buildReport, computeMatchSummary, type MatchSummary } from "./sync/delta";
-import type { BasecampScrape, EasySpeakScrape, SourceKey } from "./types";
+import type { BasecampOverviewScrape, BasecampScrape, EasySpeakScrape, SourceKey } from "./types";
 
 export type ScrapeRequest = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSPEAK" };
 
@@ -165,7 +165,7 @@ export async function onScrapeClick<T>({ els, message, loadingLabel, render, onD
 export async function renderStatusSummary(
   loading: { basecamp?: boolean; easyspeak?: boolean } = {}
 ): Promise<{ basecampData: BasecampScrape | null; easyspeakData: EasySpeakScrape | null }> {
-  const cached = await local.get(["basecampData", "easyspeakData"]);
+  const cached = await local.get(["basecampData", "basecampCompletedPaths", "easyspeakData"]);
   const root = document.getElementById("statusSummary")!;
 
   const rows = [
@@ -174,7 +174,7 @@ export async function renderStatusSummary(
   ];
 
   if (cached.basecampData && cached.easyspeakData) {
-    const { matched, total } = await loadMatchSummary(cached.basecampData, cached.easyspeakData);
+    const { matched, total } = await loadMatchSummary(cached.basecampData, cached.easyspeakData, cached.basecampCompletedPaths ?? {});
     rows.push(renderStatusRow("Matches", { text: `${matched}/${total}`, tone: total > 0 && matched === total ? "success" : "pending" }));
   } else {
     rows.push(renderStatusRow("Matches", { text: "—", tone: null }));
@@ -206,8 +206,12 @@ function renderStatusRow(label: string, value: { text: string; tone: "success" |
 // page's Member Matching card + completion summary can reuse it directly
 // instead of re-wiring loadResolutionData()/buildReport()/computeMatchSummary()
 // themselves.
-export async function loadMatchSummary(basecampData: BasecampScrape, easyspeakData: EasySpeakScrape): Promise<MatchSummary> {
+export async function loadMatchSummary(
+  basecampData: BasecampScrape,
+  easyspeakData: EasySpeakScrape,
+  basecampCompletedPaths: BasecampOverviewScrape = {}
+): Promise<MatchSummary> {
   const resolution = await loadResolutionData();
-  const report = buildReport(basecampData, easyspeakData, {}, resolution);
+  const report = buildReport(basecampData, easyspeakData, {}, resolution, basecampCompletedPaths);
   return computeMatchSummary(report);
 }

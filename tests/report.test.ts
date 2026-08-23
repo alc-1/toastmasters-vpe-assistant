@@ -166,94 +166,10 @@ describe("matchPaths", () => {
     expect(paths[0].pathCompletion).toEqual({ completed: 1, total: 1, missing: 0 });
   });
 
-  it("tags a completed easyspeak-only path (all levels needed 0) as completedHistory, not an actionable orphan", () => {
-    // Basecamp's live progress extraction only returns a member's currently-
-    // active path(s) — a path already completed drops out of Basecamp
-    // entirely, while EasySpeak keeps the full history. This member has one
-    // currently-active Basecamp path with no EasySpeak entry yet, plus one
-    // EasySpeak-only path they already finished (nothing left needed).
-    const basecampPerson = {
-      userId: 1,
-      name: "Test Member",
-      paths: [
-        {
-          path_name: "Persuasive Influence",
-          progression: {
-            "Level 1": { completed: 1, total: 2, approved: true },
-          },
-        },
-      ],
-    };
-    const easyspeakPerson = {
-      memberId: "e1",
-      name: "Test Member",
-      paths: [
-        {
-          path: "Innovative Planning (2017)",
-          levels: [
-            { level: 1, needed: 0, done: 0 },
-            { level: 2, needed: 0, done: 0 },
-            { level: 3, needed: 0, done: 0 },
-            { level: 4, needed: 0, done: 0 },
-            { level: 5, needed: 0, done: 0 },
-          ],
-        },
-      ],
-    };
-
-    const { paths } = matchPaths(basecampPerson, easyspeakPerson);
-    const activePath = paths.find((p) => p.presence === "basecamp-only")!;
-    const completedPath = paths.find((p) => p.presence === "easyspeak-only")!;
-
-    expect(completedPath.completedHistory).toBe(true);
-    expect(activePath.completedHistory).toBe(false);
-    expect(hasOrphanedPaths({ presence: "both", paths })).toBe(false);
-  });
-
-  it("tags a completed easyspeak-only path with real, fully-satisfied counts (not needed=0) as completedHistory", () => {
-    // Some completed EasySpeak paths report real non-zero needed/done counts
-    // rather than needed=0 everywhere — still completed (done >= needed on
-    // every level), still absent from Basecamp's active-only extraction.
-    const basecampPerson = {
-      userId: 1,
-      name: "Test Member",
-      paths: [
-        {
-          path_name: "Persuasive Influence",
-          progression: {
-            "Level 1": { completed: 1, total: 2, approved: true },
-          },
-        },
-      ],
-    };
-    const easyspeakPerson = {
-      memberId: "e1",
-      name: "Test Member",
-      paths: [
-        {
-          path: "Innovative Planning (2017)",
-          levels: [
-            { level: 1, needed: 2, done: 2 },
-            { level: 2, needed: 4, done: 4 },
-            { level: 3, needed: 4, done: 4 },
-            { level: 4, needed: 4, done: 4 },
-            { level: 5, needed: 2, done: 2 },
-          ],
-        },
-      ],
-    };
-
-    const { paths } = matchPaths(basecampPerson, easyspeakPerson);
-    const completedPath = paths.find((p) => p.presence === "easyspeak-only")!;
-
-    expect(completedPath.completedHistory).toBe(true);
-    expect(hasOrphanedPaths({ presence: "both", paths })).toBe(false);
-  });
-
-  it("does not tag an easyspeak-only path with real remaining work as completedHistory", () => {
-    // A genuine mismatch — the member picked a different, still-active path
-    // than Basecamp has on record — must keep flagging as an actionable
-    // orphan; this fix must never suppress it.
+  it("flags a genuine mismatch (real remaining work on both sides) as an actionable orphan", () => {
+    // The member picked a different, still-active path than Basecamp has on
+    // record — this must keep flagging as an actionable orphan. Nothing in
+    // matchPaths() should ever suppress a real, unresolved mismatch.
     const basecampPerson = {
       userId: 1,
       name: "Test Member",
@@ -281,9 +197,7 @@ describe("matchPaths", () => {
     };
 
     const { paths } = matchPaths(basecampPerson, easyspeakPerson);
-    const easyspeakOnly = paths.find((p) => p.presence === "easyspeak-only")!;
 
-    expect(easyspeakOnly.completedHistory).toBe(false);
     expect(hasOrphanedPaths({ presence: "both", paths })).toBe(true);
   });
 
@@ -675,8 +589,9 @@ describe("buildReport (synthetic fixtures)", () => {
         overridden: false,
         orphaned: false,
         flagged: true,
-        completedHistory: false,
         manuallyCompleted: false,
+        confirmedCompleted: false,
+        basecampCompletedName: null,
         levels: [],
         pathCompletion: null,
       },
@@ -690,8 +605,9 @@ describe("buildReport (synthetic fixtures)", () => {
         overridden: false,
         orphaned: false,
         flagged: false,
-        completedHistory: false,
         manuallyCompleted: false,
+        confirmedCompleted: false,
+        basecampCompletedName: null,
         levels: [],
         pathCompletion: null,
       },
@@ -717,12 +633,33 @@ describe("buildReport (synthetic fixtures)", () => {
     // but hasOrphanedPaths() only looks at the EasySpeak-only side — with
     // "Team Collaboration" manually completed there's no unresolved
     // EasySpeak-only candidate left, so the member stops flagging as a path
-    // issue regardless of the Basecamp-only leftover (same reasoning
-    // completedHistory already relies on: a Basecamp-only path with nothing
-    // on the EasySpeak side isn't itself actionable).
+    // issue regardless of the Basecamp-only leftover (a Basecamp-only path
+    // with nothing on the EasySpeak side isn't itself actionable).
     expect(hasOrphanedPaths(helena)).toBe(false);
 
     const summary = buildLevelSummary(completed);
+    const riversideSummary = summary.find((s) => s.clubName === "Riverside Toastmasters")!;
+    expect(riversideSummary.rows.some((r) => r.memberName === "Helena Voss" && r.pathName === "Team Collaboration")).toBe(false);
+  });
+
+  it("marks an easyspeak-only path confirmedCompleted from Basecamp's member-overview data, clears hasOrphanedPaths, and excludes it from the Next Level Summary", () => {
+    // Same fixture member/path as the manuallyCompleted case above, but the
+    // signal comes from Basecamp's own completed_paths list (5th buildReport
+    // param) instead of a persisted MemberPathCompletion — no resolution
+    // data involved at all.
+    const confirmed = buildReport(basecampData, easyspeakData, {}, {}, {
+      "bcclub-riverside": { members: [{ user: { id: 9005, name: "Helena Voss" }, completed_paths: ["Team Collaboration"] }] },
+    });
+    const club = findClubPair(confirmed, { basecampClubName: "Riverside Toastmasters", easyspeakClubName: "Riverside Toastmasters" });
+    const helena = findMember(club, { basecampName: "Helena Voss", easyspeakName: "Helena Voss" });
+    const completedPath = helena.paths.find((p: PathReport) => p.easyspeakPathLabel === "Team Collaboration")!;
+    expect(completedPath.confirmedCompleted).toBe(true);
+    expect(completedPath.basecampCompletedName).toBe("Team Collaboration");
+    expect(completedPath.manuallyCompleted).toBe(false);
+
+    expect(hasOrphanedPaths(helena)).toBe(false);
+
+    const summary = buildLevelSummary(confirmed);
     const riversideSummary = summary.find((s) => s.clubName === "Riverside Toastmasters")!;
     expect(riversideSummary.rows.some((r) => r.memberName === "Helena Voss" && r.pathName === "Team Collaboration")).toBe(false);
   });
@@ -853,8 +790,9 @@ describe("computeLevelSummary status", () => {
       overridden: false,
       orphaned: false,
       flagged: false,
-      completedHistory: false,
       manuallyCompleted: false,
+      confirmedCompleted: false,
+      basecampCompletedName: null,
       levels: [],
       pathCompletion: null,
       ...overrides,

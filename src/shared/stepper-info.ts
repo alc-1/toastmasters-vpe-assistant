@@ -35,7 +35,7 @@ export async function markStepVisited(step: AppShellPage): Promise<void> {
 export async function computeStepperInfo(): Promise<StepperInfo> {
   const [activeProfile, cached, visited, anonymize] = await Promise.all([
     getActiveProfile(),
-    local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]),
+    local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]),
     getVisitedSteps(),
     getAnonymizeMode(),
   ]);
@@ -62,7 +62,7 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
   let reportInfo: ReportStepInfo | null = null;
   if (hasBothData) {
     const resolution = await loadResolutionData();
-    const report = buildReport(basecampData!, easyspeakData!, {}, resolution);
+    const report = buildReport(basecampData!, easyspeakData!, {}, resolution, cached.basecampCompletedPaths ?? {});
     // A fuzzy-confidence club-name guess is dropped from buildReport()'s own
     // matchClubs(..., allowFuzzy: false) call, so an unconfirmed suggestion
     // already surfaces here as two one-sided pairs — this check doubles as

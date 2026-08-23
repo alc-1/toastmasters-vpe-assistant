@@ -46,7 +46,7 @@ function formatProfileLabel(profileId: ProfileId | null): string {
  * else in the app.
  */
 export async function exportToExcel(exportType: ExportType): Promise<ExportSummary> {
-  const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
+  const cached = await local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]);
   let basecampData = cached.basecampData ?? {};
   let easyspeakData = cached.easyspeakData ?? {};
 
@@ -55,7 +55,8 @@ export async function exportToExcel(exportType: ExportType): Promise<ExportSumma
     basecampData,
     easyspeakData,
     { basecampScrapedAt: cached.basecampScrapedAt, easyspeakScrapedAt: cached.easyspeakScrapedAt },
-    resolution
+    resolution,
+    cached.basecampCompletedPaths ?? {}
   );
 
   // Anonymize Mode (shared/settings-store.ts) — replace the report and the

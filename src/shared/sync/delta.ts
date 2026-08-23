@@ -17,6 +17,8 @@ import {
 } from "./conflicts";
 import type {
   BasecampMember,
+  BasecampOverviewMember,
+  BasecampOverviewScrape,
   BasecampScrape,
   ClubPairReport,
   EasySpeakMemberRow,
@@ -39,17 +41,22 @@ import type {
  * @param resolution persisted name-resolution decisions, see
  *   shared/resolution-store.ts. Omitting this entirely reproduces pure
  *   name-similarity matching, unchanged.
+ * @param basecampCompletedPaths GET /api/bcm/member/overview/ data (see
+ *   background/api/basecamp.ts), keyed by the same club uuid as
+ *   basecampData — feeds PathReport.confirmedCompleted. Omitting this
+ *   reproduces the pre-existing behavior (no confirmed-completed paths).
  */
 export function buildReport(
   basecampData: BasecampScrape,
   easyspeakData: EasySpeakScrape,
   meta: { basecampScrapedAt?: number | null; easyspeakScrapedAt?: number | null } = {},
-  resolution: ResolutionData = {}
+  resolution: ResolutionData = {},
+  basecampCompletedPaths: BasecampOverviewScrape = {}
 ): ReportResult {
   const basecampClubs: ClubGroup<BasecampPerson>[] = Object.entries(basecampData).map(([id, club]) => ({
     id,
     name: club.name,
-    people: groupBasecampMembers(club.members),
+    people: groupBasecampMembers(club.members, basecampCompletedPaths[id]?.members ?? []),
   }));
   const easyspeakClubs: ClubGroup<EasySpeakPerson>[] = Object.entries(easyspeakData).map(([id, club]) => ({
     id,
@@ -79,17 +86,27 @@ export function buildReport(
 // Per-club member grouping (one row per member x path -> one entry per person)
 // ---------------------------------------------------------------------------
 
-export function groupBasecampMembers(members: BasecampMember[]): BasecampPerson[] {
+/**
+ * @param overviewMembers this club's GET /api/bcm/member/overview/ rows (see
+ *   BasecampOverviewMember) — attaches each person's completed_paths list,
+ *   defaulting to [] for anyone with no overview entry (e.g. absent from
+ *   that endpoint's response for some reason).
+ */
+export function groupBasecampMembers(members: BasecampMember[], overviewMembers: BasecampOverviewMember[] = []): BasecampPerson[] {
   const byUserId = new Map<number, BasecampPerson>();
   for (const member of members) {
     const userId = member.user.id;
     if (!byUserId.has(userId)) {
-      byUserId.set(userId, { userId, name: member.user.name, paths: [] });
+      byUserId.set(userId, { userId, name: member.user.name, paths: [], completedPaths: [] });
     }
     byUserId.get(userId)!.paths.push({
       path_name: member.path_name,
       progression: member.progression,
     });
+  }
+  const completedByUserId = new Map(overviewMembers.map((m) => [m.user.id, m.completed_paths]));
+  for (const [userId, person] of byUserId) {
+    person.completedPaths = completedByUserId.get(userId) ?? [];
   }
   return Array.from(byUserId.values());
 }
@@ -136,7 +153,7 @@ export function countEasySpeakMembers(data: EasySpeakScrape): number {
  * Definition backing the Members view's "Path issues" filter: a member whose
  * *identity* is already matched (`presence === "both"`) but who still has
  * at least one *EasySpeak-only* Pathways path that isn't yet resolved
- * (`orphaned`/`flagged`/`manuallyCompleted`/`completedHistory`) — the side
+ * (`orphaned`/`flagged`/`manuallyCompleted`/`confirmedCompleted`) — the side
  * `renderPathBindDetail()` actually gives a VPE actions for (bind, mark
  * orphan, flag, mark completed). A Basecamp-only leftover with nothing on
  * the EasySpeak side is deliberately *not* itself actionable — the member
@@ -172,7 +189,9 @@ export function countEasySpeakMembers(data: EasySpeakScrape): number {
 export function hasOrphanedPaths(member: { presence: Presence; paths?: PathReport[] }): boolean {
   if (member.presence !== "both") return false;
   const paths = member.paths ?? [];
-  const easyspeakCandidates = paths.filter((p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.completedHistory && !p.manuallyCompleted);
+  const easyspeakCandidates = paths.filter(
+    (p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.manuallyCompleted && !p.confirmedCompleted
+  );
   return easyspeakCandidates.some((p) => !p.orphaned && !p.flagged);
 }
 
@@ -507,9 +526,9 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
 
 /**
  * @returns one group per club (same order as report.clubPairs), each with
- *   one row per member+path (excluding non-Pathways paths, completed
- *   EasySpeak-only history, and manually-completed paths — see
- *   PathReport.completedHistory/manuallyCompleted) — grouped rather than a
+ *   one row per member+path (excluding non-Pathways paths, and manually- or
+ *   Basecamp-confirmed-completed paths — see
+ *   PathReport.manuallyCompleted/confirmedCompleted) — grouped rather than a
  *   flat list so the UI can show one club at a time behind tabs instead of
  *   mixing every club's members into a single list.
  */
@@ -518,7 +537,7 @@ export function buildLevelSummary(report: ReportResult): LevelSummaryGroup[] {
     const rows: LevelSummaryRow[] = [];
     for (const member of club.members) {
       for (const path of member.paths) {
-        if (path.nonPathway || path.completedHistory || path.manuallyCompleted) continue;
+        if (path.nonPathway || path.manuallyCompleted || path.confirmedCompleted) continue;
         rows.push({
           memberKey: memberKey(member),
           pathKey: path.canonicalKey,

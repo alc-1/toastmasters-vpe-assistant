@@ -92,8 +92,9 @@ describe("buildAggregatedRows", () => {
       overridden: false,
       orphaned: false,
       flagged: false,
-      completedHistory: false,
       manuallyCompleted: false,
+      confirmedCompleted: false,
+      basecampCompletedName: null,
       levels: [],
       pathCompletion: null,
     };

@@ -26,7 +26,7 @@ import { countBasecampMembers, countEasySpeakMembers } from "../../../shared/syn
 import { exportToExcel } from "../../../shared/export/export-to-excel";
 import { EXPORT_TYPE_LABEL, type ExportType } from "../../../shared/export/rows";
 import { escapeHtml } from "../../../shared/dom-utils";
-import type { BasecampScrape, EasySpeakScrape, SourceKey } from "../../../shared/types";
+import type { BasecampOverviewScrape, BasecampScrape, EasySpeakScrape, SourceKey } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
 
 const SHELL_HTML = `
@@ -300,7 +300,7 @@ export const syncDataView: ViewModule = {
       // rejection falls back to the same "idle" default a falsy response
       // already does.
       const statuses = (await sendMessage({ type: "POPUP_OPENED" }).catch(() => null)) || { basecamp: "idle", easyspeak: "idle" };
-      const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
+      const cached = await local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]);
 
       if (disposed || myToken !== refreshToken) return; // this view was navigated away from, or a newer refresh() has since started — this one is stale
 
@@ -324,7 +324,7 @@ export const syncDataView: ViewModule = {
       }
       renderExportOptions(exportAvailability);
 
-      await renderCompletionSummary(cached.basecampData ?? null, cached.easyspeakData ?? null);
+      await renderCompletionSummary(cached.basecampData ?? null, cached.easyspeakData ?? null, cached.basecampCompletedPaths ?? {});
       if (disposed) return;
 
       const hasBoth = !!cached.basecampData && !!cached.easyspeakData;
@@ -388,13 +388,17 @@ export const syncDataView: ViewModule = {
       }
     }
 
-    async function renderCompletionSummary(basecampData: BasecampScrape | null, easyspeakData: EasySpeakScrape | null) {
+    async function renderCompletionSummary(
+      basecampData: BasecampScrape | null,
+      easyspeakData: EasySpeakScrape | null,
+      basecampCompletedPaths: BasecampOverviewScrape = {}
+    ) {
       if (!importActionOccurred || !basecampData || !easyspeakData) {
         completionSummary.hidden = true;
         return;
       }
 
-      const { matched, total } = await loadMatchSummary(basecampData, easyspeakData);
+      const { matched, total } = await loadMatchSummary(basecampData, easyspeakData, basecampCompletedPaths);
       const basecampCount = countBasecampMembers(basecampData);
       const easyspeakCount = countEasySpeakMembers(easyspeakData);
       const needsReview = total - matched;

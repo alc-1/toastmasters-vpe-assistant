@@ -44,6 +44,24 @@ export interface BasecampClubScrape {
 
 export type BasecampScrape = Record<string /* club uuid */, BasecampClubScrape>;
 
+/**
+ * One member's row from GET /api/bcm/member/overview/ — a separate Basecamp
+ * endpoint from /api/bcm/progress/ above, listing every club member together
+ * with the Pathways paths they've already COMPLETED (progress's live feed
+ * only ever reports currently-active paths, so a finished path drops out of
+ * it entirely — see PathReport.confirmedCompleted).
+ */
+export interface BasecampOverviewMember {
+  user: BasecampUser;
+  completed_paths: string[];
+}
+
+export interface BasecampClubOverview {
+  members: BasecampOverviewMember[];
+}
+
+export type BasecampOverviewScrape = Record<string /* club uuid */, BasecampClubOverview>;
+
 // ---------------------------------------------------------------------------
 // EasySpeak raw scrape + parser I/O shapes
 // ---------------------------------------------------------------------------
@@ -124,17 +142,24 @@ export interface PathReport {
   // hasFlaggedPaths()/flagPath() — a third, non-resolving state alongside
   // overridden/orphaned.
   flagged: boolean;
-  // Easyspeak-only path whose 5 levels all report `needed: 0` — Basecamp's
-  // live progress extraction only returns a member's currently-active
-  // path(s), so a path they already completed drops out of Basecamp
-  // entirely while EasySpeak keeps the full history. Read-only history, not
-  // an actionable orphan (see hasOrphanedPaths()/renderPathBindDetail()).
-  completedHistory: boolean;
-  // User-set counterpart to completedHistory, for an easyspeak-only path the
-  // "all levels done" heuristic doesn't catch (partial/stale EasySpeak level
-  // data, or a VPE's own external knowledge). See
-  // MemberPathCompletion/markPathCompleted() in shared/resolution-store.ts.
+  // User-set fallback for an easyspeak-only path Basecamp's own
+  // completed_paths list doesn't (yet) confirm — see confirmedCompleted
+  // below for the automatic, authoritative signal this exists as a fallback
+  // for (e.g. a name that fails to canonicalize-match, or Basecamp data that
+  // hasn't caught up yet). See MemberPathCompletion/markPathCompleted() in
+  // shared/resolution-store.ts.
   manuallyCompleted: boolean;
+  // Authoritative counterpart to manuallyCompleted: this easyspeak-only
+  // path's canonicalized name appears in Basecamp's own completed_paths list
+  // (GET /api/bcm/member/overview/, see BasecampOverviewMember) for this
+  // member. Unlike manuallyCompleted, this is derived fresh from scrape data
+  // on every buildReport() call — nothing persisted, nothing to "unmark"; it
+  // simply follows Basecamp's own record.
+  confirmedCompleted: boolean;
+  // The raw name from Basecamp's completed_paths list that matched this
+  // path — only set when confirmedCompleted is true; this is what lets the
+  // UI render it as a matched pair instead of a bare EasySpeak-only line.
+  basecampCompletedName: string | null;
   levels: LevelDiff[];
   pathCompletion: PathCompletion | null;
 }

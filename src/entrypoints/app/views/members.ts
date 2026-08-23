@@ -29,7 +29,7 @@ import {
 } from "../../../shared/resolution-store";
 import { buildReport, classifyMember, memberKey, needsAction } from "../../../shared/sync/delta";
 import { getAnonymizeMode } from "../../../shared/settings-store";
-import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport, PathReport } from "../../../shared/types";
+import type { BasecampOverviewScrape, BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport, PathReport } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
 
 const SHELL_HTML = `
@@ -82,6 +82,7 @@ export const membersView: ViewModule = {
 
     let basecampData: BasecampScrape | null = null;
     let easyspeakData: EasySpeakScrape | null = null;
+    let basecampCompletedPaths: BasecampOverviewScrape = {};
     let basecampScrapedAt: number | undefined;
     let easyspeakScrapedAt: number | undefined;
 
@@ -118,7 +119,7 @@ export const membersView: ViewModule = {
         return;
       }
 
-      const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
+      const cached = await local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]);
       if (disposed) return;
 
       if (!cached.basecampData || !cached.easyspeakData) {
@@ -133,6 +134,7 @@ export const membersView: ViewModule = {
 
       basecampData = cached.basecampData;
       easyspeakData = cached.easyspeakData;
+      basecampCompletedPaths = cached.basecampCompletedPaths ?? {};
       basecampScrapedAt = cached.basecampScrapedAt;
       easyspeakScrapedAt = cached.easyspeakScrapedAt;
 
@@ -144,7 +146,7 @@ export const membersView: ViewModule = {
     async function refresh() {
       const resolution = await loadResolutionData();
       if (disposed) return;
-      const report = buildReport(basecampData!, easyspeakData!, { basecampScrapedAt, easyspeakScrapedAt }, resolution);
+      const report = buildReport(basecampData!, easyspeakData!, { basecampScrapedAt, easyspeakScrapedAt }, resolution, basecampCompletedPaths);
 
       clubSections = report.clubPairs.map((clubPair, index) => ({
         clubKey: `club-${index}`,
@@ -449,13 +451,13 @@ export const membersView: ViewModule = {
       const bound = member.paths.filter((p) => p.overridden);
       const orphaned = member.paths.filter((p) => p.orphaned);
       const flagged = member.paths.filter((p) => p.flagged);
-      const completed = member.paths.filter((p) => p.manuallyCompleted);
+      const completed = member.paths.filter((p) => p.manuallyCompleted || p.confirmedCompleted);
       if (bound.length > 0 || orphaned.length > 0) {
         const titleParts = [
           ...bound.map((p) => `${p.basecampPathName} ↔ ${p.easyspeakPathLabel}`),
           ...orphaned.map((p) => `${p.displayName} (marked as orphan)`),
           ...flagged.map((p) => `${p.displayName} (flagged for later review)`),
-          ...completed.map((p) => `${p.displayName} (completed)`),
+          ...completed.map((p) => (p.confirmedCompleted ? `${p.basecampCompletedName} ↔ ${p.easyspeakPathLabel} (completed)` : `${p.displayName} (completed)`)),
         ];
         const label = bound.length > 0 && orphaned.length === 0 ? "Bound" : "Resolved";
         return `<span class="badge badge-confirmed" title="${escapeAttr(titleParts.join("; "))}">${label}</span>`;
@@ -465,7 +467,7 @@ export const membersView: ViewModule = {
         return `<span class="badge badge-flagged" title="${escapeAttr(titleParts.join("; "))}">Flagged</span>`;
       }
       if (completed.length > 0) {
-        const titleParts = completed.map((p) => `${p.displayName} (completed)`);
+        const titleParts = completed.map((p) => (p.confirmedCompleted ? `${p.basecampCompletedName} ↔ ${p.easyspeakPathLabel} (completed)` : `${p.displayName} (completed)`));
         return `<span class="badge badge-confirmed" title="${escapeAttr(titleParts.join("; "))}">Completed</span>`;
       }
       if (!member.hasOrphanedPaths) return '<span class="muted-text">—</span>';
@@ -518,7 +520,7 @@ export const membersView: ViewModule = {
 
     function getEsOrphans(member: MemberReport): PathReport[] {
       return member.paths.filter(
-        (p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.orphaned && !p.flagged && !p.completedHistory && !p.manuallyCompleted
+        (p) => p.presence === "easyspeak-only" && !p.nonPathway && !p.orphaned && !p.flagged && !p.manuallyCompleted && !p.confirmedCompleted
       );
     }
 
@@ -538,8 +540,12 @@ export const membersView: ViewModule = {
       const flaggedPaths = realPaths.filter((p) => p.flagged);
       const bcOrphans = getBcOrphans(member);
       const esOrphans = getEsOrphans(member);
-      const esCompletedHistory = realPaths.filter((p) => p.presence === "easyspeak-only" && !p.orphaned && p.completedHistory);
-      const esManuallyCompleted = realPaths.filter((p) => p.presence === "easyspeak-only" && !p.orphaned && !p.flagged && p.manuallyCompleted);
+      const esConfirmedCompleted = realPaths.filter((p) => p.presence === "easyspeak-only" && !p.orphaned && !p.flagged && p.confirmedCompleted);
+      // confirmedCompleted takes priority so a path Basecamp now confirms
+      // (even if it was previously manually marked) renders exactly once.
+      const esManuallyCompleted = realPaths.filter(
+        (p) => p.presence === "easyspeak-only" && !p.orphaned && !p.flagged && p.manuallyCompleted && !p.confirmedCompleted
+      );
 
       const sections: string[] = [];
 
@@ -665,14 +671,14 @@ export const membersView: ViewModule = {
         );
       }
 
-      if (esCompletedHistory.length > 0) {
+      if (esConfirmedCompleted.length > 0) {
         sections.push(
-          esCompletedHistory
+          esConfirmedCompleted
             .map(
               (esPath) => `
-                <div class="path-pair-row" title="Basecamp only tracks currently-active paths, so a completed one has no live counterpart to bind to.">
-                  <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
-                  <span class="muted-text">Completed (not tracked in Basecamp)</span>
+                <div class="path-pair-row" title="Basecamp's own completed-paths list names this path as done for this member.">
+                  <span><strong>${escapeHtml(esPath.basecampCompletedName ?? "")}</strong> &harr; ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
+                  <span class="muted-text">Completed (confirmed by Basecamp)</span>
                 </div>
               `
             )
@@ -685,7 +691,7 @@ export const membersView: ViewModule = {
       }
 
       const helpText =
-        '<p class="help-text">Bind pairs a path across systems for this member only; Mark as orphan confirms a path genuinely has no counterpart; Flag for later defers the decision without counting it as resolved; Mark as completed confirms an EasySpeak-only path is already done and hides it from Club Progress; Force unbind splits an automatic pair apart so you can rebind it differently.</p>';
+        '<p class="help-text">Bind pairs a path across systems for this member only; Mark as orphan confirms a path genuinely has no counterpart; Flag for later defers the decision without counting it as resolved; Mark as completed confirms an EasySpeak-only path is already done and hides it from Club Progress (a path Basecamp\'s own completed-paths list already confirms is done is hidden automatically, with no button needed); Force unbind splits an automatic pair apart so you can rebind it differently.</p>';
       return helpText + sections.join("");
     }
 

@@ -96,6 +96,12 @@ export interface BasecampPerson {
   userId: number;
   name: string;
   paths: BasecampPersonPath[];
+  // Raw path names from Basecamp's member-overview endpoint
+  // (BasecampOverviewMember.completed_paths) — see matchPaths()'s
+  // confirmedCompleted handling below. Optional (defaults to []) so callers
+  // building a BasecampPerson without member-overview data (e.g. tests)
+  // don't need to thread through an always-empty field.
+  completedPaths?: string[];
 }
 
 export interface EasySpeakPersonPath {
@@ -456,26 +462,13 @@ const PATHWAYS_LEVEL_COUNT = 5;
 
 // "No active path" means EasySpeak literally has no path name recorded for
 // this member (the mock Carla Mendes case: `path: ""`) — not merely that a
-// path's levels compute to all-zero-needed, since that's also exactly how a
-// *completed* path reads (see isCompletedEasySpeakHistory below). Using the
-// needed-count signal here would make hasNoActivePath swallow a member's
-// only EasySpeak path before matchPaths() ever gets a chance to tag it as
-// completed history instead of discarding it outright.
+// path's levels compute to all-zero-needed, since a fully-caught-up path
+// (all levels done, or already completed) can read exactly the same way.
+// Using the needed-count signal here would make hasNoActivePath swallow a
+// member's only EasySpeak path instead of letting matchPaths() decide what
+// it means (e.g. confirmedCompleted, if Basecamp's own data agrees).
 function hasNoActivePath(easyspeakPaths: EasySpeakPersonPath[]): boolean {
   return easyspeakPaths.length === 0 || easyspeakPaths.every((p) => !p.path.trim());
-}
-
-// Basecamp's live progress extraction only returns a member's currently-
-// active path(s) — a path they already completed drops out of Basecamp
-// entirely, while EasySpeak keeps the full history. An easyspeak-only path
-// whose every level is fully satisfied (`done >= needed`) is that completed
-// history showing up with no Basecamp counterpart, not a genuine mismatch a
-// human needs to reconcile. This covers both a path EasySpeak reports as
-// `needed: 0` everywhere (0 >= 0 still holds) and one with real non-zero
-// counts that have all been met. `levels.length > 0` keeps this from ever
-// matching a nonPathway path (which always has `levels: []` below).
-function isCompletedEasySpeakHistory(es: EasySpeakPersonPath, nonPathway: boolean): boolean {
-  return !nonPathway && es.levels.length > 0 && es.levels.every((l) => l.done >= l.needed);
 }
 
 function buildPathCompletion(bc: BasecampPersonPath | null): PathCompletion | null {
@@ -585,6 +578,19 @@ export function matchPaths(
   const esPaths = [...(easyspeakPerson?.paths ?? [])];
   const paths: PathReport[] = [];
 
+  // Canonicalized key -> raw name of every path Basecamp's own member-overview
+  // endpoint says this member has already completed — checked below against
+  // the same canonical `key` used to pair up bc/es paths, so an alias-spelled
+  // completed path (e.g. French/German) still matches. Keeping the raw name
+  // (not just a boolean) is what lets the UI render a confirmedCompleted path
+  // as a matched pair instead of a bare EasySpeak-only line. First write wins
+  // on a key collision (shouldn't happen in practice).
+  const completedPathNamesByKey = new Map<string, string>();
+  for (const name of basecampPerson?.completedPaths ?? []) {
+    const { key } = canonicalizePathName(name, pathAliasLookup);
+    if (!completedPathNamesByKey.has(key)) completedPathNamesByKey.set(key, name);
+  }
+
   // Overrides are spliced out of both raw lists first so the pair they bind
   // is force-matched and never also runs through normal canonicalization
   // below (which would otherwise treat them as two separate orphaned paths).
@@ -606,8 +612,9 @@ export function matchPaths(
       overridden: true,
       orphaned: false,
       flagged: false,
-      completedHistory: false,
       manuallyCompleted: false,
+      confirmedCompleted: false,
+      basecampCompletedName: null,
       levels: diffLevels(es, bc),
       pathCompletion: buildPathCompletion(bc),
     });
@@ -622,6 +629,7 @@ export function matchPaths(
   const isEasyspeakFlagged = (pathLabel: string) =>
     memberPathFlags.some((f) => f.easyspeakPathLabel === pathLabel && f.basecampPathName === null);
   const isEasyspeakCompleted = (pathLabel: string) => memberPathCompletions.some((c) => c.easyspeakPathLabel === pathLabel);
+  const confirmedCompletedName = (key: string, nonPathway: boolean) => (nonPathway ? null : (completedPathNamesByKey.get(key) ?? null));
 
   const bcByKey = new Map<string, BasecampPersonPath>();
   for (const p of bcPaths) {
@@ -661,8 +669,9 @@ export function matchPaths(
         overridden: false,
         orphaned: isBasecampOrphaned(bc.path_name),
         flagged: isBasecampFlagged(bc.path_name),
-        completedHistory: false,
         manuallyCompleted: false,
+        confirmedCompleted: false,
+        basecampCompletedName: null,
         levels: diffLevels(null, bc),
         pathCompletion: buildPathCompletion(bc),
       });
@@ -676,8 +685,9 @@ export function matchPaths(
         overridden: false,
         orphaned: isEasyspeakOrphaned(es.path),
         flagged: isEasyspeakFlagged(es.path),
-        completedHistory: isCompletedEasySpeakHistory(es, nonPathway),
         manuallyCompleted: isEasyspeakCompleted(es.path),
+        confirmedCompleted: !nonPathway && completedPathNamesByKey.has(key),
+        basecampCompletedName: confirmedCompletedName(key, nonPathway),
         levels: nonPathway ? [] : diffLevels(es, null),
         pathCompletion: null,
       });
@@ -700,8 +710,9 @@ export function matchPaths(
       overridden: false,
       orphaned,
       flagged,
-      completedHistory: presence === "easyspeak-only" && es ? isCompletedEasySpeakHistory(es, nonPathway) : false,
       manuallyCompleted: presence === "easyspeak-only" && es ? isEasyspeakCompleted(es.path) : false,
+      confirmedCompleted: presence === "easyspeak-only" && !nonPathway && completedPathNamesByKey.has(key),
+      basecampCompletedName: presence === "easyspeak-only" ? confirmedCompletedName(key, nonPathway) : null,
       levels: nonPathway ? [] : diffLevels(es, bc),
       pathCompletion: buildPathCompletion(bc),
     });

@@ -321,11 +321,12 @@ export async function unflagPath(
 }
 
 /**
- * Manually marks an easyspeak-only (unbound) path as done — for a path the
- * automatic completedHistory heuristic (all levels reported done) doesn't
- * catch. Stops the path counting toward hasOrphanedPaths() and excludes it
- * from Club Progress's "Next Level Summary" — the same treatment
- * completedHistory already gets (see PathReport.manuallyCompleted).
+ * Manually marks an easyspeak-only (unbound) path as done — for a path
+ * Basecamp's own completed_paths list doesn't (yet) confirm (see
+ * PathReport.confirmedCompleted for the automatic, authoritative signal this
+ * is a fallback for). Stops the path counting toward hasOrphanedPaths() and
+ * excludes it from Club Progress's "Next Level Summary" — the same
+ * treatment confirmedCompleted already gets (see PathReport.manuallyCompleted).
  */
 export async function markPathCompleted(basecampUserId: number, easyspeakMemberId: string, easyspeakPathLabel: string): Promise<void> {
   const memberPathCompletions = await local.value("memberPathCompletions");

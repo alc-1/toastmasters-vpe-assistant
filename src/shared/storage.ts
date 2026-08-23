@@ -24,6 +24,7 @@
 import type { Browser } from "wxt/browser";
 import type { AppShellPage } from "./app-shell";
 import type {
+  BasecampOverviewScrape,
   BasecampScrape,
   ClubLookupEntry,
   ClubOrphan,
@@ -58,6 +59,10 @@ export interface LocalSchema {
   lastEasySpeakRegion: EasySpeakServerId;
   basecampData: BasecampScrape;
   basecampScrapedAt: number;
+  // From GET /api/bcm/member/overview/ (background/api/basecamp.ts's
+  // fetchClubMemberOverviewPaginated()) — a separate Basecamp endpoint
+  // fetched alongside basecampData, feeding PathReport.confirmedCompleted.
+  basecampCompletedPaths: BasecampOverviewScrape;
   easyspeakData: EasySpeakScrape;
   easyspeakScrapedAt: number;
   memberLinks: MemberLink[];
@@ -106,6 +111,7 @@ export interface SessionSchema {
 const PROFILE_SCOPED_KEYS = [
   "basecampData",
   "basecampScrapedAt",
+  "basecampCompletedPaths",
   "easyspeakData",
   "easyspeakScrapedAt",
   "memberLinks",

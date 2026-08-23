@@ -160,7 +160,7 @@ export const reportView: ViewModule = {
     }
 
     async function refresh() {
-      const cached = await local.get(["basecampData", "basecampScrapedAt", "easyspeakData", "easyspeakScrapedAt"]);
+      const cached = await local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]);
       if (disposed) return;
 
       if (!cached.basecampData || !cached.easyspeakData) {
@@ -183,7 +183,8 @@ export const reportView: ViewModule = {
         cached.basecampData,
         cached.easyspeakData,
         { basecampScrapedAt: cached.basecampScrapedAt, easyspeakScrapedAt: cached.easyspeakScrapedAt },
-        { ...resolution, allowFuzzyMemberMatches: false }
+        { ...resolution, allowFuzzyMemberMatches: false },
+        cached.basecampCompletedPaths ?? {}
       );
 
       const anonymize = await getAnonymizeMode();

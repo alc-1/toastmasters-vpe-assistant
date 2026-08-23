@@ -76,8 +76,9 @@ interface AggregatedRowBase {
   pathOverridden: boolean | null;
   pathOrphaned: boolean | null;
   pathFlagged: boolean | null;
-  easyspeakCompletedHistory: boolean | null;
   manuallyCompleted: boolean | null;
+  basecampConfirmedCompleted: boolean | null;
+  basecampCompletedName: string | null;
   currentLevel: number | null;
   currentLevelLabel: string | null;
   nextLevelLabel: string | null;
@@ -111,7 +112,7 @@ function flattenLevelDiffs(levels: LevelDiff[]): AggregatedLevelColumns {
 /**
  * One row per member×path — deliberately NOT filtered the way
  * buildLevelSummary() filters (that function skips nonPathway/
- * completedHistory/manuallyCompleted paths for the Club Progress UI; this
+ * manuallyCompleted/confirmedCompleted paths for the Club Progress UI; this
  * sheet keeps every path, per "full data over minimal data"). A member with
  * no paths at all still emits exactly one row, with every path-scoped
  * column blank — defensive, shouldn't happen in practice.
@@ -152,8 +153,9 @@ export function buildAggregatedRows(report: ReportResult): AggregatedRow[] {
           pathOverridden: path?.overridden ?? null,
           pathOrphaned: path?.orphaned ?? null,
           pathFlagged: path?.flagged ?? null,
-          easyspeakCompletedHistory: path?.completedHistory ?? null,
           manuallyCompleted: path?.manuallyCompleted ?? null,
+          basecampConfirmedCompleted: path?.confirmedCompleted ?? null,
+          basecampCompletedName: path?.basecampCompletedName ?? null,
           currentLevel: summary?.currentLevel ?? null,
           currentLevelLabel: summary?.currentLevelLabel ?? null,
           nextLevelLabel: summary?.nextLevelLabel ?? null,
