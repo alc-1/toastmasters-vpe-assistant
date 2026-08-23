@@ -1318,6 +1318,45 @@ A few decisions worth knowing before changing the config:
   pre-WXT strictness level rather than surfacing a wave of unrelated "possibly undefined" errors
   project-wide; don't remove that override without fixing the resulting errors throughout
   `shared/sync/*`/`shared/parsers/*`/`tests/*` first.
+- **Tailwind (`tailwind.config.ts`/`postcss.config.js`/`tailwind-tokens.js`) is a design-token
+  source, not a utility-class framework used across markup.** `src/shared/styles.css` is still the
+  actual stylesheet every page links; Tailwind's role is that its `:root` custom-property block
+  resolves each value via Tailwind's `theme()` CSS function (`theme("colors.navy.700")`, etc.)
+  instead of restating hex/px literals, so `tailwind.config.ts`'s `theme.extend` is the single
+  source of truth those custom properties (and therefore every `var(--*)` consumer, including
+  per-page inline `<style>` blocks) resolve from. `content: ["./src/**/*.html", "./src/**/*.ts"]`
+  and Preflight is deliberately **off** (see the config file's own comments) — this app does not use
+  Tailwind utility classes in markup, only the `theme()` function inside `styles.css`. The brand
+  color palette itself lives in `tailwind-tokens.js`, imported by both this config and
+  `landing/tailwind.config.js` (see below) so the extension and the marketing site never hand-copy
+  the same hex values independently — but this app's own `tailwind.config.ts` layers extra
+  tokens (`--info`/`--disabled-bg`/`--border`, the `tm-gray`/`space-*` scales) on top that
+  `tailwind-tokens.js` doesn't cover and `landing/` has no use for.
+
+## Landing page (marketing site)
+
+`landing/` is a **separate, standalone npm project** (its own `package.json`/`package-lock.json`/
+`node_modules`, own `tsconfig.json`) — a Vite + React + Tailwind marketing/install-instructions site,
+unrelated to WXT and not part of the extension's build or manifest. It shares only
+`tailwind-tokens.js`'s color palette with the extension (imported into `landing/tailwind.config.js`,
+copied from/kept in sync with the root's `tailwind-tokens.js` — check both when a brand color
+changes) — no other code is shared between the two projects.
+- `cd landing && npm install`, then `npm run dev` (Vite dev server), `npm run build` (`tsc --noEmit`
+  then `vite build` → `landing/dist/`), `npm run preview`, or `npm run typecheck`.
+- Content lives in `landing/src/data/*.ts` (`benefits.ts`, `faq.ts`, `installSteps.ts`,
+  `releaseInfo.ts`, `screenshots.ts`, `workflowSteps.ts`) consumed by section components under
+  `landing/src/components/sections/`; `releaseInfo.ts` in particular holds the canonical
+  `CHROME_WEB_STORE_URL` — check it before writing install instructions anywhere else in the repo
+  (see the "extension is live on the Chrome Web Store" note under "Build tooling" above).
+- `landing/src/PrivacyPolicy.tsx` + `privacy.html`/`privacy-main.tsx` is a second, separate page
+  (privacy policy) built alongside the main landing page — check `landing/vite.config.ts` for how
+  both entry HTML files are wired if adding a third page.
+- Deployed to GitHub Pages by `.github/workflows/deploy-pages.yml`: triggered on push to `main` only
+  when `landing/**` (or the workflow file itself) changed, or manually via `workflow_dispatch`. Runs
+  `npm ci && npm run build` inside `landing/` and publishes `landing/dist/` — entirely independent of
+  `.github/workflows/ci.yml`/`release.yml`, which never touch `landing/` at all.
+- No tests exist for `landing/` (no Vitest/Playwright setup there) — `tsc --noEmit` via `npm run
+  build`/`typecheck` is the only automated check.
 
 ## Conventions
 
