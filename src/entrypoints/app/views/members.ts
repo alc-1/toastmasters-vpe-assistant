@@ -8,7 +8,7 @@
 // via shared/resolution-store.ts, then calls refresh(), which re-reads
 // storage and rebuilds the whole report.
 
-import { escapeAttr, escapeHtml, shortenClubName, warningIconHtml } from "../../../shared/dom-utils";
+import { approvedCheckIconHtml, escapeAttr, escapeHtml, shortenClubName, warningIconHtml } from "../../../shared/dom-utils";
 import { local } from "../../../shared/storage";
 import {
   confirmMemberLink,
@@ -307,6 +307,24 @@ export const membersView: ViewModule = {
         membersRoot.innerHTML = "";
         return;
       }
+
+      // An acknowledged one-sided club has no counterpart club to match its
+      // members against at all — every member would render permanently
+      // "Unmatched" with nothing actionable to do about it, so member
+      // review is disabled entirely for it rather than showing a dead table.
+      if (section.clubPair.clubOrphaned) {
+        getRoot("filterChips").innerHTML = "";
+        const side = section.clubPair.basecampClubId ? "Basecamp" : "EasySpeak";
+        membersRoot.innerHTML = `
+          <div class="conflict-warning conflict-warning--info">
+            ${approvedCheckIconHtml("Acknowledged one-sided club")}
+            This club only exists in ${side} — it was acknowledged as one-sided in Club Review, so there
+            are no members to match here. <a href="#clubReview">Change in Club Review</a>
+          </div>
+        `;
+        return;
+      }
+
       renderFilterChips(section.clubPair.members);
       membersRoot.innerHTML = renderClubMembers(section.clubPair);
       attachRowHandlers();
