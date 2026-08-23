@@ -8,7 +8,16 @@
 
 import { escapeAttr, escapeHtml } from "../../../shared/dom-utils";
 import { local } from "../../../shared/storage";
-import { getClubLookup, getClubRejectedPairs, pinClub, rejectClubPair, removeClubPin } from "../../../shared/resolution-store";
+import {
+  getClubLookup,
+  getClubOrphans,
+  getClubRejectedPairs,
+  markClubOrphan,
+  pinClub,
+  rejectClubPair,
+  removeClubPin,
+  unmarkClubOrphan,
+} from "../../../shared/resolution-store";
 import { matchClubs, type ClubGroup, type ClubMatchPair } from "../../../shared/sync/conflicts";
 import { getAnonymizeMode } from "../../../shared/settings-store";
 import type { BasecampScrape, EasySpeakScrape } from "../../../shared/types";
@@ -46,12 +55,13 @@ export const clubReviewView: ViewModule = {
       if (!basecampData || !easyspeakData) return [];
       const clubLookup = await getClubLookup();
       const clubRejectedPairs = await getClubRejectedPairs();
+      const clubOrphans = await getClubOrphans();
       const bcClubs: ClubGroup<unknown>[] = Object.entries(basecampData).map(([id, club]) => ({ id, name: club.name, people: [] }));
       const esClubs: ClubGroup<unknown>[] = Object.entries(easyspeakData).map(([id, club]) => ({ id, name: club.name, people: [] }));
       // allowFuzzy: true — unlike buildReport()'s own matchClubs() call
       // (which never surfaces an unconfirmed guess), this is the one place
       // a fuzzy suggestion is meant to be reviewed.
-      return matchClubs(bcClubs, esClubs, clubLookup, clubRejectedPairs, true);
+      return matchClubs(bcClubs, esClubs, clubLookup, clubRejectedPairs, true, clubOrphans);
     }
 
     function needsClubAction(pair: ClubPair): boolean {
@@ -118,6 +128,9 @@ export const clubReviewView: ViewModule = {
     }
 
     function renderClubStatusCell(pair: ClubPair): string {
+      if (pair.source === "orphan") {
+        return '<span class="badge badge-confirmed" title="Confirmed to have no counterpart in the other system">Acknowledged (one-sided)</span>';
+      }
       if (!pair.basecamp || !pair.easyspeak) return '<span class="badge badge-unmatched">Unmatched</span>';
       if (pair.confidence === "confirmed") {
         const sourceLabel = pair.source === "manual-search" ? "linked via manual search" : "confirmed from a suggested match";
@@ -131,9 +144,22 @@ export const clubReviewView: ViewModule = {
     }
 
     function renderClubActionsCell(pair: ClubPair): string {
+      if (pair.source === "orphan") {
+        const bcId = pair.basecamp ? escapeAttr(pair.basecamp.id as string) : "";
+        const esId = pair.easyspeak ? escapeAttr(pair.easyspeak.id as string) : "";
+        return `<button class="btn btn-secondary" data-action="unorphan-club" data-bc-id="${bcId}" data-es-id="${esId}" title="Returns this club to the normal unmatched state.">Unmark</button>`;
+      }
+
       // No per-row instructions here — the Unmatched Clubs section above the
       // table already carries that guidance once, not once per row.
-      if (!pair.basecamp || !pair.easyspeak) return "";
+      if (!pair.basecamp || !pair.easyspeak) {
+        const bcId = pair.basecamp ? escapeAttr(pair.basecamp.id as string) : "";
+        const esId = pair.easyspeak ? escapeAttr(pair.easyspeak.id as string) : "";
+        return (
+          `<button class="btn btn-secondary" data-action="orphan-club" data-bc-id="${bcId}" data-es-id="${esId}" ` +
+          `title="Confirms this club genuinely has no counterpart in the other system, so it stops blocking Member Review and Club Progress.">Mark as one-sided</button>`
+        );
+      }
 
       const bcId = escapeAttr(pair.basecamp.id as string);
       const esId = escapeAttr(pair.easyspeak.id as string);
@@ -204,6 +230,12 @@ export const clubReviewView: ViewModule = {
       lookupRoot.querySelectorAll<HTMLButtonElement>('[data-action="unlink-club"]').forEach((btn) => {
         btn.addEventListener("click", () => onUnlinkClubPair(btn));
       });
+      lookupRoot.querySelectorAll<HTMLButtonElement>('[data-action="orphan-club"]').forEach((btn) => {
+        btn.addEventListener("click", () => onOrphanClub(btn));
+      });
+      lookupRoot.querySelectorAll<HTMLButtonElement>('[data-action="unorphan-club"]').forEach((btn) => {
+        btn.addEventListener("click", () => onUnorphanClub(btn));
+      });
       const addBtn = lookupRoot.querySelector<HTMLButtonElement>('[data-action="add-club-pin"]');
       if (addBtn) addBtn.addEventListener("click", onAddClubPin);
     }
@@ -225,6 +257,20 @@ export const clubReviewView: ViewModule = {
       } else {
         await removeClubPin(btn.dataset.bcId!);
       }
+      await refreshClubLookup();
+    }
+
+    async function onOrphanClub(btn: HTMLButtonElement) {
+      const bcId = btn.dataset.bcId || null;
+      const esId = btn.dataset.esId || null;
+      await markClubOrphan(bcId, esId);
+      await refreshClubLookup();
+    }
+
+    async function onUnorphanClub(btn: HTMLButtonElement) {
+      const bcId = btn.dataset.bcId || null;
+      const esId = btn.dataset.esId || null;
+      await unmarkClubOrphan(bcId, esId);
       await refreshClubLookup();
     }
 

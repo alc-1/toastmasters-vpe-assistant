@@ -26,6 +26,7 @@ import type { AppShellPage } from "./app-shell";
 import type {
   BasecampScrape,
   ClubLookupEntry,
+  ClubOrphan,
   ClubRejectedPair,
   EasySpeakScrape,
   EasySpeakServerId,
@@ -67,6 +68,7 @@ export interface LocalSchema {
   memberRejectedPairs: RejectedPair[];
   clubLookup: ClubLookupEntry[];
   clubRejectedPairs: ClubRejectedPair[];
+  clubOrphans: ClubOrphan[];
   memberOrphans: MemberOrphan[];
   pathLookup: PathLookup;
   memberPathOverrides: MemberPathOverride[];
@@ -110,6 +112,7 @@ const PROFILE_SCOPED_KEYS = [
   "memberRejectedPairs",
   "clubLookup",
   "clubRejectedPairs",
+  "clubOrphans",
   "memberOrphans",
   "pathLookup",
   "memberPathOverrides",

@@ -16,6 +16,7 @@ import { local } from "./storage";
 import { buildPathAliasLookup, PATH_ALIASES } from "./sync/conflicts";
 import type {
   ClubLookupEntry,
+  ClubOrphan,
   ClubRejectedPair,
   MemberLink,
   MemberOrphan,
@@ -40,6 +41,7 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     "memberRejectedPairs",
     "clubLookup",
     "clubRejectedPairs",
+    "clubOrphans",
     "memberOrphans",
     "pathLookup",
     "memberPathOverrides",
@@ -55,6 +57,7 @@ export async function loadResolutionData(): Promise<Required<Omit<ResolutionData
     rejectedPairs: stored.memberRejectedPairs ?? [],
     clubLookup: stored.clubLookup ?? [],
     clubRejectedPairs: stored.clubRejectedPairs ?? [],
+    clubOrphans: stored.clubOrphans ?? [],
     memberOrphans: stored.memberOrphans ?? [],
     memberPathOverrides: stored.memberPathOverrides ?? [],
     memberPathExclusions: stored.memberPathExclusions ?? [],
@@ -383,6 +386,34 @@ export async function rejectClubPair(basecampClubId: string, easyspeakClubId: st
   if (alreadyRejected) return;
   const entry: ClubRejectedPair = { basecampClubId, easyspeakClubId, rejectedAt: Date.now() };
   await local.set({ clubRejectedPairs: [...existing, entry] });
+}
+
+export async function getClubOrphans(): Promise<ClubOrphan[]> {
+  const clubOrphans = await local.value("clubOrphans");
+  return clubOrphans ?? [];
+}
+
+/**
+ * Confirms a one-sided club (basecampClubId XOR easyspeakClubId is
+ * non-null — whichever side actually has data) genuinely has no counterpart
+ * (e.g. a club not yet using the other tool), so it stops counting as
+ * outstanding work in Club Review and stops blocking Member Review/Club
+ * Progress — the club-level counterpart of markMemberOrphan().
+ */
+export async function markClubOrphan(basecampClubId: string | null, easyspeakClubId: string | null): Promise<void> {
+  const clubOrphans = await local.value("clubOrphans");
+  const existing = clubOrphans ?? [];
+  const already = existing.some((o) => o.basecampClubId === basecampClubId && o.easyspeakClubId === easyspeakClubId);
+  if (already) return;
+  const entry: ClubOrphan = { basecampClubId, easyspeakClubId, orphanedAt: Date.now() };
+  await local.set({ clubOrphans: [...existing, entry] });
+}
+
+/** The "Unmark" action — returns the club to the normal unmatched state. */
+export async function unmarkClubOrphan(basecampClubId: string | null, easyspeakClubId: string | null): Promise<void> {
+  const clubOrphans = await local.value("clubOrphans");
+  const filtered = (clubOrphans ?? []).filter((o) => !(o.basecampClubId === basecampClubId && o.easyspeakClubId === easyspeakClubId));
+  await local.set({ clubOrphans: filtered });
 }
 
 /**

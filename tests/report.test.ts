@@ -402,6 +402,21 @@ describe("matchClubs", () => {
       { basecamp: null, easyspeak: es[0], score: null, confidence: null, source: null },
     ]);
   });
+
+  it("marks a leftover as orphan-resolved when present in the orphans param", () => {
+    const bc = [{ id: "b1", name: "Solo Basecamp Club", people: [] }];
+    const es: { id: string; name: string; people: unknown[] }[] = [];
+
+    const pairs = matchClubs(bc, es, [], [], false, [{ basecampClubId: "b1", easyspeakClubId: null, orphanedAt: 0 }]);
+    const solo = pairs.find((p) => p.basecamp?.id === "b1")!;
+    expect(solo.easyspeak).toBeNull();
+    expect(solo.confidence).toBe("confirmed");
+    expect(solo.source).toBe("orphan");
+
+    const withoutOrphan = matchClubs(bc, es);
+    const soloUnresolved = withoutOrphan.find((p) => p.basecamp?.id === "b1")!;
+    expect(soloUnresolved.confidence).toBeNull();
+  });
 });
 
 describe("matchMembers", () => {
@@ -970,6 +985,20 @@ describe("computeMatchSummary (synthetic fixtures)", () => {
     const summary = computeMatchSummary(report);
     expect(summary.total).toBe(10);
     expect(summary.matched).toBe(3);
+  });
+
+  it("tags an acknowledged one-sided club orphaned (not clubMatchForced) via buildReport's resolution param", () => {
+    const withoutOrphan = buildReport(basecampData, easyspeakData);
+    const soloUnresolved = findClubPair(withoutOrphan, { basecampClubName: "Basecamp Only Club", easyspeakClubName: null });
+    expect(soloUnresolved.clubOrphaned).toBe(false);
+    expect(soloUnresolved.clubMatchForced).toBe(false);
+
+    const report = buildReport(basecampData, easyspeakData, {}, {
+      clubOrphans: [{ basecampClubId: "bcclub-onlyclub", easyspeakClubId: null, orphanedAt: 0 }],
+    });
+    const solo = findClubPair(report, { basecampClubName: "Basecamp Only Club", easyspeakClubName: null });
+    expect(solo.clubOrphaned).toBe(true);
+    expect(solo.clubMatchForced).toBe(false);
   });
 
   it("matched count increases once a path-orphaned member's path issue is bound", () => {

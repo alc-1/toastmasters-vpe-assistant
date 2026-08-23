@@ -161,6 +161,11 @@ export interface ClubPairReport {
   easyspeakClubName: string | null;
   matchScore: number | null;
   clubMatchForced: boolean;
+  /** True when the one-sided leftover was explicitly acknowledged as having
+   *  no counterpart — see ClubOrphan/markClubOrphan() below. Kept separate
+   *  from clubMatchForced so an orphan is never reported as a "pinned club
+   *  match" by the Excel export. */
+  clubOrphaned: boolean;
   members: MemberReport[];
 }
 
@@ -251,6 +256,13 @@ export interface ClubRejectedPair {
   rejectedAt: number;
 }
 
+/** Exactly one of the two ids is non-null — the side that does have data. */
+export interface ClubOrphan {
+  basecampClubId: string | null;
+  easyspeakClubId: string | null;
+  orphanedAt: number;
+}
+
 export interface ClubLookupEntry {
   basecampClubId: string;
   easyspeakClubId: string;
@@ -318,6 +330,7 @@ export interface ResolutionData {
   rejectedPairs?: RejectedPair[];
   clubLookup?: ClubLookupEntry[];
   clubRejectedPairs?: ClubRejectedPair[];
+  clubOrphans?: ClubOrphan[];
   memberOrphans?: MemberOrphan[];
   memberPathOverrides?: MemberPathOverride[];
   memberPathExclusions?: MemberPathExclusion[];

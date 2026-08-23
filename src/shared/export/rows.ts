@@ -182,6 +182,7 @@ export type MatchRecordType =
   | "Member Match"
   | "Rejected Member Pair"
   | "Rejected Club Pair"
+  | "Club Orphan"
   | "Member Orphan"
   | "Path Override"
   | "Path Exclusion"
@@ -349,6 +350,29 @@ export function buildMatchesRows(report: ReportResult, resolution: ResolutionRec
       forced: null,
       recordedAt: formatTimestamp(r.rejectedAt),
       notes: "",
+    });
+  }
+
+  for (const o of resolution.clubOrphans) {
+    rows.push({
+      recordType: "Club Orphan",
+      basecampClubId: o.basecampClubId,
+      basecampClubName: null,
+      easyspeakClubId: o.easyspeakClubId,
+      easyspeakClubName: null,
+      basecampUserId: null,
+      easyspeakMemberId: null,
+      basecampName: null,
+      easyspeakName: null,
+      basecampPathName: null,
+      easyspeakPathLabel: null,
+      presence: null,
+      matchConfidence: null,
+      matchScore: null,
+      matchSource: null,
+      forced: null,
+      recordedAt: formatTimestamp(o.orphanedAt),
+      notes: o.basecampClubId != null ? "One-sided: Basecamp only" : "One-sided: EasySpeak only",
     });
   }
 

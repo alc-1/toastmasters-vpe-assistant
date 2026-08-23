@@ -61,6 +61,16 @@ interface ClubSection {
   clubPair: ClubPairReport;
 }
 
+// Acknowledged one-sided clubs sort after every regular club (nothing left
+// to review there), alphabetically within each group — same convention as
+// clubReview.ts's own clubSortName()/sortClubPairs().
+function sortClubSections(sections: ClubSection[]): void {
+  sections.sort((a, b) => {
+    if (a.clubPair.clubOrphaned !== b.clubPair.clubOrphaned) return a.clubPair.clubOrphaned ? 1 : -1;
+    return a.clubName.localeCompare(b.clubName, undefined, { sensitivity: "base" });
+  });
+}
+
 interface Candidate {
   id: string | number;
   name: string;
@@ -141,6 +151,7 @@ export const membersView: ViewModule = {
         clubName: clubPair.basecampClubName ?? clubPair.easyspeakClubName ?? "(unnamed club)",
         clubPair,
       }));
+      sortClubSections(clubSections);
 
       if (!clubSections.some((s) => s.clubKey === activeClubKey)) {
         activeClubKey = clubSections[0]?.clubKey ?? null;
@@ -153,7 +164,9 @@ export const membersView: ViewModule = {
 
     function renderClubMatchWarning() {
       const warningRoot = getRoot("conflictWarning");
-      const unmatchedClubs = clubSections.filter((s) => !s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId);
+      const unmatchedClubs = clubSections.filter(
+        (s) => (!s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId) && !s.clubPair.clubOrphaned
+      );
 
       if (unmatchedClubs.length === 0) {
         warningRoot.innerHTML = "";
@@ -184,10 +197,14 @@ export const membersView: ViewModule = {
 
       tabsRoot.innerHTML = clubSections
         .map((s) => {
-          const unmatchedClub = !s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId;
+          const unmatchedClub = (!s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId) && !s.clubPair.clubOrphaned;
           const warningIcon = unmatchedClub ? warningIconHtml("No match found between Basecamp and EasySpeak for this club") : "";
           const missingCount = s.clubPair.members.filter(needsAction).length;
-          const countBadge = missingCount > 0 ? `<span class="tab-count">${missingCount}</span>` : "";
+          const countBadge = s.clubPair.clubOrphaned
+            ? '<span class="tab-badge">One-sided</span>'
+            : missingCount > 0
+              ? `<span class="tab-count">${missingCount}</span>`
+              : "";
           return `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}" title="${escapeAttr(s.clubName)}">${warningIcon}${escapeHtml(shortenClubName(s.clubName))}${countBadge}</button>`;
         })
         .join("");

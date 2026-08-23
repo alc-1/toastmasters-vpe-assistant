@@ -22,6 +22,7 @@ import type {
   EasySpeakMemberRow,
   EasySpeakScrape,
   MatchConfidence,
+  MatchSource,
   MemberReport,
   PathReport,
   Presence,
@@ -56,9 +57,14 @@ export function buildReport(
     people: groupEasySpeakMembers(club.members),
   }));
 
-  const clubPairs = matchClubs(basecampClubs, easyspeakClubs, resolution.clubLookup ?? [], resolution.clubRejectedPairs ?? []).map((pair) =>
-    buildClubPairReport(pair.basecamp, pair.easyspeak, resolution, pair)
-  );
+  const clubPairs = matchClubs(
+    basecampClubs,
+    easyspeakClubs,
+    resolution.clubLookup ?? [],
+    resolution.clubRejectedPairs ?? [],
+    false,
+    resolution.clubOrphans ?? []
+  ).map((pair) => buildClubPairReport(pair.basecamp, pair.easyspeak, resolution, pair));
 
   return {
     meta: {
@@ -295,7 +301,7 @@ function buildClubPairReport(
   basecampClub: ClubGroup<BasecampPerson> | null,
   easyspeakClub: ClubGroup<EasySpeakPerson> | null,
   resolution: ResolutionData = {},
-  clubMatch: { score?: number | null; confidence?: MatchConfidence } = {}
+  clubMatch: { score?: number | null; confidence?: MatchConfidence; source?: MatchSource } = {}
 ): ClubPairReport {
   const memberLinks = resolution.memberLinks ?? [];
   const rejectedPairs = resolution.rejectedPairs ?? [];
@@ -365,7 +371,8 @@ function buildClubPairReport(
     easyspeakClubId: easyspeakClub?.id ?? null,
     easyspeakClubName: easyspeakClub?.name ?? null,
     matchScore: clubMatch.score ?? null,
-    clubMatchForced: clubMatch.confidence === "confirmed",
+    clubMatchForced: clubMatch.confidence === "confirmed" && clubMatch.source !== "orphan",
+    clubOrphaned: clubMatch.source === "orphan",
     members,
   };
 }

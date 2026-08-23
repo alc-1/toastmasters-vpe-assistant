@@ -1470,6 +1470,20 @@
     vertical-align: middle;
   }
 
+  /* Same shape as .tab-count, but for a club acknowledged as one-sided
+     (clubOrphaned) — a text label instead of a pending-review number, and an
+     info tone instead of danger, since there's nothing left to act on. */
+  .tab-badge {
+    @apply bg-info rounded-pill;
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+    vertical-align: middle;
+  }
+
   .chip-count {
     @apply text-tm-gray-700 bg-surface rounded-pill;
     display: inline-block;
@@ -1552,6 +1566,14 @@
   .conflict-warning a {
     @apply text-navy-700;
     font-weight: 600;
+  }
+
+  /* Modifier for a conflict-warning slot that isn't actually flagging a
+     problem — e.g. explaining a club that was deliberately acknowledged as
+     one-sided. Same box, info tone instead of warning. */
+  .conflict-warning--info {
+    @apply bg-info-bg text-navy-700;
+    border-color: transparent;
   }
 
   /* ---------------------------------------------------------------------- */

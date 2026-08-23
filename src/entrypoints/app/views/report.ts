@@ -96,6 +96,16 @@ interface ClubSection {
   clubPair: ClubPairReport;
 }
 
+// Acknowledged one-sided clubs sort after every regular club (nothing left
+// to review there), alphabetically within each group — same convention as
+// clubReview.ts's own clubSortName()/sortClubPairs().
+function sortClubSections(sections: { clubName: string | null; clubPair: ClubPairReport }[]): void {
+  sections.sort((a, b) => {
+    if (a.clubPair.clubOrphaned !== b.clubPair.clubOrphaned) return a.clubPair.clubOrphaned ? 1 : -1;
+    return (a.clubName ?? "").localeCompare(b.clubName ?? "", undefined, { sensitivity: "base" });
+  });
+}
+
 interface SummaryTableState {
   rootId: string;
   emptyMessage: string;
@@ -190,6 +200,7 @@ export const reportView: ViewModule = {
         rows: summaryGroups[index].rows,
         clubPair,
       }));
+      sortClubSections(sections);
 
       renderClubTabs(sections);
     }
@@ -198,6 +209,23 @@ export const reportView: ViewModule = {
       const warningRoot = getRoot("conflictWarning");
       if (!clubPair) {
         warningRoot.innerHTML = "";
+        return;
+      }
+
+      // An acknowledged one-sided club has no counterpart to match members
+      // against at all, so every one of its members is inevitably
+      // presence !== "both" — the usual "N members without a match ... Fix
+      // in Member Review" message below would be both guaranteed to fire and
+      // not actionable there. Explain the situation instead.
+      if (clubPair.clubOrphaned) {
+        const side = clubPair.basecampClubId ? "Basecamp" : "EasySpeak";
+        warningRoot.innerHTML = `
+          <div class="conflict-warning conflict-warning--info">
+            ${approvedCheckIconHtml("Acknowledged one-sided club")}
+            This club only exists in ${side} — it was acknowledged as one-sided in Club Review, so it has no
+            counterpart to match members against. <a href="#clubReview">Change in Club Review</a>
+          </div>
+        `;
         return;
       }
 
@@ -286,10 +314,14 @@ export const reportView: ViewModule = {
       activeClubKey = sections[0].clubKey;
       tabsRoot.innerHTML = sections
         .map((s) => {
-          const unmatched = !s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId;
+          const unmatched = (!s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId) && !s.clubPair.clubOrphaned;
           const warningIcon = unmatched ? warningIconHtml("No match found between Basecamp and EasySpeak for this club") : "";
           const missingCount = s.clubPair.members.filter(needsAction).length;
-          const countBadge = missingCount > 0 ? `<span class="tab-count">${missingCount}</span>` : "";
+          const countBadge = s.clubPair.clubOrphaned
+            ? '<span class="tab-badge">One-sided</span>'
+            : missingCount > 0
+              ? `<span class="tab-count">${missingCount}</span>`
+              : "";
           const fullName = s.clubName ?? "(unnamed club)";
           return `<button class="tab-btn" data-club-key="${s.clubKey}" title="${escapeAttr(fullName)}">${warningIcon}${escapeHtml(shortenClubName(fullName))}${countBadge}</button>`;
         })

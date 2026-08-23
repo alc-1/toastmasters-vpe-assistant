@@ -23,6 +23,7 @@
 import type {
   BasecampProgression,
   ClubLookupEntry,
+  ClubOrphan,
   ClubRejectedPair,
   EasySpeakLevel,
   LevelDiff,
@@ -197,13 +198,21 @@ export interface ClubMatchPair<BC, ES> {
  *   joins two clubs' rosters. Settings' own Club Lookup review table is the
  *   only caller that passes true, mirroring how options/members.ts relies on
  *   matchMembers()'s fuzzy default while options/report.ts opts out.
+ * @param orphans persisted "confirmed — this side genuinely has no
+ *   counterpart" decisions (e.g. a club not yet using the other tool).
+ *   Applied only to whoever is still unassigned after matching/greedy-
+ *   assignment runs, so it never blocks a real match: if a genuine
+ *   counterpart later appears (e.g. after a re-scrape), it wins the normal
+ *   way and the stale orphan record just becomes inert. Mirrors
+ *   matchMembers()'s own `orphans` param.
  */
 export function matchClubs<BC extends ClubGroup<unknown>, ES extends ClubGroup<unknown>>(
   basecampClubs: BC[],
   easyspeakClubs: ES[],
   clubLookup: ClubLookupEntry[] = [],
   rejectedPairs: ClubRejectedPair[] = [],
-  allowFuzzy = false
+  allowFuzzy = false,
+  orphans: ClubOrphan[] = []
 ): ClubMatchPair<BC, ES>[] {
   const bcById = new Map(basecampClubs.map((c) => [c.id, c]));
   const esById = new Map(easyspeakClubs.map((c) => [c.id, c]));
@@ -242,11 +251,20 @@ export function matchClubs<BC extends ClubGroup<unknown>, ES extends ClubGroup<u
     confidence: a.confidence,
     source: a.source,
   }));
+  const orphanedBcIds = new Set(orphans.filter((o) => o.basecampClubId != null).map((o) => o.basecampClubId));
+  const orphanedEsIds = new Set(orphans.filter((o) => o.easyspeakClubId != null).map((o) => o.easyspeakClubId));
+
   for (const bc of basecampClubs) {
-    if (!matchedBcIds.has(bc.id)) pairs.push({ basecamp: bc, easyspeak: null, score: null, confidence: null, source: null });
+    if (!matchedBcIds.has(bc.id)) {
+      const isOrphan = orphanedBcIds.has(bc.id);
+      pairs.push({ basecamp: bc, easyspeak: null, score: null, confidence: isOrphan ? "confirmed" : null, source: isOrphan ? "orphan" : null });
+    }
   }
   for (const es of easyspeakClubs) {
-    if (!matchedEsIds.has(es.id)) pairs.push({ basecamp: null, easyspeak: es, score: null, confidence: null, source: null });
+    if (!matchedEsIds.has(es.id)) {
+      const isOrphan = orphanedEsIds.has(es.id);
+      pairs.push({ basecamp: null, easyspeak: es, score: null, confidence: isOrphan ? "confirmed" : null, source: isOrphan ? "orphan" : null });
+    }
   }
   return pairs;
 }

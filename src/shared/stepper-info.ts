@@ -8,7 +8,7 @@
 import { loadResolutionData } from "./resolution-store";
 import { EASYSPEAK_SERVERS, getActiveProfile, getAnonymizeMode, getEasySpeakServer, getMockMode } from "./settings-store";
 import { local } from "./storage";
-import { buildReport, computeMatchSummary, countMembersReadyForNextLevel } from "./sync/delta";
+import { buildReport, computeMatchSummary, countMembersReadyForNextLevel, isMemberResolved } from "./sync/delta";
 import { NAV_ITEMS, type AppShellPage, type StepperInfo } from "./app-shell";
 import type { ReportResult } from "./types";
 
@@ -67,7 +67,9 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
     // matchClubs(..., allowFuzzy: false) call, so an unconfirmed suggestion
     // already surfaces here as two one-sided pairs — this check doubles as
     // "any club still needs review in Club Review" without a second matchClubs() call.
-    clubReviewPending = report.clubPairs.some((pair) => pair.basecampClubId === null || pair.easyspeakClubId === null);
+    clubReviewPending = report.clubPairs.some(
+      (pair) => (pair.basecampClubId === null || pair.easyspeakClubId === null) && !pair.clubOrphaned
+    );
     reportInfo = computeReportInfo(report);
   }
 
@@ -149,8 +151,16 @@ interface ReportStepInfo {
 // and clubReviewPending has already been derived from this same report.
 function computeReportInfo(report: ReportResult): ReportStepInfo {
   const clubCount = report.clubPairs.length;
-  const { matched, total } = computeMatchSummary(report);
-  const toReview = total - matched;
+  const { total } = computeMatchSummary(report);
+  // An acknowledged one-sided club (clubOrphaned) has no counterpart club to
+  // match its members against at all, so every one of its members is
+  // permanently unresolved by isMemberResolved()'s definition — counting
+  // them toward "to review" would inflate that number forever with work
+  // that can never actually be done. Excluded here only, not from `total`
+  // above, so the member headcount itself stays accurate.
+  const toReview = report.clubPairs
+    .filter((club) => !club.clubOrphaned)
+    .reduce((count, club) => count + club.members.filter((member) => !isMemberResolved(member)).length, 0);
   const readyForNextLevel = countMembersReadyForNextLevel(report);
 
   return {
