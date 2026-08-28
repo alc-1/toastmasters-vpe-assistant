@@ -24,6 +24,16 @@
 // behind the puzzle-piece menu and there's nothing prompting the user to fix
 // that.
 //
+// On "update", opens whats-new.html with ?from=<previousVersion> instead —
+// stateless (no browser.storage tracking of what's already been "seen"): the
+// browser's own onInstalled event data is enough to derive which changelog
+// entries are new, see shared/whats-new-filter.ts's selectVisibleEntries().
+// NOTE: Chrome fires onInstalled/"update" on essentially every extension
+// reload during local unpacked/temporary-install dev, not just real version
+// bumps (same quirk background/api/update-checker.ts lives with) — so this
+// tab reopens on every dev-mode reload. Not a real-user-facing issue (a real
+// update only fires this once), just a minor dev-loop annoyance.
+//
 // The store-vs-preview split that used to be two physically separate entry
 // files (background/index.ts / background/index.preview.ts, picked by each
 // manifest's own service_worker key) is now a single entrypoint gated by
@@ -41,13 +51,15 @@
 
 import { registerMessageHandlers } from "../background/messaging";
 import { registerSelfUpdateWatcher } from "../background/self-update";
-import { PAGES, pageUrl } from "../shared/pages";
+import { PAGES, pageUrl, whatsNewUrl } from "../shared/pages";
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener((details) => {
     console.log("[Toastmasters VPE Assistant] Extension installed.");
     if (details.reason === "install") {
       browser.tabs.create({ url: pageUrl(PAGES.welcome) });
+    } else if (details.reason === "update") {
+      browser.tabs.create({ url: whatsNewUrl(details.previousVersion) });
     }
   });
 

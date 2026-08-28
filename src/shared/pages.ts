@@ -15,12 +15,22 @@ export const PAGES = {
   basecampAuth: "basecamp-auth.html",
   easyspeakDone: "easyspeak-done.html",
   welcome: "welcome.html",
+  whatsNew: "whats-new.html",
 } as const;
 
 export type PagePath = (typeof PAGES)[keyof typeof PAGES];
 
 export function pageUrl(page: PagePath): string {
   return browser.runtime.getURL(`/${page}`);
+}
+
+// entrypoints/background.ts's onInstalled("update") handler opens this with
+// the browser's own previousVersion event data — a plain string concat after
+// pageUrl(), never re-passed through getURL(), so PublicPath's stricter
+// exact-match typing (vs. the looser `${HtmlPublicPath}${string}` overload
+// used only inside getURL itself) never comes into play here.
+export function whatsNewUrl(previousVersion?: string): string {
+  return pageUrl(PAGES.whatsNew) + (previousVersion ? `?from=${encodeURIComponent(previousVersion)}` : "");
 }
 
 // The 6 in-app views formerly served as separate pages (report.html,

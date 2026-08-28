@@ -5,3 +5,4 @@ dist/
 .wxt/
 test-results/
 playwright-report/
+public/changelog.json

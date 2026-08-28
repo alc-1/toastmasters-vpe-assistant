@@ -11,7 +11,7 @@
 
 import { renderVerticalStepper, type AppShellPage } from "../../shared/app-shell";
 import { escapeHtml, settingsIconHtml } from "../../shared/dom-utils";
-import { appRouteUrl } from "../../shared/pages";
+import { appRouteUrl, whatsNewUrl } from "../../shared/pages";
 import { sendMessage } from "../../shared/send-message";
 import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
 import { computeStepperInfo } from "../../shared/stepper-info";
@@ -23,6 +23,12 @@ const selfUpdateBannerRoot = document.getElementById("selfUpdateBannerRoot")!;
 const settingsBtn = document.getElementById("popupSettingsBtn")!;
 settingsBtn.innerHTML = settingsIconHtml();
 settingsBtn.addEventListener("click", () => browser.tabs.create({ url: appRouteUrl("globalSettings") }));
+
+const whatsNewLink = document.getElementById("popupWhatsNewLink")!;
+whatsNewLink.addEventListener("click", (e) => {
+  e.preventDefault();
+  browser.tabs.create({ url: whatsNewUrl() });
+});
 
 // Delegated once — init() replaces stepperRoot's innerHTML, but the root
 // element itself never changes, so a single delegated listener covers it

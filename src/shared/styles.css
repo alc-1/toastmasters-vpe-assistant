@@ -761,6 +761,61 @@
     margin-bottom: 0;
   }
 
+  /* What's New page (entrypoints/whats-new/) — one .card per release, its
+     own header layout (title + date side by side) scoped via this extra
+     class rather than changing the shared .card-header rule every other
+     page's cards also use. */
+  .whats-new__card-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .whats-new__date {
+    @apply text-sm;
+    color: var(--gray-600);
+  }
+
+  .whats-new__list {
+    margin: 0;
+    padding-left: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  /* One per Keep a Changelog category (Added/Fixed/...) within a release's
+     card — .whats-new__list above is reused for each section's bullets. */
+  .whats-new__section + .whats-new__section {
+    margin-top: var(--space-3);
+  }
+
+  .whats-new__section-title {
+    @apply text-sm;
+    margin: 0 0 var(--space-2);
+    font-weight: 600;
+    color: var(--gray-700);
+  }
+
+  /* "Show changes since:" row above the What's New list. */
+  .whats-new__from {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+
+  .whats-new__from-label {
+    @apply text-sm;
+    color: var(--gray-700);
+  }
+
+  .whats-new__from-select {
+    @apply text-sm;
+    padding: 4px 6px;
+  }
+
   /* Global Settings' Anonymize Mode toggle — a plain checkbox + label row,
      the one checkbox-style control in the extension so far. */
   .toggle-row {

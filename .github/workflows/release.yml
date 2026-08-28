@@ -40,8 +40,8 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Bump package.json version
-        run: npm version ${{ inputs.bump }} --no-git-tag-version
+      - name: Bump version and cut CHANGELOG.md
+        run: node scripts/cut-release.ts ${{ inputs.bump }}
 
       - name: Read new version
         id: version
@@ -72,7 +72,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
+          git add package.json package-lock.json CHANGELOG.md
           git commit -m "chore(release): v${{ steps.version.outputs.version }}"
           git push origin HEAD:main
 

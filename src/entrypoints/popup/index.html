@@ -45,6 +45,19 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+    .popup-footer {
+      display: flex;
+      justify-content: center;
+      padding: var(--space-3) 0 var(--space-2);
+    }
+    .popup-footer__link {
+      font-size: var(--text-sm);
+      color: var(--gray-600);
+      text-decoration: none;
+    }
+    .popup-footer__link:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body class="page--popup">
@@ -62,6 +75,10 @@
   <div id="updateBannerRoot"></div>
   <div id="selfUpdateBannerRoot"></div>
   <div id="popupStepperRoot"></div>
+
+  <div class="popup-footer">
+    <a href="#" id="popupWhatsNewLink" class="popup-footer__link">What's New</a>
+  </div>
 
   <script type="module" src="./main.ts"></script>
 </body>

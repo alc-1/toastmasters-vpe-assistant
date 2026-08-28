@@ -1419,6 +1419,19 @@ changes) — no other code is shared between the two projects.
 
 - UI strings, comments, and README are in English; keep new user-facing text and comments
   consistent with that.
+- **Whenever a change is introduced that end users would notice** (a new feature, a behavior
+  change, a bug fix), add a bullet to `CHANGELOG.md`'s `## [Unreleased]` section (Keep a Changelog
+  format, under `### Added`/`### Changed`/`### Fixed`/etc. as appropriate) as part of that same
+  change — don't defer it to release time. Purely internal changes (refactors, build tooling,
+  tests, docs, CI) don't need an entry, same "a release with nothing noteworthy simply doesn't get
+  an entry" philosophy the file's own header states. As part of cutting a release,
+  `scripts/cut-release.ts` (invoked from `.github/workflows/release.yml`'s manual patch/minor/major
+  bump step) promotes `## [Unreleased]` to a dated version heading and opens a fresh empty one above
+  it — that part is automated, but keeping `## [Unreleased]` itself populated as changes land is not,
+  and has to be done by hand. `scripts/generate-changelog-json.ts` parses every *dated* section
+  (never `## [Unreleased]` itself, since nothing under it has shipped yet) into
+  `public/changelog.json` at build time, bundled into every build for `entrypoints/whats-new/` (the
+  What's New page) to render offline.
 - **TypeScript + [WXT](https://wxt.dev), real ES module `import`/`export` everywhere, cross-browser
   via the `browser` global (never `chrome.*` directly).** This reverses an earlier "no
   transpilation/bundling" convention (long gone) and, more recently, replaced a Chrome-only Vite +
