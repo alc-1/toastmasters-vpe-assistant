@@ -24,9 +24,9 @@ const settingsBtn = document.getElementById("popupSettingsBtn")!;
 settingsBtn.innerHTML = settingsIconHtml();
 settingsBtn.addEventListener("click", () => browser.tabs.create({ url: appRouteUrl("globalSettings") }));
 
-// Delegated once — renderPopup() replaces stepperRoot's innerHTML on every
-// call, but the root element itself never changes, so a single delegated
-// listener covers every re-render without needing to be re-attached.
+// Delegated once — init() replaces stepperRoot's innerHTML, but the root
+// element itself never changes, so a single delegated listener covers it
+// without needing to be re-attached.
 stepperRoot.addEventListener("click", (e) => {
   const step = (e.target as HTMLElement).closest<HTMLElement>("[data-page-key]");
   if (!step) return;
@@ -47,22 +47,36 @@ async function init() {
   // dropped response (e.g. Firefox's message-port teardown quirk) would
   // otherwise leave the popup blank.
   sendMessage({ type: "POPUP_OPENED" }).catch(() => {});
-  await renderPopup();
-  await renderUpdateBanner();
-  await renderSelfUpdateBanner();
-  void maybeNudgeUpdateCheck();
-}
 
-async function renderPopup() {
-  const info = await computeStepperInfo();
-  stepperRoot.innerHTML = renderVerticalStepper(info);
+  // The three data fetches below are fully independent (disjoint storage
+  // keys, disjoint DOM containers), so they're run concurrently and their
+  // DOM writes applied back-to-back with no await between them. Extension
+  // popups auto-size to content and re-run that sizing on every mutation —
+  // awaiting each render in sequence used to produce three visibly separate
+  // resize "jumps" right after opening; batching the writes collapses that
+  // into one.
+  const [stepperInfo, updateBannerData, selfUpdatePending] = await Promise.all([
+    computeStepperInfo(),
+    loadUpdateBannerData(),
+    getPendingSelfUpdate(),
+  ]);
+
+  stepperRoot.innerHTML = renderVerticalStepper(stepperInfo);
+  applyUpdateBanner(updateBannerData);
+  applySelfUpdateBanner(selfUpdatePending);
+
+  void maybeNudgeUpdateCheck();
 }
 
 // No-op on the store build — updateCheck is only ever written by the preview
 // build's background/api/update-checker.ts, so this always finds nothing.
-async function renderUpdateBanner() {
+async function loadUpdateBannerData() {
   const [update, dismissedVersion] = await Promise.all([getUpdateCheck(), getDismissedUpdateVersion()]);
-  if (!update || update.latestVersion === dismissedVersion) {
+  return !update || update.latestVersion === dismissedVersion ? null : update;
+}
+
+function applyUpdateBanner(update: Awaited<ReturnType<typeof loadUpdateBannerData>>) {
+  if (!update) {
     updateBannerRoot.innerHTML = "";
     return;
   }
@@ -93,8 +107,7 @@ async function renderUpdateBanner() {
 // Dismiss button here (unlike renderUpdateBanner() above): there's nothing
 // meaningful to dismiss into, the browser will apply the update on its own
 // eventually regardless.
-async function renderSelfUpdateBanner() {
-  const pending = await getPendingSelfUpdate();
+function applySelfUpdateBanner(pending: Awaited<ReturnType<typeof getPendingSelfUpdate>>) {
   if (!pending) {
     selfUpdateBannerRoot.innerHTML = "";
     return;

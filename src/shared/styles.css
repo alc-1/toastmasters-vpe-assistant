@@ -155,14 +155,22 @@
 
   /* The popup's own body sizing/spacing — distinct from every other page
      (fixed width, no shared `body` padding above), so it gets its own
-     class rather than reusing .page--wide/--narrow/--status. Fluid with a
-     360px cap (not a hard width) so it can't overflow a narrower-than-360px
-     Android viewport if a browser ever renders the action popup that small —
-     a no-op on desktop, where popups are always ≥360px wide in practice. */
+     class rather than reusing .page--wide/--narrow/--status. No explicit
+     `width` at all (tried width:100% + max-width:360px, then plain
+     width:100% — both still reproduced a visible resize/"shake" on open).
+     Chrome sizes the native popup window from the body's own content size;
+     any explicit width on body ties it back to whatever width the window
+     is *currently* at, which is exactly the value Chrome is still trying
+     to determine — leaving width unset removes that circular dependency
+     entirely and lets the body's natural content width drive sizing in one
+     direction only. `min-width` is safe alongside that: it's an absolute
+     floor, not a value computed from the window's own current width, so it
+     can't reintroduce the same circular dependency — it just stops the
+     header/subtitle/banner text from being squeezed into an unreadably
+     narrow shrink-to-fit column. */
   .page--popup {
     @apply m-0 p-3 bg-surface;
-    width: 100%;
-    max-width: 360px;
+    min-width: 360px;
   }
 
   /* Page title — was copy-pasted identically (bare `h1` selector) across

@@ -17,6 +17,34 @@
     #popupStepperRoot .app-stepper--vertical {
       margin-bottom: 0;
     }
+    /* Reserves the vertical stepper's footprint before computeStepperInfo()
+       (an inherently async browser.storage read — main.ts's init()) resolves
+       and fills this root. Without this, the popup opens as header-only and
+       then grows once, in one jump, the moment the stepper renders — even
+       batched into a single DOM write, that's still a real post-first-paint
+       content-size change for Chromium's native popup auto-resize to react
+       to. Reserving the space up front means the popup opens already at
+       (approximately) its final size, leaving nothing for the auto-resize
+       to visibly react to. 318px is the measured height of the current
+       fixed 5-item NAV_ITEMS list (shared/app-shell.ts) with typical info
+       text; re-measure if a step is added/removed. */
+    #popupStepperRoot {
+      min-height: 360px;
+    }
+    /* shared/styles.css only clamps the subtitle inside an
+       @media (max-width: 1024px) block, meant for a real narrow browser
+       window — this unconditional override keeps the popup's own clamping
+       independent of that media query (see the min-width history above:
+       measurement-pass/final-layout viewport differences were a real,
+       measured source of resize instability here). 2 lines, not 1: at
+       min-width: 400px the full sentence still doesn't always fit on one
+       line, and clamping to 1 was truncating it. */
+    .page--popup .app-header__subtitle {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
   </style>
 </head>
 <body class="page--popup">
