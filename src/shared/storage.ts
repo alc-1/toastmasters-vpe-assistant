@@ -40,6 +40,7 @@ import type {
   MemberPathOrphan,
   MemberPathOverride,
   PathLookup,
+  PendingSelfUpdate,
   ProfileId,
   RejectedPair,
   ScrapeProgressState,
@@ -98,11 +99,22 @@ export interface LocalSchema {
   // switching profiles. See shared/settings-store.ts's getAnonymizeMode()/
   // setAnonymizeMode() and shared/anonymize.ts.
   anonymizeMode: boolean;
+  // Throttle timestamp for background/self-update.ts's opportunistic
+  // browser.runtime.requestUpdateCheck() nudges (see
+  // shared/self-update-store.ts's maybeNudgeUpdateCheck()). Not profile-scoped
+  // — has nothing to do with which club/region profile is active, same
+  // reasoning as updateCheck/anonymizeMode above.
+  lastUpdateCheckRequestedAt: number;
 }
 
 export interface SessionSchema {
   iconStatus: IconStatuses;
   scrapeProgress: ScrapeProgressState;
+  // Set by background/self-update.ts when browser.runtime.onUpdateAvailable
+  // fires. Session-scoped, not local, same reasoning as iconStatus above: a
+  // real browser restart would already have applied any pending update, so a
+  // value that survived the restart would be stale by construction.
+  pendingSelfUpdate: PendingSelfUpdate;
 }
 
 // Every LocalSchema key except `activeProfile` — kept as a literal list

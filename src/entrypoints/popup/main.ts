@@ -13,11 +13,13 @@ import { renderVerticalStepper, type AppShellPage } from "../../shared/app-shell
 import { escapeHtml, settingsIconHtml } from "../../shared/dom-utils";
 import { appRouteUrl } from "../../shared/pages";
 import { sendMessage } from "../../shared/send-message";
+import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
 import { computeStepperInfo } from "../../shared/stepper-info";
 import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, openUpdateRelease } from "../../shared/update-store";
 
 const stepperRoot = document.getElementById("popupStepperRoot")!;
 const updateBannerRoot = document.getElementById("updateBannerRoot")!;
+const selfUpdateBannerRoot = document.getElementById("selfUpdateBannerRoot")!;
 const settingsBtn = document.getElementById("popupSettingsBtn")!;
 settingsBtn.innerHTML = settingsIconHtml();
 settingsBtn.addEventListener("click", () => browser.tabs.create({ url: appRouteUrl("globalSettings") }));
@@ -47,6 +49,8 @@ async function init() {
   sendMessage({ type: "POPUP_OPENED" }).catch(() => {});
   await renderPopup();
   await renderUpdateBanner();
+  await renderSelfUpdateBanner();
+  void maybeNudgeUpdateCheck();
 }
 
 async function renderPopup() {
@@ -80,5 +84,32 @@ async function renderUpdateBanner() {
   document.getElementById("updateDismissBtn")!.addEventListener("click", async () => {
     await dismissUpdate(update.latestVersion);
     updateBannerRoot.innerHTML = "";
+  });
+}
+
+// pendingSelfUpdate is only ever set by background/self-update.ts's
+// onUpdateAvailable listener, which the browser fires rarely — only once it
+// has already downloaded a genuinely newer version of this extension. No
+// Dismiss button here (unlike renderUpdateBanner() above): there's nothing
+// meaningful to dismiss into, the browser will apply the update on its own
+// eventually regardless.
+async function renderSelfUpdateBanner() {
+  const pending = await getPendingSelfUpdate();
+  if (!pending) {
+    selfUpdateBannerRoot.innerHTML = "";
+    return;
+  }
+
+  selfUpdateBannerRoot.innerHTML = `
+    <div class="update-banner">
+      <span>Update ready: v${escapeHtml(pending.version)}</span>
+      <span class="update-banner__actions">
+        <button id="selfUpdateApplyBtn" class="btn btn-primary">Update now</button>
+      </span>
+    </div>
+  `;
+
+  document.getElementById("selfUpdateApplyBtn")!.addEventListener("click", () => {
+    void applyPendingSelfUpdate(); // reload() tears down this popup's own context almost immediately
   });
 }

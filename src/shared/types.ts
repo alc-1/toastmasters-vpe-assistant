@@ -409,6 +409,21 @@ export interface UpdateCheckInfo {
   checkedAt: number;
 }
 
+/**
+ * Set when the browser itself (see background/self-update.ts) has already
+ * downloaded a newer version of this installed extension and is only
+ * delaying *applying* it until the extension is judged idle. Unrelated to
+ * UpdateCheckInfo above (the preview build's own GitHub-release poll for
+ * side-loaded installs no browser store ever auto-updates).
+ */
+export interface PendingSelfUpdate {
+  // Bare, e.g. "1.4.0" — runtime.onUpdateAvailable reports it in the same
+  // format as getManifest().version, no "v" stripping needed (unlike the
+  // GitHub tag_name in update-checker.ts).
+  version: string;
+  detectedAt: number;
+}
+
 // Incremental progress for a still-running scrape, written to
 // browser.storage.session (see shared/storage.ts's SessionSchema) so a page
 // can render live updates. clubsTotal/currentClubIndex are real counts

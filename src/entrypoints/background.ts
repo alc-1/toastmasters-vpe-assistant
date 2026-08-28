@@ -40,6 +40,7 @@
 // sources are wired up.
 
 import { registerMessageHandlers } from "../background/messaging";
+import { registerSelfUpdateWatcher } from "../background/self-update";
 import { PAGES, pageUrl } from "../shared/pages";
 
 export default defineBackground(() => {
@@ -51,6 +52,7 @@ export default defineBackground(() => {
   });
 
   registerMessageHandlers();
+  registerSelfUpdateWatcher();
 
   if (import.meta.env.MODE === "preview") {
     import("../background/api/update-checker").then((m) => m.registerUpdateChecker());

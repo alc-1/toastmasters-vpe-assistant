@@ -78,6 +78,63 @@ Background errors surface via the response returned to the caller (`{ ok: false,
 console — check `entrypoints/app/views/syncData.ts`'s per-source status line first when debugging a
 failed scrape.
 
+**Testing the self-update ("Update now") flow** (`background/self-update.ts` +
+`shared/self-update-store.ts`) — separate from the numbered walkthrough above, and separate from the
+preview build's own GitHub-release update banner. This feature reacts to
+`browser.runtime.onUpdateAvailable`, which only fires once the browser itself has genuinely staged a
+newer *packaged* version of the extension — something you cannot trigger on demand from a local dev
+build, so there's no way to exercise it just by editing code and reloading. Simulate it instead by
+writing the state it reacts to directly, from either browser's background console
+(`chrome://extensions` → this extension → "service worker" inspect link on Chrome; `about:debugging`
+→ "Inspect" on Firefox):
+```js
+browser.storage.session.set({ pendingSelfUpdate: { version: "9.9.9", detectedAt: Date.now() } })
+```
+Then check, on **both** Chrome and Firefox (same "never assume Firefox parity" policy as everywhere
+else in this doc):
+- The toolbar icon badges "1" in navy (same badge style `background/api/update-checker.ts` uses, on
+  a separate code path — see that module's bullet in Architecture).
+- Reopening the popup shows an "Update ready: v9.9.9" banner (`#selfUpdateBannerRoot`, next to the
+  existing preview-only `#updateBannerRoot` — confirm that one still renders independently if you
+  also have preview `updateCheck` data set, since the two are designed to never need to coordinate).
+- With the merged app tab already open and parked on any view, running the `storage.session.set`
+  call above should make the same banner appear in the app's header *without* reloading or
+  navigating the tab — this exercises `entrypoints/app/main.ts`'s `storage.onChanged` `area ===
+  "session"` branch, which exists specifically so a tab left open mid Sync Data session picks this up
+  live.
+- Clicking "Update now" (either surface) calls `browser.runtime.reload()` — the extension reloads,
+  and reopening the popup/app afterward shows no banner and no badge (confirms
+  `applyPendingSelfUpdate()`'s clear-before-reload ordering actually beat the reload).
+- **Self-heal check**: repeat the `storage.session.set` call above but with `version` set to
+  whatever `browser.runtime.getManifest().version` actually is (i.e. the version you're already
+  running), then reload the extension from `chrome://extensions`/`about:debugging` yourself (not via
+  the banner). The banner/badge should come back cleared on their own, with no click needed — this is
+  `background/self-update.ts`'s `clearIfAlreadyApplied()`, guarding against `storage.session` having
+  survived a reload that already applied the "pending" version.
+- **Throttle check**: `shared/self-update-store.ts`'s `maybeNudgeUpdateCheck()` calls
+  `browser.runtime.requestUpdateCheck()` on browser startup and on every popup/app open, but writes
+  `local.lastUpdateCheckRequestedAt` and skips the call if under an hour has passed — reopen the
+  popup a few times in a row and confirm (via a temporary `console.log` or a storage inspector) that
+  timestamp only advances roughly once per hour, not on every open.
+
+If you're testing this against a **preview** build (`.output/preview/...`) specifically, expect one
+extra side effect on top of the above: clicking "Update now" (or reloading the extension yourself
+for the self-heal check) will *also* trigger a GitHub Releases fetch, unrelated to the self-update
+code. That's Chrome's own dev-mode reload quirk, not a bug here: calling `browser.runtime.reload()`
+on an extension loaded via "Load unpacked"/"Load Temporary Add-on" makes Chrome fire
+`runtime.onInstalled` with `reason: "update"` on essentially every reload, whether or not the
+packaged bytes actually changed — real store installs don't behave this way, since Chrome can tell a
+genuine version bump from a no-op reload there. `background/api/update-checker.ts` has its own,
+completely independent `onInstalled` listener (`if (details.reason === "install" || "update") void
+checkForUpdate()`), so that dev-mode "update" reason feeds straight into it and fires a GitHub check,
+purely as a coincidence of testing on the one build mode that bundles `update-checker.ts` at all (the
+store build dead-code-eliminates it — see the CI grep step above). To test the self-update
+reload/clear/self-heal behavior in isolation without that noise, load `.output/store/chrome-mv3` (or
+the Firefox store build) instead — no such fetch can happen there. Also expect the window/popup you
+clicked from to close immediately either way: that's `applyPendingSelfUpdate()`'s
+`browser.runtime.reload()` tearing down every open extension page's script context, which is exactly
+what makes "Update now" work.
+
 `.github/workflows/ci.yml` runs `test` (Vitest), then `lint:css` (stylelint against
 `src/shared/styles.css` only — see below), then the store/Chrome build, then the Playwright
 `test:e2e` suite (see below) against that build, then the remaining 3 build combinations

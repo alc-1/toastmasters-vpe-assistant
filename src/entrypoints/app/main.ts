@@ -8,6 +8,8 @@
 // ViewModule) now owns only its own body content, not the shared chrome.
 
 import { renderAppShell, renderStepFooter, type AppShellPage, type StepperInfo } from "../../shared/app-shell";
+import { escapeHtml } from "../../shared/dom-utils";
+import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
 import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
 import { resolveRoute } from "./router";
 import { VIEWS } from "./views";
@@ -22,9 +24,17 @@ const ROUTE_TITLE: Record<AppRoute, string> = {
   globalSettings: "Global Settings",
 };
 
+const selfUpdateBannerRoot = document.getElementById("selfUpdateBannerRoot")!;
 const appShellRoot = document.getElementById("appShell")!;
 const stepFooterRoot = document.getElementById("stepFooter")!;
 const viewRoot = document.getElementById("viewRoot")!;
+
+// Delegated once, same rationale as appShellRoot's own delegated listener
+// below — renderSelfUpdateBanner() replaces this root's innerHTML on every
+// render, but the root element itself never changes.
+selfUpdateBannerRoot.addEventListener("click", (e) => {
+  if ((e.target as HTMLElement).closest("#selfUpdateApplyBtn")) void applyPendingSelfUpdate();
+});
 
 // Delegated once — renderChrome() replaces appShellRoot's innerHTML on every
 // navigation, but the root element itself never changes, so a single
@@ -112,6 +122,28 @@ async function renderChrome(route: AppRoute, info: StepperInfo) {
     settingsActive: route === "globalSettings",
   });
   stepFooterRoot.innerHTML = isWizardStep ? renderStepFooter(route as AppShellPage, info) : "";
+  await renderSelfUpdateBanner();
+}
+
+// pendingSelfUpdate is only ever set by background/self-update.ts's
+// onUpdateAvailable listener, which the browser fires rarely — only once it
+// has already downloaded a genuinely newer version of this extension. No
+// Dismiss button: there's nothing meaningful to dismiss into, the browser
+// will apply the update on its own eventually regardless.
+async function renderSelfUpdateBanner(): Promise<void> {
+  const pending = await getPendingSelfUpdate();
+  if (!pending) {
+    selfUpdateBannerRoot.innerHTML = "";
+    return;
+  }
+  selfUpdateBannerRoot.innerHTML = `
+    <div class="update-banner">
+      <span>Update ready: v${escapeHtml(pending.version)}</span>
+      <span class="update-banner__actions">
+        <button id="selfUpdateApplyBtn" class="btn btn-primary">Update now</button>
+      </span>
+    </div>
+  `;
 }
 
 // Shell-chrome-only refresh: re-renders appShell/stepFooter on any storage
@@ -122,7 +154,13 @@ async function renderChrome(route: AppRoute, info: StepperInfo) {
 // two to race over regardless of firing order.
 browser.storage.onChanged.addListener((_changes, area) => {
   if (area === "local" && currentRoute) navigate(location.hash);
+  // pendingSelfUpdate lives in .session, not .local (see shared/storage.ts) —
+  // a lighter-weight, banner-only refresh is enough here since a session
+  // change is never a real navigation and doesn't need computeStepperInfo()/
+  // route resolution re-run.
+  if (area === "session" && currentRoute) void renderSelfUpdateBanner();
 });
 
 window.addEventListener("hashchange", () => navigate(location.hash));
 navigate(location.hash);
+void maybeNudgeUpdateCheck();

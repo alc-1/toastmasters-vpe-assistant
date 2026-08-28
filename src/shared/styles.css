@@ -1191,6 +1191,39 @@
   }
 
   /* ---------------------------------------------------------------------- */
+  /* Update banner — shared by the popup's preview-build GitHub-release      */
+  /* banner (shared/update-store.ts) and the self-update-ready banner        */
+  /* (shared/self-update-store.ts), used in both the popup and the merged    */
+  /* app SPA header — relocated here from popup/index.html's own inline      */
+  /* <style> so app/index.html can reuse the identical class.                */
+  /* ---------------------------------------------------------------------- */
+
+  .update-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    background: var(--info-bg);
+    border: 1px solid var(--info);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--gray-900);
+  }
+
+  .update-banner__actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-shrink: 0;
+  }
+
+  .update-banner .btn {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-xs);
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* Step footer — Next/Previous navigation between the five options pages  */
   /* ---------------------------------------------------------------------- */
 
