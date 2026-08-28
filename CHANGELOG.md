@@ -8,6 +8,8 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-28
+
 ### Added
 
 - Checks regularly if an update is available to install.
