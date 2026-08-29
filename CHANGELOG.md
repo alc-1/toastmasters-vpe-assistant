@@ -8,6 +8,10 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+### Fixed
+
+- The What's New page now shows the latest version's changes right after an update.
+
 ## [1.2.0] - 2026-08-28
 
 ### Added

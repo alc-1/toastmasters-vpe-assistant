@@ -1430,8 +1430,15 @@ changes) — no other code is shared between the two projects.
   it — that part is automated, but keeping `## [Unreleased]` itself populated as changes land is not,
   and has to be done by hand. `scripts/generate-changelog-json.ts` parses every *dated* section
   (never `## [Unreleased]` itself, since nothing under it has shipped yet) into
-  `public/changelog.json` at build time, bundled into every build for `entrypoints/whats-new/` (the
-  What's New page) to render offline.
+  `public/changelog.json` (gitignored, fully derived) at build time, bundled into every build for
+  `entrypoints/whats-new/` (the What's New page) to render offline. Regeneration is wired **both**
+  through the npm-script chain (`postinstall` + the `dev`/`build*`/`zip*` scripts each run
+  `generate:changelog-json` first) **and** a `build:before` hook in `wxt.config.ts` — the hook is
+  what covers callers that invoke `wxt` directly and skip the npm wrappers (e.g. an earlier
+  `.github/workflows/release.yml` ran `npx wxt zip` right after `cut-release.ts`'s promotion,
+  shipping a `changelog.json` that still omitted the just-cut version). The `postinstall` explicit
+  call must stay regardless: `public/changelog.json` has to exist on disk before `wxt prepare` scans
+  `public/` for the `PublicPath` type on a fresh clone.
 - **TypeScript + [WXT](https://wxt.dev), real ES module `import`/`export` everywhere, cross-browser
   via the `browser` global (never `chrome.*` directly).** This reverses an earlier "no
   transpilation/bundling" convention (long gone) and, more recently, replaced a Chrome-only Vite +

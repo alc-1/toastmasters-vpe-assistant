@@ -1,4 +1,5 @@
 import { defineConfig } from "wxt";
+import { generateChangelogJson } from "./scripts/generate-changelog-json";
 
 // Two release targets share this one config: "store" (the Chrome Web Store /
 // AMO submission candidate) and "preview" (for testers, outside either
@@ -11,6 +12,19 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   srcDir: "src",
   outDirTemplate: "{{mode}}/{{browser}}-mv{{manifestVersion}}",
+
+  hooks: {
+    // Regenerate public/changelog.json from CHANGELOG.md before every build.
+    // 'build:before' fires for `wxt build`, `wxt zip`, and `wxt dev`, so this
+    // covers any caller that invokes wxt directly and bypasses the npm-script
+    // chain — e.g. a `wxt zip` run after cut-release.ts has promoted
+    // CHANGELOG.md's [Unreleased] section, which otherwise ships a
+    // changelog.json missing the just-cut version (the v1.2.0 release bug).
+    // `wxt prepare` (postinstall) stays covered by its own explicit call: the
+    // file must exist on disk before prepare scans public/ for the PublicPath
+    // type on a fresh clone.
+    "build:before": () => generateChangelogJson(),
+  },
 
   manifest: ({ mode, browser }) => {
     const isPreview = mode === "preview";

@@ -55,10 +55,17 @@ jobs:
           # call both builds and zips; Firefox also produces a companion
           # "-sources-<mode>.zip" (AMO's review requirement for a bundled build) —
           # 6 zip files total.
-          npx wxt zip --mode store
-          npx wxt zip -b firefox --mode store
-          npx wxt zip --mode preview
-          npx wxt zip -b firefox --mode preview
+          #
+          # Use the npm `zip*` wrappers (not `npx wxt zip` directly): they chain
+          # `generate:changelog-json` first, so public/changelog.json is rebuilt
+          # from the CHANGELOG.md that cut-release.ts just promoted, not the stale
+          # one left by `npm ci`'s postinstall. wxt.config.ts's build:before hook
+          # also does this now, but keeping the wrappers keeps this consistent
+          # with CI/local and resilient if that hook is ever removed.
+          npm run zip
+          npm run zip:firefox
+          npm run zip:preview
+          npm run zip:preview:firefox
 
           V="${{ steps.version.outputs.version }}"
           echo "chrome_store_zip=toastmasters-vpe-assistant-$V-chrome-store.zip" >> "$GITHUB_OUTPUT"
