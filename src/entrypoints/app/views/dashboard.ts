@@ -18,9 +18,10 @@
 import {
   areFeaturesUnlocked,
   computeStepperInfo,
-  countCompletedSetupSteps,
+  evaluateSetupPipeline,
   isSetupStepComplete,
   SETUP_STEPS,
+  type SetupBannerState,
 } from "../../../shared/stepper-info";
 import { downloadBackup, parseBackup, restoreBackup } from "../../../shared/backup";
 import { confirmModal } from "../../../shared/modal";
@@ -34,21 +35,15 @@ const SHELL_HTML = `
   <div class="dashboard-features" id="dashboardFeaturesRoot"></div>
 `;
 
-// The setup-banner has four states:
-//   required     — step 1 (Setup / profile) not done yet
-//   progress     — profile chosen, but an earlier wizard step is still
-//                  outstanding, or Member Review hasn't been reached yet
-//   reviewNeeded — Member Review has been reached and still has unresolved
-//                  matches / path issues (its StepMeta.warningCount) — the
-//                  CTA jumps straight to the "To do" list there
-//   ready        — every step done, nothing left to review
-// `dot` is the .dashboard-status__dot modifier (amber for the first three,
-// green for ready). `label` is static except reviewNeeded, whose "(N items)"
-// count is appended in renderBanner(). CTA target: reviewNeeded → #members;
-// ready → #syncData ("Refresh Data"); otherwise the furthest step the user
-// has actually reached (never one they haven't opened — see resumeStep).
-type BannerState = "required" | "progress" | "reviewNeeded" | "ready";
-const BANNER_COPY: Record<BannerState, { dot: string; label: string; cta: string }> = {
+// Copy + CTA per banner state. The state machine that picks the state (and
+// resolves the resume step) lives in shared/stepper-info.ts's
+// evaluateSetupPipeline() — pure and unit-tested, and deliberately blind to
+// Privacy Mode. `dot` is the .dashboard-status__dot modifier (amber for the
+// first three, green for ready); `label` is static except reviewNeeded, whose
+// "(N items)" count is appended in renderBanner(). CTA target: reviewNeeded →
+// #members; ready → #syncData ("Refresh Data"); otherwise the furthest step
+// the user has actually reached.
+const BANNER_COPY: Record<SetupBannerState, { dot: string; label: string; cta: string }> = {
   required: { dot: "is-progress", label: "Setup Required", cta: "Start Setup →" },
   progress: { dot: "is-progress", label: "Setup In Progress", cta: "Continue Setup →" },
   reviewNeeded: { dot: "is-warning", label: "Review Needed", cta: "Review Unmatched →" },
@@ -134,48 +129,30 @@ export const dashboardView: ViewModule = {
       // unchecked, exactly as the stepper shows it.
       const stepComplete = (key: AppShellPage): boolean => isSetupStepComplete(info[key]);
 
-      const completed = countCompletedSetupSteps(info);
-      const total = SETUP_STEPS.length;
+      // Every derived pipeline value comes from one pure, unit-tested place
+      // that is deliberately blind to Privacy Mode — toggling the name mask
+      // must never move the banner state, the tracker, or the CTA.
+      const {
+        bannerState: state,
+        completedSteps: completed,
+        totalSteps: total,
+        pendingReviewCount: pendingCount,
+        resumeStep,
+      } = evaluateSetupPipeline(info);
 
-      // Member Review counts as "review needed" only once the user has
-      // actually reached it (not locked) and it's genuinely available (not
-      // disabled — a pending Club Review or Privacy Mode both take priority),
-      // and it still has unresolved items. `warningCount` is the same number
-      // Member Review's own "To do" filter shows (shared/stepper-info.ts).
-      const membersMeta = info.members;
-      const membersReviewable = !!membersMeta && !membersMeta.locked && !membersMeta.disabled;
-      const pendingCount = membersMeta?.warningCount ?? 0;
-      const reviewPending = membersReviewable && !membersMeta.done && pendingCount > 0;
-
-      // members (the last SETUP_STEP) is only ever complete once every earlier
-      // step is too — see shared/stepper-info.ts — so `stepComplete("members")`
-      // is a safe single check for "all four done".
-      const state: BannerState = !stepComplete("setup")
-        ? "required"
-        : reviewPending
-          ? "reviewNeeded"
-          : !stepComplete("members")
-            ? "progress"
-            : "ready";
       const { dot: dotClass, cta } = BANNER_COPY[state];
       const statusLabel =
         state === "reviewNeeded"
           ? `Review Needed (${pendingCount} item${pendingCount === 1 ? "" : "s"})`
           : BANNER_COPY[state].label;
 
-      // "Continue Setup" resumes at the furthest step this profile has
-      // actually reached — never one they haven't opened yet. Entering a new
-      // step for the first time only happens from inside the wizard, via the
-      // step footer's "Continue to X" button, so the Home screen never skips
-      // the user past a step they haven't seen. `locked` (see
-      // shared/stepper-info.ts's isLocked) is exactly "never visited by this
-      // profile"; setup (index 0) is never locked, so this always resolves.
-      // (resolveRoute() still bounces the target back to #setup if it happens
-      // to be gated, e.g. Club Review while Privacy Mode is on.) Once setup is
-      // complete, "Refresh Data" jumps straight to Sync Data (step 2) — the
-      // only step a returning user actually wants when re-pulling club progress.
-      const resumeStep: AppShellPage =
-        [...SETUP_STEPS].reverse().find((s) => !info[s.key]?.locked)?.key ?? "setup";
+      // "Continue Setup" resumes at `resumeStep` — the furthest step this
+      // profile has actually opened, resolved by evaluateSetupPipeline(). The
+      // Home screen never skips the user past a step they haven't seen;
+      // entering a new step for the first time only happens from inside the
+      // wizard via the step footer's "Continue to X" button. Once setup is
+      // complete, "Refresh Data" jumps straight to Sync Data instead — the
+      // only step a returning user wants when re-pulling club progress.
       // reviewNeeded links straight to Member Review — the merged app's route
       // for step 4 (there is no "?step=" param scheme; it's hash routing) —
       // which mounts on its "To do" filter by default (see

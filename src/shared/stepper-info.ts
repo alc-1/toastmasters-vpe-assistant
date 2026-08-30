@@ -6,7 +6,7 @@
 // duplicate the storage reads + buildReport() call this requires.
 
 import { loadResolutionData } from "./resolution-store";
-import { EASYSPEAK_SERVERS, getActiveProfile, getAnonymizeMode, getEasySpeakServer, getMockMode } from "./settings-store";
+import { EASYSPEAK_SERVERS, getActiveProfile, getEasySpeakServer, getMockMode } from "./settings-store";
 import { local } from "./storage";
 import { buildReport, computeMatchSummary, isMemberResolved } from "./sync/delta";
 import { NAV_ITEMS, type AppShellPage, type StepMeta, type StepperInfo } from "./app-shell";
@@ -88,12 +88,80 @@ export function areFeaturesUnlocked(info: StepperInfo): boolean {
   return !!info.setup?.done && !!info.syncData?.done;
 }
 
+/** The Home dashboard's "Club Data Status" banner state — see
+ *  entrypoints/app/views/dashboard.ts's BANNER_COPY for the copy/CTA each maps
+ *  to. `required` (Setup not done) → `progress` (an earlier step outstanding)
+ *  → `reviewNeeded` (Member Review reached, still has unresolved items) →
+ *  `ready` (all four done). */
+export type SetupBannerState = "required" | "progress" | "reviewNeeded" | "ready";
+
+export interface SetupPipelineState {
+  bannerState: SetupBannerState;
+  completedSteps: number;
+  totalSteps: number;
+  /** Outstanding Member-Review items — non-zero only when bannerState is
+   *  "reviewNeeded" (the count behind the "Review Needed (N items)" badge). */
+  pendingReviewCount: number;
+  /** The furthest wizard step this profile has actually opened (never one it
+   *  hasn't reached) — the "Continue Setup" resume target. */
+  resumeStep: AppShellPage;
+}
+
+/**
+ * Pure setup-pipeline evaluation backing the Home dashboard's status banner
+ * (entrypoints/app/views/dashboard.ts's renderBanner) and, through the same
+ * StepperInfo, the wizard stepper. Split out of the view so this decision
+ * lives in one unit-testable place.
+ *
+ * Privacy Mode (Anonymize) is deliberately NOT an input here — not directly,
+ * and not via a StepMeta field it taints. It's a presentation-only name mask
+ * (shared/anonymize.ts); folding it into step evaluation previously let a
+ * transient header toggle flip the banner between "Setup In Progress" and
+ * "Review Needed" with no underlying data change. computeStepperInfo() keeps
+ * StepMeta.disabled prerequisite-only for the same reason.
+ */
+export function evaluateSetupPipeline(info: StepperInfo): SetupPipelineState {
+  const stepComplete = (key: AppShellPage): boolean => isSetupStepComplete(info[key]);
+
+  // Member Review raises the "review needed" state only once it's genuinely
+  // actionable: reached by this profile (not `locked`), prerequisites met
+  // (not `disabled` — a profile, both data sources, no pending Club Review;
+  // never Privacy Mode), not already `done`, and still carrying items.
+  const membersMeta = info.members;
+  const membersReviewable = !!membersMeta && !membersMeta.locked && !membersMeta.disabled;
+  const pendingReviewCount = membersMeta?.warningCount ?? 0;
+  const reviewPending = membersReviewable && !membersMeta.done && pendingReviewCount > 0;
+
+  // members (the last SETUP_STEP) is only ever complete once every earlier
+  // step is too (see computeStepperInfo), so stepComplete("members") is a
+  // safe single check for "all four done".
+  const bannerState: SetupBannerState = !stepComplete("setup")
+    ? "required"
+    : reviewPending
+      ? "reviewNeeded"
+      : !stepComplete("members")
+        ? "progress"
+        : "ready";
+
+  // `locked` (see isLocked in computeStepperInfo) is exactly "never visited by
+  // this profile"; setup (index 0) is never locked, so this always resolves.
+  const resumeStep: AppShellPage =
+    [...SETUP_STEPS].reverse().find((s) => !info[s.key]?.locked)?.key ?? "setup";
+
+  return {
+    bannerState,
+    completedSteps: countCompletedSetupSteps(info),
+    totalSteps: SETUP_STEPS.length,
+    pendingReviewCount: bannerState === "reviewNeeded" ? pendingReviewCount : 0,
+    resumeStep,
+  };
+}
+
 export async function computeStepperInfo(): Promise<StepperInfo> {
-  const [activeProfile, cached, visited, anonymize, setupComplete] = await Promise.all([
+  const [activeProfile, cached, visited, setupComplete] = await Promise.all([
     getActiveProfile(),
     local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]),
     getVisitedSteps(),
-    getAnonymizeMode(),
     getSetupComplete(),
   ]);
 
@@ -109,11 +177,15 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
   const hasBothData = !!basecampData && !!easyspeakData;
 
   const syncDisabled = noProfile;
-  // Anonymize Mode (see shared/anonymize.ts) replaces every real name with a
-  // generic label, so name-based matching (this page's whole purpose) can't
-  // be done while it's on — see Global Settings (shared/pages.ts's
-  // PAGES.globalSettings).
-  const clubReviewDisabled = noProfile || !hasBothData || anonymize;
+  // `disabled` is PREREQUISITE-only (see StepMeta's doc comment): a profile,
+  // both data sources, no unresolved earlier step. Privacy Mode (Anonymize,
+  // shared/anonymize.ts) is deliberately not a factor — it's a
+  // presentation-only name mask, and folding it in let a transient view
+  // toggle move the setup pipeline / Home banner state (it flipped between
+  // "In Progress" and "Review Needed" on every toggle). Club Review / Member
+  // Review guard themselves against Privacy Mode at mount time instead, with
+  // an inline message pointing the user at the toggle.
+  const clubReviewDisabled = noProfile || !hasBothData;
 
   let clubReviewPending = false;
   let reportInfo: ReportStepInfo | null = null;
@@ -131,11 +203,9 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
   }
 
   // Member Review's prerequisites — a profile, both data sources, and no
-  // unresolved club matches. NOT gated on `anonymize` here; that's added
-  // separately for `members` just below (Club Progress, reached from the
-  // Home dashboard, must stay usable while Anonymize Mode is on).
-  const membersBlocked = noProfile || !hasBothData || clubReviewPending;
-  const membersDisabled = membersBlocked || anonymize;
+  // unresolved club matches. Not gated on Privacy Mode (see clubReviewDisabled
+  // above for the rationale).
+  const membersDisabled = noProfile || !hasBothData || clubReviewPending;
 
   const clubReviewDone = hasBothData && !clubReviewPending;
   const membersPending = (reportInfo?.toReview ?? 0) > 0;
