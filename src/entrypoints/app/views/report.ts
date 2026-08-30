@@ -71,22 +71,22 @@ interface StatusBadgeInfo {
 }
 
 const STATUS_BADGE: Record<LevelUpStatus, StatusBadgeInfo> = {
-  ready: { label: "Ready", tone: "badge-success", icon: ICON_CHECKMARK, description: "All requirements reported, the level can be taken now." },
+  ready: { label: "Ready", tone: "badge-soft badge-success", icon: ICON_CHECKMARK, description: "All requirements reported, the level can be taken now." },
   "ready-if-reported": {
     label: "Ready if reported",
-    tone: "badge-pending",
+    tone: "badge-soft badge-warning",
     icon: ICON_LIGHTNING,
     description: "Done in EasySpeak, just needs reporting in Basecamp to be ready.",
   },
-  "in-progress": { label: "On track", tone: "badge-info", icon: "", description: "Still working through the level's speeches." },
+  "in-progress": { label: "On track", tone: "badge-soft badge-info", icon: "", description: "Still working through the level's speeches." },
   "needs-reporting": {
     label: "Needs reporting",
-    tone: "badge-pending",
+    tone: "badge-soft badge-warning",
     icon: "",
     description: "Some speeches done in EasySpeak aren't yet reported in Basecamp.",
   },
-  completed: { label: "Completed", tone: "badge-success", icon: "", description: "Path completed." },
-  "not-tracked": { label: "Not tracked", tone: "badge-muted", icon: "", description: "Only in EasySpeak, not yet in Basecamp." },
+  completed: { label: "Completed", tone: "badge-soft badge-success", icon: "", description: "Path completed." },
+  "not-tracked": { label: "Not tracked", tone: "badge-soft", icon: "", description: "Only in EasySpeak, not yet in Basecamp." },
 };
 
 interface ClubSection {
@@ -191,7 +191,7 @@ export const reportView: ViewModule = {
       if (disposed) return;
       if (anonymize) report = anonymizeReport(report, buildAnonymizationMaps(report));
       getRoot("anonymizeIndicator").innerHTML = anonymize
-        ? '<span class="badge badge-pending" title="Turn off in Global Settings to see real names">Anonymized</span>'
+        ? '<span class="badge badge-soft badge-warning" title="Turn off in Global Settings to see real names">Anonymized</span>'
         : "";
 
       const summaryGroups = buildLevelSummary(report);
@@ -447,7 +447,7 @@ export const reportView: ViewModule = {
     function renderSummaryCard(row: LevelSummaryRow, key: string, isExpanded: boolean): string {
       const muted = row.status === "completed" || row.status === "not-tracked";
       const ready = row.status === "ready" || row.status === "ready-if-reported";
-      const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span>`;
+      const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge ${presenceBadgeClass(row.pathPresence)}">${presenceLabel(row.pathPresence)}</span>`;
       const levelLabel = row.currentLevelLabel === "Not in Basecamp" ? "—" : row.currentLevelLabel;
       const statusInfo = STATUS_BADGE[row.status];
       return `
@@ -478,7 +478,7 @@ export const reportView: ViewModule = {
       const muted = row.status === "completed" || row.status === "not-tracked";
       const ready = row.status === "ready" || row.status === "ready-if-reported";
       const rowClass = [muted && "muted-row", ready && "ready-row"].filter(Boolean).join(" ");
-      const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span>`;
+      const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge ${presenceBadgeClass(row.pathPresence)}">${presenceLabel(row.pathPresence)}</span>`;
       const chevron = `
         <span class="row-chevron${isExpanded ? " expanded" : ""}">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
@@ -545,6 +545,10 @@ export const reportView: ViewModule = {
       if (presence === "both") return "In both";
       if (presence === "basecamp-only") return "Basecamp only";
       return "EasySpeak only";
+    }
+
+    function presenceBadgeClass(presence: string): string {
+      return presence === "basecamp-only" ? "badge-soft badge-warning" : "badge-soft badge-info";
     }
 
     function getLevel(path: PathReport, levelNumber: number): LevelDiff {

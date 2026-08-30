@@ -55,7 +55,7 @@ const SHELL_HTML = `
     <div class="card sync-card">
       <div class="card-header sync-card__header">
         <span class="sync-card__title">Basecamp</span>
-        <span id="badgeBasecamp" class="badge badge-danger">Not Imported</span>
+        <span id="badgeBasecamp" class="badge badge-soft badge-error">Not Imported</span>
       </div>
       <div class="card-body sync-card__body">
         <p id="statusBasecamp" class="sync-card__status-text help-text" aria-live="polite"></p>
@@ -76,7 +76,7 @@ const SHELL_HTML = `
     <div class="card sync-card">
       <div class="card-header sync-card__header">
         <span class="sync-card__title">EasySpeak</span>
-        <span id="badgeEasySpeak" class="badge badge-danger">Not Imported</span>
+        <span id="badgeEasySpeak" class="badge badge-soft badge-error">Not Imported</span>
       </div>
       <div class="card-body sync-card__body">
         <p id="statusEasySpeak" class="sync-card__status-text help-text" aria-live="polite"></p>
@@ -107,6 +107,12 @@ const BADGE_LABEL: Record<BadgeTone, string> = {
   success: "✓ Imported",
 };
 
+const BADGE_TONE_CLASS: Record<BadgeTone, string> = {
+  danger: "badge-error",
+  pending: "badge-warning",
+  success: "badge-success",
+};
+
 function computeExportAvailability(basecampData: BasecampScrape | null, easyspeakData: EasySpeakScrape | null): Record<ExportType, boolean> {
   const hasBasecamp = !!basecampData;
   const hasEasySpeak = !!easyspeakData;
@@ -114,7 +120,7 @@ function computeExportAvailability(basecampData: BasecampScrape | null, easyspea
 }
 
 function setBadge(el: HTMLElement, tone: BadgeTone) {
-  el.className = `badge badge-${tone}`;
+  el.className = `badge badge-soft ${BADGE_TONE_CLASS[tone]}`;
   el.textContent = BADGE_LABEL[tone];
 }
 

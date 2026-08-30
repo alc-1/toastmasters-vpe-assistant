@@ -2275,20 +2275,16 @@
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Badges — grouped into exactly the 4 statuses the Member Matching table  */
-  /* distinguishes (Exact/green, Resolved Manually/blue, Unmatched/red, Needs */
-  /* Review/orange, also reused by Flagged); Report's own presence badges    */
-  /* (basecamp-only/easyspeak-only) reuse the same 4 tokens rather than a    */
-  /* separate 5th color.                                                    */
+  /* Badges — daisyUI `badge` + `badge-soft badge-{success|info|warning|    */
+  /* error}` (or bare `badge-soft` for muted) in markup; this only tightens */
+  /* daisyUI's default badge into the app's compact uppercase pill.         */
   /* ---------------------------------------------------------------------- */
 
   .badge {
     @apply text-xs rounded-pill;
-    display: inline-flex;
-    align-items: center;
     gap: 3px;
     height: auto;
-    border: 0; /* reset daisyUI .badge's default outline — our variants are soft-filled */
+    border: 0;
     font-weight: 600;
     padding: 2px 6px;
     text-transform: uppercase;
@@ -2296,54 +2292,8 @@
     white-space: nowrap;
   }
 
-  /* Club Progress's Status badges (report/main.ts) — icon-less badges just
-     have no .status-icon child, so this doesn't affect them. */
   .badge .status-icon {
     flex-shrink: 0;
-  }
-
-  .badge-both,
-  .badge-exact {
-    @apply bg-success-bg text-success;
-  }
-
-  .badge-confirmed,
-  .badge-easyspeak-only {
-    @apply bg-info-bg text-info;
-  }
-
-  .badge-basecamp-only,
-  .badge-fuzzy,
-  .badge-flagged {
-    @apply bg-warning-bg text-warning-text;
-  }
-
-  .badge-unmatched,
-  .badge-path-issue {
-    @apply bg-danger-bg text-danger;
-  }
-
-  /* Generic status tones — additive to the 4 Member Review-specific pairs
-     above, for contexts (like Sync Data's status cards) that aren't part of
-     that specific vocabulary. */
-  .badge-success {
-    @apply bg-success-bg text-success;
-  }
-
-  .badge-pending {
-    @apply bg-warning-bg text-warning-text;
-  }
-
-  .badge-info {
-    @apply bg-info-bg text-info;
-  }
-
-  .badge-danger {
-    @apply bg-danger-bg text-danger;
-  }
-
-  .badge-muted {
-    @apply bg-surface-alt text-tm-gray-600;
   }
 
   /* Kept under their existing names (not renamed to something generic like

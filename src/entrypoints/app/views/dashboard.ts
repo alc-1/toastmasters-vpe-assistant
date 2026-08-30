@@ -263,7 +263,7 @@ export const dashboardView: ViewModule = {
     }
 
     function renderFeatureCard(card: FeatureCard): string {
-      const badge = card.badgeNew ? '<span class="badge badge-info dashboard-tile__badge">NEW</span>' : "";
+      const badge = card.badgeNew ? '<span class="badge badge-soft badge-info dashboard-tile__badge">NEW</span>' : "";
       const inert = card.comingSoon || card.locked;
       // A single-CTA active card becomes one big click target: the article is
       // position:relative and its CTA link stretches over it via ::after
@@ -285,7 +285,7 @@ export const dashboardView: ViewModule = {
         const cta = `<span class="btn btn-primary dashboard-tile__cta" aria-disabled="true">${escapeHtml(card.ctaLabel ?? "")}</span>`;
         const trailing = card.comingSoon
           ? '<span class="dashboard-tile__soon">Coming soon</span>'
-          : '<span class="badge badge-muted dashboard-tile__lock">&#128274; Requires imported data</span>';
+          : '<span class="badge badge-soft dashboard-tile__lock">&#128274; Requires imported data</span>';
         footer = `${cta}${trailing}`;
       } else {
         footer = `<a href="${card.href}" class="btn btn-primary dashboard-tile__cta">${escapeHtml(card.ctaLabel ?? "")}</a>`;

@@ -462,14 +462,14 @@ export const membersView: ViewModule = {
             : member.matchSource === "orphan"
               ? "marked as having no counterpart"
               : "confirmed from a suggested match";
-        return `<span class="badge badge-confirmed" title="${escapeAttr(sourceLabel)}">Resolved manually</span>`;
+        return `<span class="badge badge-soft badge-info" title="${escapeAttr(sourceLabel)}">Resolved manually</span>`;
       }
-      if (member.presence !== "both") return '<span class="badge badge-unmatched">Unmatched</span>';
+      if (member.presence !== "both") return '<span class="badge badge-soft badge-error">Unmatched</span>';
       if (member.matchConfidence === "fuzzy") {
         const score = member.matchScore != null ? member.matchScore.toFixed(2) : "—";
-        return `<span class="badge badge-fuzzy" title="match score: ${score}">Suggested</span>`;
+        return `<span class="badge badge-soft badge-warning" title="match score: ${score}">Suggested</span>`;
       }
-      return '<span class="badge badge-exact">Exact</span>';
+      return '<span class="badge badge-soft badge-success">Exact</span>';
     }
 
     function renderPathBindCell(member: MemberReport): string {
@@ -485,18 +485,18 @@ export const membersView: ViewModule = {
           ...completed.map((p) => (p.confirmedCompleted ? `${p.basecampCompletedName} ↔ ${p.easyspeakPathLabel} (completed)` : `${p.displayName} (completed)`)),
         ];
         const label = bound.length > 0 && orphaned.length === 0 ? "Bound" : "Resolved";
-        return `<span class="badge badge-confirmed" title="${escapeAttr(titleParts.join("; "))}">${label}</span>`;
+        return `<span class="badge badge-soft badge-info" title="${escapeAttr(titleParts.join("; "))}">${label}</span>`;
       }
       if (flagged.length > 0) {
         const titleParts = flagged.map((p) => `${p.displayName} (flagged for later review)`);
-        return `<span class="badge badge-flagged" title="${escapeAttr(titleParts.join("; "))}">Flagged</span>`;
+        return `<span class="badge badge-soft badge-warning" title="${escapeAttr(titleParts.join("; "))}">Flagged</span>`;
       }
       if (completed.length > 0) {
         const titleParts = completed.map((p) => (p.confirmedCompleted ? `${p.basecampCompletedName} ↔ ${p.easyspeakPathLabel} (completed)` : `${p.displayName} (completed)`));
-        return `<span class="badge badge-confirmed" title="${escapeAttr(titleParts.join("; "))}">Completed</span>`;
+        return `<span class="badge badge-soft badge-info" title="${escapeAttr(titleParts.join("; "))}">Completed</span>`;
       }
       if (!member.hasOrphanedPaths) return '<span class="muted-text">—</span>';
-      return '<span class="badge badge-path-issue">Path issue</span>';
+      return '<span class="badge badge-soft badge-error">Path issue</span>';
     }
 
     function renderActionsCell(member: MemberReport): string {

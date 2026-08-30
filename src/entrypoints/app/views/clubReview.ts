@@ -158,18 +158,18 @@ export const clubReviewView: ViewModule = {
 
     function renderClubStatusCell(pair: ClubPair): string {
       if (pair.source === "orphan") {
-        return '<span class="badge badge-confirmed" title="Confirmed to have no counterpart in the other system">Acknowledged (one-sided)</span>';
+        return '<span class="badge badge-soft badge-info" title="Confirmed to have no counterpart in the other system">Acknowledged (one-sided)</span>';
       }
-      if (!pair.basecamp || !pair.easyspeak) return '<span class="badge badge-unmatched">Unmatched</span>';
+      if (!pair.basecamp || !pair.easyspeak) return '<span class="badge badge-soft badge-error">Unmatched</span>';
       if (pair.confidence === "confirmed") {
         const sourceLabel = pair.source === "manual-search" ? "linked via manual search" : "confirmed from a suggested match";
-        return `<span class="badge badge-confirmed" title="${escapeAttr(sourceLabel)}">Linked manually</span>`;
+        return `<span class="badge badge-soft badge-info" title="${escapeAttr(sourceLabel)}">Linked manually</span>`;
       }
       if (pair.confidence === "fuzzy") {
         const score = pair.score != null ? pair.score.toFixed(2) : "—";
-        return `<span class="badge badge-fuzzy" title="match score: ${score}">Suggested</span>`;
+        return `<span class="badge badge-soft badge-warning" title="match score: ${score}">Suggested</span>`;
       }
-      return '<span class="badge badge-exact">Exact</span>';
+      return '<span class="badge badge-soft badge-success">Exact</span>';
     }
 
     function renderClubActionsCell(pair: ClubPair): string {
