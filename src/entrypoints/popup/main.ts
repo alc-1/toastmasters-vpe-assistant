@@ -5,12 +5,14 @@
 // indicators live on the Sync Data page only (entrypoints/sync-data +
 // shared/sync-status-panel.ts). The header subtitle is static markup in
 // index.html now (no longer data-dependent); this file's job is rendering
-// the stepper (its five info lines come from shared/stepper-info.ts, shared
-// with the options pages' horizontal stepper), plus telling background the
-// popup was opened (see init() below).
+// the stepper as a read-only progress indicator (its five info lines come
+// from shared/stepper-info.ts, shared with the options pages' horizontal
+// stepper) — the only navigation the popup offers is the "Open Home" button
+// and the "What's New" footer link — plus telling background the popup was
+// opened (see init() below).
 
-import { renderVerticalStepper, type AppShellPage } from "../../shared/app-shell";
-import { escapeHtml, settingsIconHtml } from "../../shared/dom-utils";
+import { renderVerticalStepper } from "../../shared/app-shell";
+import { escapeHtml } from "../../shared/dom-utils";
 import { appRouteUrl, whatsNewUrl } from "../../shared/pages";
 import { sendMessage } from "../../shared/send-message";
 import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
@@ -20,10 +22,10 @@ import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, openUpdateRel
 const stepperRoot = document.getElementById("popupStepperRoot")!;
 const updateBannerRoot = document.getElementById("updateBannerRoot")!;
 const selfUpdateBannerRoot = document.getElementById("selfUpdateBannerRoot")!;
-const settingsBtn = document.getElementById("popupSettingsBtn")!;
-settingsBtn.innerHTML = settingsIconHtml();
-settingsBtn.addEventListener("click", () => browser.tabs.create({ url: appRouteUrl("globalSettings") }));
 
+// The vertical stepper is read-only — it just shows where the user is in
+// setup. The only navigation the popup offers is "Open Home" and the
+// "What's New" footer link below.
 document
   .getElementById("popupHomeBtn")!
   .addEventListener("click", () => browser.tabs.create({ url: appRouteUrl("dashboard") }));
@@ -32,17 +34,6 @@ const whatsNewLink = document.getElementById("popupWhatsNewLink")!;
 whatsNewLink.addEventListener("click", (e) => {
   e.preventDefault();
   browser.tabs.create({ url: whatsNewUrl() });
-});
-
-// Delegated once — init() replaces stepperRoot's innerHTML, but the root
-// element itself never changes, so a single delegated listener covers it
-// without needing to be re-attached.
-stepperRoot.addEventListener("click", (e) => {
-  const step = (e.target as HTMLElement).closest<HTMLElement>("[data-page-key]");
-  if (!step) return;
-  e.preventDefault();
-  const key = step.dataset.pageKey as AppShellPage;
-  browser.tabs.create({ url: appRouteUrl(key) });
 });
 
 init();

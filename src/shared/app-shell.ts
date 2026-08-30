@@ -328,26 +328,20 @@ export function renderStepFooter(active: AppShellPage, info?: StepperInfo): stri
 }
 
 /**
- * The popup's vertical stepper. Unlike renderAppShell()'s links (in-page
- * hash-fragment navigation within the merged app), a popup click must open a
- * tab instead of navigating the popup document itself — so steps are
- * rendered as inert `href="#"` anchors tagged `data-page-key`, and the
- * caller (entrypoints/popup/main.ts) wires up the actual
- * browser.tabs.create() click handling, which this browser.*-free file must
- * not do directly.
+ * The popup's vertical stepper. Read-only: unlike renderAppShell()'s links
+ * (in-page hash-fragment navigation within the merged app), these steps are
+ * not navigable at all — the popup offers navigation only through its
+ * "Open Home" button and "What's New" link. Steps render as plain `<div>`s
+ * (no `href`, no `data-page-key`, no click handling) and exist purely to
+ * show the user where they are in setup.
  */
 export function renderVerticalStepper(info: StepperInfo): string {
   const stepsHtml = NAV_ITEMS.map((item, index) => {
     const meta = info[item.key];
     const body = stepBody(item, index, meta, true);
-    // No data-page-key on a disabled/locked step, so the popup's delegated
-    // click handler (which only matches "[data-page-key]") simply never
-    // fires for it.
-    if (meta?.disabled || meta?.locked) {
-      return `<span class="app-stepper__step disabled" aria-disabled="true">${body}</span>`;
-    }
-    return `<a href="#" class="app-stepper__step" data-page-key="${item.key}">${body}</a>`;
+    const stateClass = meta?.disabled || meta?.locked ? " disabled" : "";
+    return `<div class="app-stepper__step${stateClass}">${body}</div>`;
   }).join("");
 
-  return `<nav class="app-stepper app-stepper--vertical" aria-label="More">${stepsHtml}</nav>`;
+  return `<nav class="app-stepper app-stepper--vertical" aria-label="Setup progress">${stepsHtml}</nav>`;
 }

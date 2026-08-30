@@ -17,6 +17,7 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 - Privacy Mode and the active profile are now shown in the top bar on every screen.
 - The setup wizard is now four steps, ending at Member Review; Club Progress is reached from a Home screen tile.
+- The popup's progress steps are now a read-only indicator; use "Open Home" or "What's New" to navigate. The Global Settings icon was removed from the popup header.
 
 ### Fixed
 

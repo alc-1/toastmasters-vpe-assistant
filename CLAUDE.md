@@ -51,10 +51,9 @@ these.
 4. Log in normally at `https://apps.basecamp.toastmasters.org/` and/or your configured EasySpeak
    server (`https://tmclub.eu/` by default — see Setup to change it; any tab, any time
    beforehand).
-5. Click the extension icon — the popup is just a branded header + vertical stepper (no scrape
-   buttons of its own, see Architecture) — then click its "Sync Data" step, which focuses/opens the
-   merged app on `#syncData` (`shared/app-tab.ts`'s `focusOrOpenAppTab()`; re-clicking it later
-   re-routes that same tab instead of opening a duplicate). On that tab, click "Import Basecamp
+5. Click the extension icon — the popup is just a branded header + a read-only progress stepper (no
+   scrape buttons of its own, see Architecture) — then click its "Open Home" button to open the
+   merged app, and navigate to Sync Data from there. On that view, click "Import Basecamp
    Data" and/or "Import EasySpeak Data" — no Basecamp tab needs to stay open (unless a login is
    required — see Architecture). EasySpeak scraping always opens and focuses a *further* brand-new
    tab on the configured EasySpeak server (never reuses an already-open one — see Architecture for
@@ -445,17 +444,16 @@ background entrypoint → source-specific scraper**.
   (`renderVerticalStepper()`, `shared/app-shell.ts`), and the update banner (preview builds only,
   see `background/api/update-checker.ts` below) — no scrape buttons, no per-source status, no raw
   data, and no direct dependency on `shared/sync-status-panel.ts` at all; all of that now lives
-  exclusively on the Sync Data view (`entrypoints/app/views/syncData.ts`), reached by clicking the
-  stepper. `init()` sends `{type: "POPUP_OPENED"}` before anything else, purely so background can
+  exclusively on the Sync Data view (`entrypoints/app/views/syncData.ts`). `init()` sends
+  `{type: "POPUP_OPENED"}` before anything else, purely so background can
   acknowledge any finished success/error icon status (see `background/icon-state.ts` below) — the
   popup itself no longer shows per-source status, so this is only about the toolbar icon now, not
-  about restoring button state. The gear icon and every stepper item call
-  `shared/app-tab.ts`'s `focusOrOpenAppTab()` (a stepper item's `AppShellPage` key comes off its
-  `data-page-key` attribute via a single delegated click listener on `#popupStepperRoot`) instead of
-  `browser.tabs.create()` directly, so re-clicking a step while the merged app is already open in
-  some tab focuses and re-routes that tab rather than piling up duplicates — see `shared/app-tab.ts`'s
-  own bullet below. Never calls `browser.tabs.*`/`browser.windows.*` itself (that's all inside
-  `shared/app-tab.ts`), and doesn't touch `browser.storage.session` or EasySpeak's own tab handling
+  about restoring button state. The vertical stepper is a **read-only progress indicator** —
+  `renderVerticalStepper()` renders each step as a plain `<div>` with no `href`/`data-page-key` and
+  no click handling. The popup's only navigation is the "Open Home" button (`#popupHomeBtn` →
+  `browser.tabs.create({ url: appRouteUrl("dashboard") })`) and the "What's New" footer link; there
+  is no Global Settings gear icon in the popup header anymore. `entrypoints/popup/main.ts` doesn't
+  touch `browser.storage.session` or EasySpeak's own tab handling
   at all — icon/status handling lives in `background/icon-state.ts`, EasySpeak's tab-navigation
   scrape lives in `background/api/easyspeak.ts`, both background-only.
 - **`entrypoints/app/views/syncData.ts`** — the Sync Data view, wired up against

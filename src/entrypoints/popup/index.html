@@ -17,6 +17,18 @@
     #popupStepperRoot .app-stepper--vertical {
       margin-bottom: 0;
     }
+    /* The popup stepper is a read-only progress indicator — strip the
+       clickable affordances (hover background/label tint, pointer cursor)
+       the shared .app-stepper--vertical rules add for the in-app nav. */
+    #popupStepperRoot .app-stepper__step {
+      cursor: default;
+    }
+    #popupStepperRoot .app-stepper__step:hover {
+      background: transparent;
+    }
+    #popupStepperRoot .app-stepper__step:hover .app-stepper__label {
+      color: inherit;
+    }
     /* Reserves the vertical stepper's footprint before computeStepperInfo()
        (an inherently async browser.storage read — main.ts's init()) resolves
        and fills this root. Without this, the popup opens as header-only and
@@ -76,7 +88,6 @@
         <div class="app-header__subtitle">One place to understand your club’s member progress.</div>
       </div>
     </div>
-    <button id="popupSettingsBtn" type="button" class="app-header__settings-btn" title="Global Settings" aria-label="Global Settings"></button>
   </header>
 
   <div id="updateBannerRoot"></div>
