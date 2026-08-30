@@ -25,6 +25,13 @@
  */
 
 @import "tailwindcss";
+
+/* Cascade order: our app component layer sits *after* daisyUI so a semantic
+ * class (.badge-exact, .card, .app-stepper…) reliably wins over a same-named
+ * daisyUI primitive, while plain utility classes in markup still win over our
+ * component defaults (utilities layer is last). */
+@layer theme, base, components, daisyui, app, utilities;
+
 @plugin "daisyui" {
   themes: false;
 }
@@ -164,7 +171,7 @@
   --tile-slate-bg: #f1f5f9;
 }
 
-@layer components {
+@layer app {
   /* ---------------------------------------------------------------------- */
   /* Page containers                                                        */
   /* ---------------------------------------------------------------------- */
@@ -2193,6 +2200,8 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
+    height: auto;
+    border: 0; /* reset daisyUI .badge's default outline — our variants are soft-filled */
     font-weight: 600;
     padding: 2px 6px;
     text-transform: uppercase;
