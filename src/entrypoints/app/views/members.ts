@@ -351,10 +351,16 @@ export const membersView: ViewModule = {
       `;
 
       const rows = sorted.map((member) => renderMemberRows(member, pools)).join("");
+      const cards = sorted.map((member) => renderMemberCard(member, pools)).join("");
 
+      // Dual render: a spreadsheet-style <table> on desktop (≥lg), a card list
+      // on narrower widths. Both carry the same data-* attributes, so
+      // attachRowHandlers()'s querySelectorAll over #membersRoot binds
+      // whichever is on screen. onLink()/onLinkInputChange() scope with
+      // closest("tr, .member-card") so the search field works in both.
       return `
         ${datalists}
-        <table class="data-table members">
+        <table class="data-table members hidden lg:table">
           <thead>
             <tr>
               <th>Basecamp name</th>
@@ -366,6 +372,25 @@ export const membersView: ViewModule = {
           </thead>
           <tbody>${rows}</tbody>
         </table>
+        <div class="member-cards flex flex-col gap-2 lg:hidden">${cards}</div>
+      `;
+    }
+
+    function renderMemberCard(member: MemberReport, pools: { easyspeakOnly: Candidate[]; basecampOnly: Candidate[] }): string {
+      const key = memberKey(member);
+      const clean = !needsAction(member);
+      const expanded = hasReviewablePaths(member) && expandedMemberKeys.has(key);
+      return `
+        <div class="member-card rounded-md border border-base-300 bg-base-100 p-3 flex flex-col gap-1.5${clean ? " opacity-70" : ""}">
+          <div class="flex flex-wrap items-center justify-end gap-1.5">
+            ${renderLinkStatusCell(member)}
+            ${renderPathBindCell(member)}
+          </div>
+          <div class="text-sm font-semibold">${renderNameCell(member, "basecamp", pools)}</div>
+          <div class="text-sm text-tm-gray-600">${renderNameCell(member, "easyspeak", pools)}</div>
+          <div class="actions flex flex-wrap justify-end gap-1.5 mt-1">${renderActionsCell(member)}</div>
+          ${expanded ? `<div class="mt-1 pt-2 border-t border-base-300" data-row-detail>${renderPathBindDetail(member)}</div>` : ""}
+        </div>
       `;
     }
 
@@ -892,7 +917,7 @@ export const membersView: ViewModule = {
 
     function onLinkInputChange(input: HTMLInputElement) {
       const member = findMemberByKey(input.dataset.memberKey!);
-      const row = input.closest("tr")!;
+      const row = input.closest("tr, .member-card")!;
       const linkBtn = row.querySelector<HTMLButtonElement>('[data-action="link"]');
       if (!member || !linkBtn) return;
       const candidates = getCandidatesForMember(member);
@@ -902,7 +927,7 @@ export const membersView: ViewModule = {
     async function onLink(btn: HTMLButtonElement) {
       const member = findMemberByKey(btn.dataset.memberKey!);
       if (!member) return;
-      const row = btn.closest("tr")!;
+      const row = btn.closest("tr, .member-card")!;
       const input = row.querySelector<HTMLInputElement>('[data-role="link-input"]')!;
       const candidates = getCandidatesForMember(member);
       const match = parseCandidateSelection(input.value, candidates);
