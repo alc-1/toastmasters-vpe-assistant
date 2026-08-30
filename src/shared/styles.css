@@ -485,6 +485,34 @@
     .app-header__privacy-text {
       display: none;
     }
+
+    /* Narrow header: shrink the brand so "Toastmasters VPE Assistant" wraps to
+       at most two lines instead of three, and tighten the whole bar. */
+    .app-header__brand {
+      gap: var(--space-2);
+      padding: var(--space-3);
+    }
+
+    .app-header__logo {
+      width: 36px;
+      height: 36px;
+    }
+
+    .app-header__title {
+      font-size: var(--text-md);
+    }
+
+    .app-header__actions {
+      gap: var(--space-2);
+      margin-right: var(--space-3);
+    }
+
+    /* The version badge is a low-priority update hint — drop it on a narrow
+       header so the brand title has room for two lines instead of three
+       (release notes are still reachable from the What's New page / popup). */
+    .version-badge-wrap {
+      display: none;
+    }
   }
 
   /* Header gear icon linking to the Global Settings page (shared/pages.ts's
