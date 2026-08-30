@@ -4,8 +4,8 @@
 // resolves an empty/unknown hash here) and its hub: a "Club Data Status" hero
 // banner tracking the four setup steps (its badge + CTA adapt to how far the
 // user has got — see renderBanner()), and a two-column grid of feature tiles
-// (Club Progress, the standalone Excel Exporter, a placeholder Approval
-// Helper, and Save/Restore backup).
+// (the Pathways Onboarding Helper, Club Progress, the standalone Excel
+// Exporter, and Save/Restore backup, in that order).
 //
 // Privacy Mode and the active-profile chip live in the shared header now
 // (shared/app-shell.ts, wired by entrypoints/app/main.ts) — not on this view.
@@ -96,9 +96,10 @@ interface FeatureCard {
   /** Rendered but inert with a "Requires imported data" badge + a disabled
    *  preview of the CTA (so the card still says what unlocking it gives). */
   locked?: boolean;
-  /** Rendered but inert with just a "Coming soon" badge — no CTA at all
-   *  (Approval Helper). */
-  comingSoon?: boolean;
+  /** Overrides the default "Requires imported data" text on the `locked`
+   *  badge — e.g. the Onboarding Helper needs the Club Central roster, not
+   *  Basecamp data. */
+  lockLabel?: string;
   /** The Save/Restore tile: two buttons + a status line instead of one CTA. */
   backup?: boolean;
 }
@@ -430,8 +431,18 @@ export const dashboardView: ViewModule = {
       `;
     }
 
-    function renderFeatures(featuresUnlocked: boolean) {
+    function renderFeatures(featuresUnlocked: boolean, clubCentralImported: boolean) {
       const cards: FeatureCard[] = [
+        {
+          title: "Pathways Onboarding Helper",
+          description: "Find paid-up members who haven't started a Pathways path yet.",
+          accent: "amber",
+          iconHtml: ICON_APPROVAL,
+          ctaLabel: "Open Helper →",
+          href: "#onboarding",
+          locked: !clubCentralImported,
+          lockLabel: "Requires Club Central roster",
+        },
         {
           title: "Club Progress Report",
           description: "See who is ready to level up and review discrepancies between systems.",
@@ -451,13 +462,6 @@ export const dashboardView: ViewModule = {
           locked: !featuresUnlocked,
         },
         {
-          title: "Pathways Approval Helper",
-          description: "Check live Basecamp completion details for a member before approving.",
-          accent: "amber",
-          iconHtml: ICON_APPROVAL,
-          comingSoon: true,
-        },
-        {
           title: "Save or Restore Club Settings",
           description: "Save a backup file of your member links or restore a saved file.",
           accent: "slate",
@@ -475,7 +479,7 @@ export const dashboardView: ViewModule = {
     }
 
     function renderFeatureCard(card: FeatureCard): string {
-      const inert = card.comingSoon || card.locked;
+      const inert = !!card.locked;
       // A single-CTA active card becomes one big click target (see
       // onFeatureCardClick() in mount()): the whole `.dashboard-tile--link`
       // article follows its CTA link on click. The CTA stays a real
@@ -495,13 +499,10 @@ export const dashboardView: ViewModule = {
           </div>
           <p class="help-text dashboard-tile__status${statusClass}" aria-live="polite">${restoreStatus ? escapeHtml(restoreStatus.text) : ""}</p>
         `;
-      } else if (card.comingSoon) {
-        // No disabled button — just a single status tag (design feedback).
-        footer = '<span class="badge badge-soft dashboard-tile__soon">Coming soon</span>';
       } else if (card.locked) {
         footer = `
           <span class="btn btn-primary dashboard-tile__cta" aria-disabled="true">${escapeHtml(card.ctaLabel ?? "")}</span>
-          <span class="badge badge-soft dashboard-tile__lock">&#128274; Requires imported data</span>
+          <span class="badge badge-soft dashboard-tile__lock">&#128274; ${escapeHtml(card.lockLabel ?? "Requires imported data")}</span>
         `;
       } else {
         footer = `<a href="${card.href}" class="btn btn-primary dashboard-tile__cta">${escapeHtml(card.ctaLabel ?? "")}</a>`;
@@ -576,8 +577,11 @@ export const dashboardView: ViewModule = {
       const details =
         evaluateSetupPipeline(info).bannerState === "ready" ? await computeSetupDetails(info) : null;
       if (disposed) return;
+      const { clubCentralData } = await local.get(["clubCentralData"]);
+      if (disposed) return;
+      const clubCentralImported = !!clubCentralData && Object.keys(clubCentralData).length > 0;
       renderBanner(info, details);
-      renderFeatures(areFeaturesUnlocked(info));
+      renderFeatures(areFeaturesUnlocked(info), clubCentralImported);
     }
 
     const onStorageChanged = (_changes: unknown, area: string) => {

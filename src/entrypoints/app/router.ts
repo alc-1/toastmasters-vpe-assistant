@@ -18,6 +18,7 @@ const VALID_ROUTES: AppRoute[] = [
   "members",
   "report",
   "exporter",
+  "onboarding",
   "globalSettings",
   "whatsNew",
 ];
@@ -33,12 +34,15 @@ function isAppRoute(value: string): value is AppRoute {
  * setup was finished) is redirected back to "setup"; the hub features
  * #exporter and #report are redirected to "dashboard" until Basecamp data
  * is imported (EasySpeak optional — see areFeaturesUnlocked()).
- * "dashboard", "globalSettings" and "whatsNew" are never gated.
+ * "dashboard", "globalSettings", "whatsNew" and "onboarding" are never
+ * gated here — #onboarding depends on the independent Club Central roster,
+ * not Basecamp, so it shows its own "import the roster first" empty state
+ * instead (see entrypoints/app/views/onboarding.ts).
  */
 export function resolveRoute(rawHash: string, info: StepperInfo | null): AppRoute {
   const key = rawHash.replace(/^#/, "");
   const route = isAppRoute(key) ? key : "dashboard";
-  if (route === "dashboard" || route === "globalSettings" || route === "whatsNew") return route;
+  if (route === "dashboard" || route === "globalSettings" || route === "whatsNew" || route === "onboarding") return route;
   if (route === "exporter" || route === "report") return info && areFeaturesUnlocked(info) ? route : "dashboard";
   if (info?.[route]?.disabled) return "setup";
   return route;

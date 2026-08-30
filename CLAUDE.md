@@ -349,6 +349,8 @@ src/
 │   │       ├── clubReview.ts        # club-name lookup editor ("Club Review")
 │   │       ├── exporter.ts          # standalone "Download Excel Spreadsheet" view (#exporter),
 │   │       │                        #   gated behind imported data — reuses export-to-excel.ts
+│   │       ├── onboarding.ts        # Pathways Onboarding Helper (#onboarding) — paid-but-not-
+│   │       │                        #   enrolled members from clubCentralData, grouped by club
 │   │       ├── globalSettings.ts    # Anonymize Mode + path-name lookup ("Global Settings")
 │   │       ├── whatsNew.ts          # changelog viewer ("What's New", #whatsNew) — reads the
 │   │       │                        #   bundled changelog.json, never gated
@@ -1078,12 +1080,12 @@ entrypoint itself (no `index.html`, no separate build output):
   `getAnonymizeMode()`/`setAnonymizeMode()` as Global Settings — the two views deliberately both
   expose it and both re-render on `storage.onChanged`) and the **Save/Load Backup File** unit
   (`shared/backup.ts`, with `shared/modal.ts`'s `confirmModal()` gating the destructive restore); and
-  a **feature-card grid** linking to `#report`, `#exporter`, and a permanently-disabled Pathways
-  Approval Helper placeholder (footer is a single `badge badge-soft` "Coming soon" tag — no
-  disabled CTA). All cards share one height (`.dashboard-features` `align-items: stretch` +
-  `.dashboard-tile` `height: 100%`) and `--space-5` padding; the two live feature cards render
-  inert with a "🔒 Requires imported data" badge + a disabled CTA preview until
-  `areFeaturesUnlocked()`. The status banner groups the headline + timestamp with the CTA on the
+  a **feature-card grid** linking to `#onboarding` (the Pathways Onboarding Helper — see
+  `entrypoints/app/views/onboarding.ts` below), `#report`, and `#exporter`, in that order. All cards share one height
+  (`.dashboard-features` `align-items: stretch` + `.dashboard-tile` `height: 100%`) and `--space-5`
+  padding; `#report`/`#exporter` render inert with a "🔒 Requires imported data" badge + a disabled
+  CTA preview until `areFeaturesUnlocked()`, and `#onboarding` does the same (its own
+  `FeatureCard.lockLabel`, "🔒 Requires Club Central roster") until `clubCentralData` is present. The status banner groups the headline + timestamp with the CTA on the
   right (`.dashboard-status__action`) and the captioned step tracker on the left
   (`.dashboard-status__progress`) — the tracker's current-step marker is an outlined-navy "you are
   here" cue, deliberately *not* the filled/haloed look the interactive wizard stepper uses. A
@@ -1100,6 +1102,16 @@ entrypoint itself (no `index.html`, no separate build output):
   as the Sync Data popover). Deliberately duplicates a small amount of the Sync Data popover's
   radio+button+status block rather than extracting a shared control (a `renderExcelExportControls()`
   helper could unify them later).
+- **`entrypoints/app/views/onboarding.ts`** — the Pathways Onboarding Helper (`#onboarding`), titled
+  "Onboarding Helper", reached from the Home dashboard's first feature tile. Read-only: reads only
+  `clubCentralData` (+ `getAnonymizeMode()` → `anonymizeClubCentralScrape()`), never
+  `basecampData`/`easyspeakData`/`buildReport()`. Lists every Club Central roster member with
+  `paymentStatus === "Paid"` and `pathwaysEnrolled === false` — the people a VPE needs to help get
+  started — grouped into one `.card` + `.data-table` per club (Name / Position / Paid through).
+  **Deliberately not route-gated** (unlike `#exporter`/`#report`): Club Central is an independent
+  source, so `resolveRoute()` lets `#onboarding` through unconditionally and the view renders its own
+  "import the roster first" empty state (link to `#syncData`) when `clubCentralData` is absent, plus
+  a "🎉 everyone enrolled" state when the roster has no unenrolled paid members.
 - **`entrypoints/app/views/report.ts`** — the comparison view, titled "Club Progress" (a
   `ViewModule`, reached from the Home dashboard's "Club Progress Report" feature tile, or by
   navigating to `#report` directly — it's a hub feature now, not a wizard step, so it renders

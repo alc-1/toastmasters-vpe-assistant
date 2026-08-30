@@ -11,13 +11,14 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 ### Added
 
 - New Home screen: an overview of your club-data status and quick-access tiles for every tool.
-- Save a backup file of all your data and settings, and load it back later.
-- A footer on every screen shows the current version and a "What's New" link, with a dot when there are release notes you haven't read.
-- Import your club roster from Toastmasters.org Club Central. Who's not enrolled in Pathways? Answer comes from there.
+- Save or Restore Club Settings: save a backup file of all your data and settings, and load it back later.
+- Pathways Onboarding Helper: a tool listing paid-up members who haven't enrolled in a Pathways path yet.
+- What's New: tool version and related changes are made available in the footer of each page.
+- Sync Data now includes Toastmasters.org Club Central to enable the Pathways Onboarding Helper.
 
 ### Changed
 
-- Installing an update no longer opens the What's New page in a new tab; the footer "What's New" link flags new release notes instead.
+- Installing an update no longer opens the What's New page in a new tab.
 - Refreshed the interface to have consistent buttons, toggles, and controls throughout. Firefox 128 or newer is now required.
 - Privacy Mode and the active profile are now shown in the top bar on every screen.
 - The setup wizard is now four steps, ending at Member Review; Club Progress is reached from a Home screen tile.

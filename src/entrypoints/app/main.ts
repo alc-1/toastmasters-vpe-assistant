@@ -25,6 +25,7 @@ const ROUTE_TITLE: Record<AppRoute, string> = {
   members: "Member Review",
   report: "Club Progress",
   exporter: "Download Spreadsheet",
+  onboarding: "Onboarding Helper",
   globalSettings: "Global Settings",
   whatsNew: "What's New",
 };
@@ -188,12 +189,14 @@ async function renderChrome(
     active: isWizardStep ? (route as AppShellPage) : null,
     info,
     settingsActive: route === "globalSettings",
-    // The Home dashboard, the Excel Exporter, Club Progress, Global Settings
-    // and What's New are all outside the wizard flow — header-only, no stepper.
+    // The Home dashboard, the Excel Exporter, Club Progress, the Onboarding
+    // Helper, Global Settings and What's New are all outside the wizard flow
+    // — header-only, no stepper.
     showStepper:
       route !== "dashboard" &&
       route !== "exporter" &&
       route !== "report" &&
+      route !== "onboarding" &&
       route !== "globalSettings" &&
       route !== "whatsNew",
     // The profile chip + Privacy toggle show on every route.

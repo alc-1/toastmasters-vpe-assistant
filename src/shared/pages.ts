@@ -36,6 +36,7 @@ export type AppRoute =
   | "syncData"
   | "clubReview"
   | "exporter"
+  | "onboarding"
   | "globalSettings"
   | "whatsNew";
 
