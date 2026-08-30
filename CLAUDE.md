@@ -1458,12 +1458,17 @@ A few decisions worth knowing before changing the config:
   - **`tailwind-tokens.js` is now only `landing/`'s** (a separate Tailwind 3 project). The
     extension's brand hexes are mirrored into `styles.css`'s theme block with a cross-reference
     comment; keep the two in sync when a brand color changes.
-  - **Migration status:** the toolchain + `@layer` architecture + buttons + toggles are on the new
-    foundation. Still on legacy `@layer app` classes (safe to migrate incrementally): badges,
-    cards, tabs, alerts (`.conflict-warning` / `.update-banner`), KPI cards, inputs, the
-    `confirmModal` `.modal`, and the ~400-line responsive table→card CSS
-    (`body[data-view=...]` blocks — slated for dual-render: a `<table hidden md:table>` + a
-    `md:hidden` card list from one row view-model).
+  - **Migration status:** the toolchain + `@layer` architecture + buttons + toggles + the
+    `confirmModal` (native `<dialog>`) are on the new foundation. The three dense tables (Club
+    Review, Club Progress "Next Level Summary", Member Review) are **dual-rendered** —
+    `renderXxxCard()` / a `.member-cards` etc. list marked `lg:hidden`, alongside the
+    `hidden lg:table` `<table>`, both built from the same view-model and carrying the same
+    `data-*` attributes so the existing `querySelectorAll` handler binding covers whichever is on
+    screen (the ~600 lines of `grid-template-areas` + `:has()` transposition CSS are gone). Still
+    on semantic `@layer app` classes (kept deliberately — they carry meaning and are built on
+    daisyUI `--color-*` tokens): `.badge-*`, `.card`, `.tabs`/`.tab-btn`, `.conflict-warning`,
+    `.update-banner`, `.kpi-card`, `.search-input`. Migrate these to daisyUI classes only if a
+    change to one is already needed — don't churn working markup for its own sake.
 
 ## Landing page (marketing site)
 
