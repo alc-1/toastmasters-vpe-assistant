@@ -250,11 +250,11 @@ async function renderSelfUpdateBanner(): Promise<void> {
     return;
   }
   selfUpdateBannerRoot.innerHTML = `
-    <div class="update-banner">
+    <div role="alert" class="alert alert-info alert-soft mb-3">
       <span>Update ready: v${escapeHtml(pending.version)}</span>
-      <span class="update-banner__actions">
-        <button id="selfUpdateApplyBtn" class="btn btn-primary">Update now</button>
-      </span>
+      <div class="flex gap-2 shrink-0">
+        <button id="selfUpdateApplyBtn" class="btn btn-sm btn-primary">Update now</button>
+      </div>
     </div>
   `;
 }

@@ -221,7 +221,7 @@ export const reportView: ViewModule = {
       if (clubPair.clubOrphaned) {
         const side = clubPair.basecampClubId ? "Basecamp" : "EasySpeak";
         warningRoot.innerHTML = `
-          <div class="conflict-warning conflict-warning--info">
+          <div role="alert" class="alert alert-info alert-soft mb-4 text-base">
             ${approvedCheckIconHtml("Acknowledged one-sided club")}
             This club only exists in ${side} — it was acknowledged as one-sided in Club Review, so it has no
             counterpart to match members against. <a href="#clubReview">Change in Club Review</a>
@@ -251,7 +251,7 @@ export const reportView: ViewModule = {
       }
 
       warningRoot.innerHTML = `
-        <div class="conflict-warning">
+        <div role="alert" class="alert alert-warning alert-soft mb-4 text-base">
           ${warningIconHtml("Conflicts found")}
           ${messages.join(" · ")}
         </div>

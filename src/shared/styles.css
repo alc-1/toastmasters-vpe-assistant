@@ -2042,38 +2042,9 @@
     min-height: 44px;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Update banner — shared by the popup's preview-build GitHub-release      */
-  /* banner (shared/update-store.ts) and the self-update-ready banner        */
-  /* (shared/self-update-store.ts), used in both the popup and the merged    */
-  /* app SPA header — relocated here from popup/index.html's own inline      */
-  /* <style> so app/index.html can reuse the identical class.                */
-  /* ---------------------------------------------------------------------- */
-
-  .update-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    background: var(--info-bg);
-    border: 1px solid var(--info);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
-    margin-bottom: var(--space-3);
-    font-size: var(--text-sm);
-    color: var(--gray-900);
-  }
-
-  .update-banner__actions {
-    display: flex;
-    gap: var(--space-2);
-    flex-shrink: 0;
-  }
-
-  .update-banner .btn {
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--text-xs);
-  }
+  /* The update banners (shared/update-store.ts / self-update-store.ts, in
+     both the popup and the app header) are daisyUI `alert alert-info
+     alert-soft` in markup — nothing extra needed here. */
 
   /* ---------------------------------------------------------------------- */
   /* Step footer — Next/Previous navigation between the five options pages  */
@@ -2318,7 +2289,7 @@
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Tabs + warning icon + conflict banner                                  */
+  /* Tabs + warning icon                                                    */
   /* ---------------------------------------------------------------------- */
 
   /* Club tab strip — daisyUI `tabs tabs-border` + `tab` / `tab-active` in
@@ -2363,28 +2334,11 @@
     display: block;
   }
 
-  .conflict-warning {
-    @apply bg-warning-bg text-warning-text rounded-md text-base;
-    border: 1px solid #f0d0a0;
-    padding: 10px 14px;
-    margin-bottom: 16px;
-  }
-
-  .conflict-warning .warning-icon {
-    margin-right: 6px;
-  }
-
-  .conflict-warning a {
-    @apply text-navy-700;
-    font-weight: 600;
-  }
-
-  /* Modifier for a conflict-warning slot that isn't actually flagging a
-     problem — e.g. explaining a club that was deliberately acknowledged as
-     one-sided. Same box, info tone instead of warning. */
-  .conflict-warning--info {
-    @apply bg-info-bg text-navy-700;
-    border-color: transparent;
+  /* The conflict / one-sided-club banners are daisyUI `alert alert-warning
+     alert-soft` (or `alert-info`) in markup — links inside get the app's
+     bold-underline treatment so they read as actions, not banner text. */
+  .alert a {
+    @apply font-semibold underline;
   }
 
   /* ---------------------------------------------------------------------- */

@@ -176,7 +176,7 @@ export const membersView: ViewModule = {
       }
 
       warningRoot.innerHTML = `
-        <div class="conflict-warning">
+        <div role="alert" class="alert alert-warning alert-soft mb-4 text-base">
           ${warningIconHtml("Unmatched club")}
           ${unmatchedClubs.length} club${unmatchedClubs.length === 1 ? "" : "s"} (${unmatchedClubs
             .map((s) => escapeHtml(s.clubName))
@@ -318,7 +318,7 @@ export const membersView: ViewModule = {
         getRoot("filterChips").innerHTML = "";
         const side = section.clubPair.basecampClubId ? "Basecamp" : "EasySpeak";
         membersRoot.innerHTML = `
-          <div class="conflict-warning conflict-warning--info">
+          <div role="alert" class="alert alert-info alert-soft mb-4 text-base">
             ${approvedCheckIconHtml("Acknowledged one-sided club")}
             This club only exists in ${side} — it was acknowledged as one-sided in Club Review, so there
             are no members to match here. <a href="#clubReview">Change in Club Review</a>
