@@ -375,9 +375,17 @@ export const reportView: ViewModule = {
         return;
       }
 
+      // Dual render: a sortable <table> on desktop (≥lg), a tap-to-expand card
+      // list on narrower widths. renderSummaryBody() fills both; the expand
+      // toggle is bound to each container (both recreated on this call, so no
+      // listener leak). Sorting is desktop-only — the card list just follows
+      // whatever sort the table is in.
       const colgroupHtml = SUMMARY_COLUMNS.map((col) => `<col class="${col.colClass}">`).join("");
       const theadHtml = SUMMARY_COLUMNS.map((col) => `<th data-key="${col.key}">${escapeHtml(col.label)}</th>`).join("");
-      tableRoot.innerHTML = `<table class="data-table summary"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>`;
+      tableRoot.innerHTML = `
+        <table class="data-table summary hidden lg:table"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>
+        <div class="summary-cards flex flex-col gap-2 lg:hidden"></div>
+      `;
 
       tableRoot.querySelectorAll<HTMLTableCellElement>("th").forEach((th) => {
         th.addEventListener("click", () => {
@@ -388,13 +396,18 @@ export const reportView: ViewModule = {
         });
       });
 
-      tableRoot.querySelector("tbody")!.addEventListener("click", (event) => {
-        const row = (event.target as HTMLElement).closest<HTMLElement>("tr[data-row-key]");
-        if (!row) return;
-        const key = row.dataset.rowKey!;
+      const toggleExpand = (event: Event) => {
+        const target = event.target as HTMLElement;
+        // A click inside an already-expanded card's detail must not collapse it.
+        if (target.closest("[data-row-detail]")) return;
+        const el = target.closest<HTMLElement>("[data-row-key]");
+        if (!el) return;
+        const key = el.dataset.rowKey!;
         state.expandedRowKey = state.expandedRowKey === key ? null : key;
         renderSummaryBody(state);
-      });
+      };
+      tableRoot.querySelector("tbody")!.addEventListener("click", toggleExpand);
+      tableRoot.querySelector(".summary-cards")!.addEventListener("click", toggleExpand);
 
       updateSummaryHeaders(state);
       renderSummaryBody(state);
@@ -412,15 +425,49 @@ export const reportView: ViewModule = {
 
     function renderSummaryBody(state: SummaryTableState) {
       const tableRoot = getRoot(state.rootId);
-      const tbody = tableRoot.querySelector("table.summary tbody")!;
       const sorted = [...state.rows].sort((a, b) => compareLevelSummaryRows(a, b, state.sort.key, state.sort.direction));
-      tbody.innerHTML = sorted
-        .map((row) => {
-          const key = rowKey(row);
-          const isExpanded = key === state.expandedRowKey;
-          return isExpanded ? renderSummaryRow(row, key, isExpanded) + renderDetailRow(row) : renderSummaryRow(row, key, isExpanded);
-        })
-        .join("");
+
+      const tbody = tableRoot.querySelector("table.summary tbody");
+      if (tbody) {
+        tbody.innerHTML = sorted
+          .map((row) => {
+            const key = rowKey(row);
+            const isExpanded = key === state.expandedRowKey;
+            return isExpanded ? renderSummaryRow(row, key, isExpanded) + renderDetailRow(row) : renderSummaryRow(row, key, isExpanded);
+          })
+          .join("");
+      }
+
+      const cardsRoot = tableRoot.querySelector(".summary-cards");
+      if (cardsRoot) {
+        cardsRoot.innerHTML = sorted.map((row) => renderSummaryCard(row, rowKey(row), rowKey(row) === state.expandedRowKey)).join("");
+      }
+    }
+
+    function renderSummaryCard(row: LevelSummaryRow, key: string, isExpanded: boolean): string {
+      const muted = row.status === "completed" || row.status === "not-tracked";
+      const ready = row.status === "ready" || row.status === "ready-if-reported";
+      const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span>`;
+      const levelLabel = row.currentLevelLabel === "Not in Basecamp" ? "—" : row.currentLevelLabel;
+      const statusInfo = STATUS_BADGE[row.status];
+      return `
+        <div class="summary-card rounded-md border border-base-300 bg-base-100 p-3${muted ? " opacity-70 italic" : ""}${ready ? " font-bold" : ""}" data-row-key="${escapeAttr(key)}">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="font-semibold">${escapeHtml(row.memberName)}</div>
+              <div class="text-sm text-tm-gray-600 font-normal">${escapeHtml(row.pathName)}${pathBadge} · ${escapeHtml(String(levelLabel))}</div>
+            </div>
+            <div class="shrink-0 flex flex-col items-end gap-1">
+              <span class="badge ${statusInfo.tone}" title="${escapeAttr(statusInfo.description)}">${statusInfo.icon}${escapeHtml(statusInfo.label)}</span>
+              <span class="row-chevron${isExpanded ? " expanded" : ""}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="mt-2 pt-2 border-t border-base-300 text-xs font-normal not-italic">${renderStatusDetail(row.statusDetail)}</div>
+          ${isExpanded ? `<div class="mt-2 font-normal not-italic" data-row-detail>${renderRowDetail(row)}</div>` : ""}
+        </div>
+      `;
     }
 
     function rowKey(row: LevelSummaryRow): string {
