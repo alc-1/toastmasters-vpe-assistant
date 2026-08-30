@@ -609,31 +609,9 @@ export function compareLevelSummaryRows(a: LevelSummaryRow, b: LevelSummaryRow, 
  * A member with at least one Pathways path exactly one level (or Path
  * Completion) away from being reported complete in Basecamp — nothing
  * outstanding once EasySpeak-reported-but-not-yet-approved work is
- * accounted for (realMissing === 0). Exported (not just used internally by
- * countMembersReadyForNextLevel below) so Club Progress's per-club KPI card
- * can reuse the exact same definition scoped to one club's members instead
- * of the whole report.
+ * accounted for (realMissing === 0). Used by Club Progress's per-club
+ * "Ready to Level Up" KPI card (report.ts) and its Next Level Summary rows.
  */
 export function isMemberReadyForNextLevel(member: MemberReport): boolean {
   return member.paths.some((path) => !path.nonPathway && computeLevelSummary(path).realMissing === 0);
-}
-
-/**
- * Distinct members (across every club) ready for their next level — see
- * isMemberReadyForNextLevel() above. Backs the popup's vertical-stepper
- * "Club Progress" step: the count a VPE actually wants at a glance, without
- * opening the full Next Level Summary table. Excludes members needsAction()
- * flags as pending review (unmatched identity or an unresolved orphaned
- * path) — same reasoning as buildLevelSummary()'s per-row pendingReview
- * flag: their numbers aren't a reconciled diff yet, so they shouldn't count
- * toward "ready".
- */
-export function countMembersReadyForNextLevel(report: ReportResult): number {
-  let count = 0;
-  for (const club of report.clubPairs) {
-    for (const member of club.members) {
-      if (!needsAction(member) && isMemberReadyForNextLevel(member)) count += 1;
-    }
-  }
-  return count;
 }

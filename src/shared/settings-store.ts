@@ -27,6 +27,18 @@ export const EASYSPEAK_SERVERS: EasySpeakServer[] = [
 export const DEFAULT_EASYSPEAK_SERVER: EasySpeakServerId = "tmclub.eu";
 
 /**
+ * Human-readable name for a profile — the EasySpeak deployment's label, or
+ * "Demo" / a no-selection fallback. Shared by the Excel export's Metadata
+ * sheet (shared/export/export-to-excel.ts) and the Home dashboard's
+ * "Club data:" banner line (entrypoints/app/views/dashboard.ts).
+ */
+export function formatProfileLabel(profileId: ProfileId | null): string {
+  if (!profileId) return "No profile selected yet";
+  if (profileId === "demo") return "Demo";
+  return EASYSPEAK_SERVERS.find((s) => s.id === profileId)?.label ?? profileId;
+}
+
+/**
  * Raw stored choice — `null` means the user hasn't picked a profile yet
  * (Setup's required no-default state). Distinguished from
  * resolveActiveProfile()'s defaulted result, which the scrapers need instead

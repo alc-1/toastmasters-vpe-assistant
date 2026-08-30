@@ -90,6 +90,17 @@
   --radius-pill: theme("borderRadius.pill"); /* badges, chips, count badges */
 
   --font-sans: theme("fontFamily.sans");
+
+  /* Home dashboard feature-tile icon badges only (one accent per tile) —
+     resolved from tailwind.config.ts's namespaced tile-* color scales. */
+  --tile-indigo: theme("colors.tile-indigo.DEFAULT");
+  --tile-indigo-bg: theme("colors.tile-indigo.bg");
+  --tile-emerald: theme("colors.tile-emerald.DEFAULT");
+  --tile-emerald-bg: theme("colors.tile-emerald.bg");
+  --tile-amber: theme("colors.tile-amber.DEFAULT");
+  --tile-amber-bg: theme("colors.tile-amber.bg");
+  --tile-slate: theme("colors.tile-slate.DEFAULT");
+  --tile-slate-bg: theme("colors.tile-slate.bg");
 }
 
 @tailwind base;
@@ -243,17 +254,141 @@
     justify-content: space-between;
   }
 
+  /* A link to the Home dashboard on the options pages (shared/app-shell.ts);
+     a plain container in the popup's hand-written header. `color: inherit` +
+     no underline keep it looking identical either way. */
   .app-header__brand {
     display: flex;
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-4);
     min-width: 0;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  a.app-header__brand:hover .app-header__title {
+    text-decoration: underline;
+  }
+
+  /* "← Back to Home" link rendered under the header on every merged-app route
+     except the Home dashboard (see shared/app-shell.ts's showBackToHome +
+     entrypoints/app/main.ts). Muted by default, navy on hover — same
+     treatment as the (now unused) .page-nav link it replaces. */
+  .app-header__back {
+    @apply text-sm text-tm-gray-600;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin: var(--space-3) 0 var(--space-4);
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .app-header__back:hover {
+    @apply text-navy-700;
+    text-decoration: underline;
+  }
+
+  /* Right-side header cluster (shared/app-shell.ts): active-profile chip +
+     Privacy Mode toggle + the gear icon. Only rendered by renderAppShell()
+     (the merged-app tab) — the popup hand-writes its own header with just the
+     brand + gear, so none of the __actions/__profile/__privacy rules reach
+     it. */
+  .app-header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-right: var(--space-4);
+    flex-shrink: 0;
+  }
+
+  .app-header__profile {
+    @apply text-sm rounded-pill;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    max-width: 220px;
+    padding: var(--space-1) var(--space-3);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .app-header__profile:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .app-header__profile-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-header__profile svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+
+  .app-header__privacy {
+    @apply text-sm;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* Recolor the shared .toggle-switch (defined near .toggle-row below) for
+     the navy header bar: a translucent-white track that fills solid white
+     when on, with the thumb inverting to navy so the "on" state still reads
+     at a glance against the dark bar. */
+  .app-header__privacy .toggle-switch {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .app-header__privacy .toggle-switch::after {
+    background: white;
+  }
+
+  .app-header__privacy .toggle-switch__input:checked + .toggle-switch {
+    background: white;
+  }
+
+  .app-header__privacy .toggle-switch__input:checked + .toggle-switch::after {
+    background: var(--primary);
+  }
+
+  .app-header__privacy .toggle-switch__input:focus-visible + .toggle-switch {
+    outline-color: white;
+  }
+
+  @media (max-width: 1024px) {
+    /* The narrow header can't fit the brand + a text chip + the toggle. The
+       active profile is still one tap away (the stepper's Setup step, or the
+       Setup page itself), so the chip drops out here; the Privacy toggle —
+       the control the user asked to have always at hand — stays, shrunk to
+       just its switch + lock glyph. */
+    .app-header__profile {
+      display: none;
+    }
+
+    /* Keep the switch + lock glyph; drop just the "Privacy Mode" words. */
+    .app-header__privacy-text {
+      display: none;
+    }
   }
 
   /* Header gear icon linking to the Global Settings page (shared/pages.ts's
      PAGES.globalSettings) — reached from every wizard page + the popup, not
-     part of the stepper below. */
+     part of the stepper below. In the merged app it sits inside
+     .app-header__actions (which owns the right-edge margin — the descendant
+     override below zeroes the gear's own there); in the popup's hand-written
+     header it's an unwrapped flex child and keeps this base margin-right. */
   .app-header__settings-btn {
     display: flex;
     align-items: center;
@@ -271,6 +406,13 @@
     background: none;
     padding: 0;
     cursor: pointer;
+  }
+
+  /* Inside .app-header__actions the cluster owns the right-edge margin, so the
+     gear's own margin-right would double it. The popup's gear isn't wrapped,
+     so it keeps the base rule's margin. */
+  .app-header__actions .app-header__settings-btn {
+    margin-right: 0;
   }
 
   .app-header__settings-btn:hover {
@@ -816,20 +958,71 @@
     padding: 4px 6px;
   }
 
-  /* Global Settings' Anonymize Mode toggle — a plain checkbox + label row,
-     the one checkbox-style control in the extension so far. */
+  /* Lock glyph before the "Privacy Mode" card title on Global Settings,
+     mirroring the header's own .app-header__privacy-lock. */
+  .settings-lock-icon {
+    margin-right: var(--space-2);
+  }
+
+  /* Global Settings' Privacy Mode row + the header's Privacy Mode control
+     both use .toggle-switch below for the control itself. */
   .toggle-row {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: var(--space-3);
     font-weight: 600;
     cursor: pointer;
     margin-bottom: var(--space-2);
   }
 
-  .toggle-row input[type="checkbox"] {
+  /* Toggle switch — a visually-hidden real checkbox (.toggle-switch__input,
+     kept as the actual control so <label> wrapping and delegated change
+     handlers keyed on its id keep working) followed by a CSS track/thumb
+     span. Track/thumb colors are overridden per context — see
+     .app-header__privacy above for the navy-bar variant. */
+  .toggle-switch__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .toggle-switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 36px;
+    height: 20px;
+    border-radius: var(--radius-pill);
+    background: var(--disabled-bg);
+    transition: background-color 0.15s ease;
+  }
+
+  .toggle-switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
     width: 16px;
     height: 16px;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease;
+  }
+
+  .toggle-switch__input:checked + .toggle-switch {
+    background: var(--primary);
+  }
+
+  .toggle-switch__input:checked + .toggle-switch::after {
+    transform: translateX(16px);
+  }
+
+  .toggle-switch__input:focus-visible + .toggle-switch {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -1226,6 +1419,13 @@
     @apply bg-surface-alt text-tm-gray-700 border border-border;
   }
 
+  /* Destructive confirm — currently only the Home dashboard's "Load Backup
+     File" modal (shared/modal.ts). */
+  .btn-danger {
+    @apply bg-danger;
+    color: white;
+  }
+
   /* Smaller variant, same colors as .btn-primary/.btn-secondary — used
      where a bare .btn's default size is too large (e.g. Member Review's
      inline row actions). Additive: pair with .btn/.btn-primary or
@@ -1251,6 +1451,429 @@
     border-color: transparent;
     cursor: not-allowed;
     pointer-events: none;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Home dashboard (entrypoints/app/views/dashboard.ts)                     */
+  /* ---------------------------------------------------------------------- */
+
+  /* Club-data status hero banner — a soft-tinted box (not a .card) sitting
+     directly below the app header, the status headline + step tracker on the
+     left, the Start/Continue Setup / Refresh action on the right. */
+  .dashboard-status {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .dashboard-status__main {
+    display: flex;
+    flex: 1 1 320px;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .dashboard-status__headline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .dashboard-status__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-pill);
+    flex-shrink: 0;
+  }
+
+  .dashboard-status__dot.is-ready {
+    background: var(--success);
+  }
+
+  .dashboard-status__dot.is-progress {
+    background: var(--warning);
+  }
+
+  /* "Review Needed" — Member Review reached but still has unresolved items.
+     Amber, same family as .is-progress, kept as its own hook in case the
+     two want to diverge later. */
+  .dashboard-status__dot.is-warning {
+    background: var(--warning);
+  }
+
+  .dashboard-status__label {
+    @apply text-sm text-tm-gray-900;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .dashboard-status__timestamp {
+    @apply text-xs text-tm-gray-600;
+  }
+
+  .dashboard-status__cta {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    text-decoration: none;
+  }
+
+  /* Step tracker — two pre-rendered variants toggled by width, same technique
+     as the app-stepper's summary/list split. Desktop shows the full 4-step
+     row with connectors; mobile collapses to a one-line status. */
+  .dashboard-tracker--wide {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .dashboard-tracker__step {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .dashboard-tracker__marker {
+    @apply text-xs;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    color: var(--gray-600);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+
+  .dashboard-tracker__step.is-done .dashboard-tracker__marker {
+    @apply text-success;
+    border-color: transparent;
+    background: var(--success-bg);
+  }
+
+  .dashboard-tracker__name {
+    @apply text-sm text-tm-gray-600;
+  }
+
+  .dashboard-tracker__step.is-done .dashboard-tracker__name {
+    @apply text-success;
+    font-weight: 600;
+  }
+
+  /* Member Review with unresolved matches/path issues still pending — amber
+     "!" marker + "(N)" in the label, standing in for the checkmark until the
+     review queue is empty. Amber here (vs. the wizard stepper's red
+     .app-stepper__circle.warning) is deliberate for the calmer Home banner. */
+  .dashboard-tracker__step.is-warning .dashboard-tracker__marker {
+    border-color: transparent;
+    background: var(--warning-bg);
+    color: var(--warning-text);
+  }
+
+  .dashboard-tracker__step.is-warning .dashboard-tracker__name {
+    color: var(--warning-text);
+    font-weight: 600;
+  }
+
+  /* The current step — the furthest one reached, which the banner's CTA
+     links to. Filled navy marker + halo + bold navy label, mirroring the
+     navy "Continue Setup →" button so the two read as one unit. */
+  .dashboard-tracker__step.is-current .dashboard-tracker__marker {
+    border-color: transparent;
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 0 0 3px var(--info-bg);
+  }
+
+  .dashboard-tracker__step.is-current .dashboard-tracker__name {
+    @apply text-navy-700;
+    font-weight: 700;
+  }
+
+  .dashboard-tracker__connector {
+    flex: 1 1 12px;
+    min-width: 12px;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .dashboard-tracker--narrow {
+    @apply text-md text-tm-gray-700;
+    display: none;
+    margin: 0;
+    font-weight: 600;
+  }
+
+  @media (max-width: 1024px) {
+    .dashboard-tracker--wide {
+      display: none;
+    }
+
+    .dashboard-tracker--narrow {
+      display: block;
+    }
+
+    .dashboard-status {
+      padding: var(--space-4);
+    }
+
+    .dashboard-status__cta {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  /* Feature-tile grid — real two columns above the breakpoint, stacked below. */
+  .dashboard-features {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  @media (min-width: 1025px) {
+    .dashboard-features {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .dashboard-tile {
+    @apply bg-surface border border-border rounded-md;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-4);
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  /* Only single-CTA active cards (dashboard.ts's `interactive`) lift and turn
+     into one big click target. Locked / "coming soon" / the two-button
+     backup card stay flat. */
+  .dashboard-tile--link {
+    cursor: pointer;
+  }
+
+  .dashboard-tile--link:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .dashboard-tile--link:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--info-bg);
+  }
+
+  /* Stretched-link pattern: the CTA anchor's ::after covers the whole
+     (position:relative) card, so a click anywhere navigates — while the
+     anchor stays a real <a href="#route"> the hash router already handles. */
+  .dashboard-tile--link .dashboard-tile__cta::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+
+  /* Hovering anywhere on the card drives the CTA's own hover state too, so
+     the button doesn't look inert while the rest of the card responds. */
+  .dashboard-tile--link:hover .dashboard-tile__cta {
+    @apply bg-navy-800;
+  }
+
+  .dashboard-tile.is-locked {
+    opacity: 0.75;
+  }
+
+  .dashboard-tile__icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dashboard-tile__icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .dashboard-tile__icon--indigo {
+    background: var(--tile-indigo-bg);
+    color: var(--tile-indigo);
+  }
+
+  .dashboard-tile__icon--emerald {
+    background: var(--tile-emerald-bg);
+    color: var(--tile-emerald);
+  }
+
+  .dashboard-tile__icon--amber {
+    background: var(--tile-amber-bg);
+    color: var(--tile-amber);
+  }
+
+  .dashboard-tile__icon--slate {
+    background: var(--tile-slate-bg);
+    color: var(--tile-slate);
+  }
+
+  .dashboard-tile__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+
+  .dashboard-tile__title {
+    @apply text-md text-tm-gray-900;
+    min-width: 0;
+    margin: 0;
+    font-weight: 600;
+  }
+
+  /* NEW pill sits at the far end of the icon/title row. */
+  .dashboard-tile__badge {
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .dashboard-tile__desc {
+    @apply text-sm text-tm-gray-700;
+    margin: 0 0 var(--space-4);
+  }
+
+  .dashboard-tile__footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: auto;
+  }
+
+  .dashboard-tile__cta,
+  .dashboard-tile .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+  }
+
+  .dashboard-tile__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  /* Save File / Load File — a cohesive filled-grey secondary pair
+     (slate-100 idle → slate-200 hover), sharing the row width evenly. */
+  .dashboard-tile__actions .btn-secondary {
+    @apply rounded-md;
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: var(--space-2) var(--space-4);
+    background: var(--tile-slate-bg);
+    border-color: transparent;
+    font-weight: 600;
+  }
+
+  .dashboard-tile__actions .btn-secondary:hover:not(:disabled) {
+    background: var(--border);
+  }
+
+  .dashboard-tile__status {
+    width: 100%;
+    margin: var(--space-2) 0 0;
+  }
+
+  .dashboard-tile__status.is-error {
+    @apply text-danger;
+  }
+
+  .dashboard-tile__soon {
+    @apply text-xs text-tm-gray-600;
+    font-style: italic;
+  }
+
+  @media (max-width: 1024px) {
+    .dashboard-tile__cta,
+    .dashboard-tile .btn {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .dashboard-tile__actions .btn {
+      flex: 1 1 auto;
+    }
+
+    .dashboard-tile--link:hover {
+      transform: none;
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Modal — the one blocking dialog in the extension (shared/modal.ts),    */
+  /* used only for the Home dashboard's destructive "Load Backup File"      */
+  /* confirm. See that file's header for why this is an intentional         */
+  /* exception to the inline-status-line convention.                        */
+  /* ---------------------------------------------------------------------- */
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  .modal {
+    @apply bg-surface border border-border rounded-md;
+    max-width: 420px;
+    width: 100%;
+    padding: var(--space-5);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+
+  .modal__title {
+    @apply text-md text-tm-gray-900;
+    font-weight: 600;
+    margin: 0 0 var(--space-2);
+  }
+
+  .modal__body {
+    @apply text-sm text-tm-gray-700;
+    margin: 0 0 var(--space-4);
+  }
+
+  .modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+  }
+
+  .modal__actions .btn {
+    min-height: 44px;
   }
 
   /* ---------------------------------------------------------------------- */

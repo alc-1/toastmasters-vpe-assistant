@@ -24,6 +24,10 @@ const settingsBtn = document.getElementById("popupSettingsBtn")!;
 settingsBtn.innerHTML = settingsIconHtml();
 settingsBtn.addEventListener("click", () => browser.tabs.create({ url: appRouteUrl("globalSettings") }));
 
+document
+  .getElementById("popupHomeBtn")!
+  .addEventListener("click", () => browser.tabs.create({ url: appRouteUrl("dashboard") }));
+
 const whatsNewLink = document.getElementById("popupWhatsNewLink")!;
 whatsNewLink.addEventListener("click", (e) => {
   e.preventDefault();

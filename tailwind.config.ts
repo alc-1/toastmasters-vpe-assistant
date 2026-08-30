@@ -56,6 +56,16 @@ export default {
           700: "#444444", // --gray-700 — secondary-btn text, inactive tabs
           600: "#666666", // --gray-600 — the one "muted but AA-readable" text color
         },
+        // Home dashboard feature-tile icon badges only — one accent per tile.
+        // Namespaced (not bare `indigo`/`slate`) for the same reason as
+        // `tm-gray` above: they'd otherwise shadow only the DEFAULT/bg keys of
+        // Tailwind's stock same-named scales, a confusing partial collision.
+        // Only .DEFAULT (icon glyph) + .bg (badge fill) are consumed, via
+        // styles.css's :root --tile-* tokens.
+        "tile-indigo": { DEFAULT: "#4f46e5", bg: "#eef2ff" },
+        "tile-emerald": { DEFAULT: "#047857", bg: "#ecfdf5" },
+        "tile-amber": { DEFAULT: "#b45309", bg: "#fffbeb" },
+        "tile-slate": { DEFAULT: "#475569", bg: "#f1f5f9" },
       },
       fontFamily: {
         sans: ["-apple-system", "BlinkMacSystemFont", '"Segoe UI"', "sans-serif"],

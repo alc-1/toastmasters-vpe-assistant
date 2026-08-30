@@ -38,6 +38,16 @@ export const EXPORT_TYPE_LABEL: Record<ExportType, string> = {
   easyspeak: "EasySpeak",
 };
 
+// One-line description of each export type, shown next to the label in the
+// selectors on the Sync Data view's export popover AND the standalone Excel
+// Exporter view (entrypoints/app/views/exporter.ts) — kept here so both
+// consumers share one copy.
+export const EXPORT_OPTION_DESC: Record<ExportType, string> = {
+  all: "Aggregated data + sources + matches",
+  basecamp: "Original Basecamp data",
+  easyspeak: "Original EasySpeak data",
+};
+
 function formatTimestamp(ms: number): string {
   return new Date(ms).toLocaleString();
 }

@@ -114,7 +114,7 @@ export const membersView: ViewModule = {
         getRoot("clubTabs").innerHTML = "";
         getRoot("filterChips").innerHTML = "";
         getRoot("membersRoot").innerHTML =
-          '<p class="empty-state">Member Review is unavailable while Anonymize Mode is on. ' +
+          '<p class="empty-state">Member Review is unavailable while Privacy Mode is on. ' +
           '<a href="#globalSettings">Turn it off in Global Settings</a> to review member matches.</p>';
         return;
       }

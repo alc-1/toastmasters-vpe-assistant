@@ -329,20 +329,24 @@ src/
 │   ├── popup/                       # the generated manifest's action.default_popup
 │   │   ├── index.html
 │   │   └── main.ts
-│   ├── app/                         # the merged single-page app — all six wizard/settings views
-│   │   │                             # (Setup, Sync Data, Club Review, Member Review, Club Progress,
-│   │   │                             # Global Settings) in ONE entrypoint, client-side hash-routed
-│   │   │                             # (#setup, #syncData, ...), no full page reload between
-│   │   │                             # steps — see "The merged app/ SPA" below for the full writeup
+│   ├── app/                         # the merged single-page app — the Home dashboard + five
+│   │   │                             # wizard/settings views + the standalone Excel Exporter, in
+│   │   │                             # ONE entrypoint, client-side hash-routed (#dashboard is the
+│   │   │                             # default; #setup, #syncData, ...), no full page reload
+│   │   │                             # between routes — see "The merged app/ SPA" below
 │   │   ├── index.html + main.ts     # the shell: #appShell/#viewRoot/#stepFooter roots + the router
 │   │   ├── router.ts                # resolveRoute() — pure hash -> AppRoute resolution
 │   │   └── views/                   # plain TS modules, NOT entrypoints themselves (no index.html)
+│   │       ├── dashboard.ts         # the Home hub: setup-status banner + Global Settings card
+│   │       │                        #   (Privacy Mode + Save/Load Backup File) + feature-card grid
 │   │       ├── report.ts            # read-only comparison view ("Club Progress")
 │   │       ├── members.ts           # interactive member-matching review ("Member Review")
 │   │       ├── setup.ts             # demo/real-data profile picker ("Setup")
 │   │       ├── syncData.ts          # Data Extraction card, backed by
 │   │       │                        #   shared/sync-status-panel.ts ("Sync Data")
 │   │       ├── clubReview.ts        # club-name lookup editor ("Club Review")
+│   │       ├── exporter.ts          # standalone "Download Excel Spreadsheet" view (#exporter),
+│   │       │                        #   gated behind imported data — reuses export-to-excel.ts
 │   │       ├── globalSettings.ts    # Anonymize Mode + path-name lookup ("Global Settings")
 │   │       └── index.ts             # the AppRoute -> ViewModule registry main.ts routes against
 │   ├── basecamp-auth/, easyspeak-done/
@@ -377,10 +381,14 @@ src/
     │                        # route, used by the popup instead of always opening a new tab
     ├── view.ts              # ViewModule — the mount(root)/dispose contract every
     │                        # entrypoints/app/views/*.ts implements
+    ├── modal.ts             # confirmModal() — the ONE blocking dialog in the extension, used only
+    │                        # for the dashboard's destructive "Load Backup File" confirm (no browser.*)
+    ├── backup.ts            # Save/Load Backup File — raw whole storage.local dump + restore
     ├── sync-status-panel.ts # Data Extraction card logic, currently used only by
     │                        # entrypoints/app/views/syncData.ts (not the popup — see below)
     ├── dom-utils.ts         # escapeHtml/escapeAttr/warningIconHtml
-    ├── settings-store.ts    # active profile (demo, or one of the three EasySpeak regions) + Anonymize Mode
+    ├── settings-store.ts    # active profile (demo, or one of the three EasySpeak regions) + Anonymize
+    │                        # Mode + formatProfileLabel()
     ├── resolution-store.ts  # the 6 persisted name-resolution keys
     ├── sync/
     │   ├── conflicts.ts      # name/path/member matching + override logic
@@ -464,8 +472,10 @@ background entrypoint → source-specific scraper**.
   reasoning as Member Review's direct resolution-store writes, unlike EasySpeak's tab-navigation).
   The button is never disabled for missing data — a partial or even empty export is still legitimate,
   since `buildReport()` already tolerates an empty/one-sided scrape — and feedback is a plain status
-  line (`#statusExport`), matching this codebase's no-modal/no-toast convention. See `shared/export/`
-  above for the module breakdown.
+  line (`#statusExport`), matching this codebase's no-modal/no-toast convention (the one sanctioned
+  exception is `shared/modal.ts`'s `confirmModal()`, used only for the Home dashboard's destructive
+  "Load Backup File" restore — see that file's header). See `shared/export/` above for the module
+  breakdown.
 - **`entrypoints/background.ts`** — the background entrypoint (`export default defineBackground(()
   => {...})`), consolidating what used to be two physically separate files (`background/index.ts`
   for the store build, `background/index.preview.ts` for preview — a leftover from the pre-WXT
@@ -478,7 +488,7 @@ background entrypoint → source-specific scraper**.
   own "Get started" button (`location.href = appRouteUrl("setup")`, `shared/pages.ts` — navigating
   that same tab rather than opening a second one). `entrypoints/welcome/main.ts` has no
   `browser.storage`/resolution-store dependency at all — it's a static walkthrough, not part of the
-  stepper flow the merged app's six views share (no `app-shell.ts` nav on it), so it isn't wired into
+  wizard flow the merged app's stepper drives (no `app-shell.ts` nav on it), so it isn't wired into
   `NAV_ITEMS`.
 
   The store-vs-preview split those two old files existed for is now a **build-time-eliminated
@@ -908,13 +918,23 @@ re-derived (and possibly un-derived) from names again.
     view, letting the user then re-resolve the pair manually (bind to something else, or leave as
     orphan) instead of it snapping back together on every refresh.
 
-**The merged `app/` SPA**: the five wizard steps (Setup, Sync Data, Club Review, Member Review, Club
-Progress) plus Global Settings used to be six fully separate WXT entrypoints, each its own tab-opened
-page with a full reload on every step transition. They're now one entrypoint,
-`entrypoints/app/` (`app.html`), with client-side hash routing (`#setup`, `#syncData`,
-`#clubReview`, `#members`, `#report`, `#globalSettings`) and no reload between steps — hash routing,
+**The merged `app/` SPA**: the four wizard steps (Setup, Sync Data, Club Review, Member Review) plus
+Club Progress and Global Settings used to be six fully separate WXT entrypoints, each its own
+tab-opened page with a full reload on every step transition. They're now one entrypoint,
+`entrypoints/app/` (`app.html`), with client-side hash routing (`#dashboard` — the default landing
+route — plus `#setup`, `#syncData`, `#clubReview`, `#members`, `#report`, `#exporter`,
+`#globalSettings`) and no reload between routes — hash routing,
 not the History API, since an extension page has no server to fall back to for a direct/bookmarked
-`/report`-style path, and a hash router needs none. Popup and the three background-initiated
+`/report`-style path, and a hash router needs none. `#dashboard` (the Home hub — see
+`entrypoints/app/views/dashboard.ts` below), `#exporter` (the standalone Excel Exporter) and
+`#report` (Club Progress) are standalone routes outside the wizard flow: `main.ts`'s
+`renderChrome()` renders them with no step footer (`WIZARD_ROUTES` membership check, same branch
+`globalSettings` uses) and no stepper (`showStepper: false`), and `#dashboard` additionally renders
+its own status banner instead. Club Progress left the wizard when the Home hub landed — it's now
+reached from a Home feature tile, and Member Review's step footer ends the wizard with a "Complete
+Setup" button (id `completeSetupBtn`, handled by `main.ts`) that writes the profile-scoped
+`setupComplete` flag (`shared/stepper-info.ts`'s `markSetupComplete()`) and returns to `#dashboard`.
+Popup and the three background-initiated
 interstitials (`welcome/`, `basecamp-auth/`, `easyspeak-done/`) stay separate entrypoints, unrelated
 to this merge — the popup is a distinct manifest surface with its own lifecycle, and the
 interstitials are tab-lifecycle-driven single-purpose confirmation pages.
@@ -942,10 +962,11 @@ interstitials are tab-lifecycle-driven single-purpose confirmation pages.
   don't re-merge them.
 - **`entrypoints/app/router.ts`** — `resolveRoute(rawHash, info)`, pure and independently reasoned
   about from `main.ts`'s actual navigation driver. An empty/unrecognized hash defaults to
-  `"setup"` (the wizard's first step); a recognized-but-currently-`disabled` wizard step (per
-  `shared/stepper-info.ts`'s `StepperInfo` — e.g. a bookmarked `#report` saved before Setup was ever
-  finished) is redirected back to `"setup"` too. `globalSettings` is never gated, since it isn't
-  one of the five wizard steps `StepperInfo` tracks disabled-ness for.
+  `"dashboard"` (the Home screen); a recognized-but-currently-`disabled` wizard step (per
+  `shared/stepper-info.ts`'s `StepperInfo` — e.g. a bookmarked `#members` saved before Setup was ever
+  finished) is redirected back to `"setup"`; the two hub features `#exporter` and `#report` are
+  redirected to `"dashboard"` until `areFeaturesUnlocked(info)` (`shared/stepper-info.ts` — a
+  profile is chosen and both sources imported). `dashboard` and `globalSettings` are never gated.
 - **`shared/view.ts`** — the `ViewModule` contract every `entrypoints/app/views/*.ts` module
   implements: `mount(root): Promise<() => void>`. All DOM binding, event-listener registration, and
   per-visit state must happen inside `mount()`, not at module top level (unlike the old one-page-per-
@@ -979,12 +1000,39 @@ interstitials are tab-lifecycle-driven single-purpose confirmation pages.
   explicitly documented as "always create new, never reuse" by design, the opposite need, for an
   unrelated login/Cloudflare-tab concern.
 
-The six views below plug into the shell just described — each is a plain `ViewModule`, not an
+The views below plug into the shell just described — each is a plain `ViewModule`, not an
 entrypoint itself (no `index.html`, no separate build output):
+- **`entrypoints/app/views/dashboard.ts`** — the Home hub, titled "Home", the merged app's default
+  route (`resolveRoute()` sends an empty/unknown hash here). Standalone, not a wizard step — rendered
+  with header only, no stepper (see the SPA writeup above). Three regions: a **Club Data Status**
+  banner (active-profile label via `shared/settings-store.ts`'s `formatProfileLabel()`, plus a
+  four-step progress indicator — `SETUP_STEPS`/`countCompletedSetupSteps()` from
+  `shared/stepper-info.ts` — with a full desktop row / one-line mobile status toggled purely by CSS
+  `@media`, same dual-variant technique the app-stepper uses; a "Refresh / Manage Data" link to
+  `#setup`); a **Global Settings** card with the Privacy Mode toggle (same
+  `getAnonymizeMode()`/`setAnonymizeMode()` as Global Settings — the two views deliberately both
+  expose it and both re-render on `storage.onChanged`) and the **Save/Load Backup File** unit
+  (`shared/backup.ts`, with `shared/modal.ts`'s `confirmModal()` gating the destructive restore); and
+  a **feature-card grid** linking to `#report`, `#exporter`, and a permanently-disabled "Coming soon"
+  Pathways Approval Helper placeholder (`[NEW]` badge). The two live cards render inert with a
+  "🔒 Requires Data Sync" badge until `areFeaturesUnlocked()`. A closure-scoped `restoreStatus`
+  survives the `storage.onChanged`-triggered re-render a successful restore itself causes, so the
+  "Backup restored." line stays visible.
+- **`entrypoints/app/views/exporter.ts`** — the standalone "Download Excel Spreadsheet" view
+  (`#exporter`), titled "Download Spreadsheet". Route-gated (`resolveRoute()` → `#dashboard` until
+  data is imported; `main.ts`'s shell `storage.onChanged` re-navigation re-applies that if data is
+  cleared while open), so it assumes data is present. A 3-option `.option-card` selector
+  (`ExportType`/`EXPORT_TYPE_LABEL`/`EXPORT_OPTION_DESC` from `shared/export/rows.ts` — the last
+  moved there from `syncData.ts` so both the Sync Data popover and this view share one copy) + a
+  "Create Spreadsheet" button calling `exportToExcel()` directly (same direct-client-work reasoning
+  as the Sync Data popover). Deliberately duplicates a small amount of the Sync Data popover's
+  radio+button+status block rather than extracting a shared control (a `renderExcelExportControls()`
+  helper could unify them later).
 - **`entrypoints/app/views/report.ts`** — the comparison view, titled "Club Progress" (a
-  `ViewModule`, reached from the popup's vertical stepper via `focusOrOpenAppTab("report")`, or by
-  clicking its `app-shell.ts` nav item once already inside the merged app — see "The merged app/
-  SPA" above for how a view's `mount()`/disposer lifecycle works). Reads `basecampData`/
+  `ViewModule`, reached from the Home dashboard's "Club Progress Report" feature tile, or by
+  navigating to `#report` directly — it's a hub feature now, not a wizard step, so it renders
+  header-only, no stepper/footer, and `resolveRoute()` gates it behind `areFeaturesUnlocked()`
+  the same way `#exporter` is gated — see "The merged app/ SPA" above for the view lifecycle). Reads `basecampData`/
   `easyspeakData` straight from storage (no live scraping) plus resolution data via
   `loadResolutionData()` — loading resolution here is required, not optional, otherwise this view's
   "Next Level Summary" would silently diverge from what the Member Review view shows for the same
@@ -1006,10 +1054,8 @@ entrypoint itself (no `index.html`, no separate build output):
   fuzzy guess counts as unmatched here too, per `allowFuzzyMemberMatches: false` above), with links
   to Club Review/Member Review respectively; `renderKpiRow(clubPair)` (`#kpiRoot`) — exactly 3
   cards for the active club only: Members, Paths, and Ready to Level Up
-  (`isMemberReadyForNextLevel()`, `shared/sync/delta.ts` — also the building block
-  `countMembersReadyForNextLevel()` reduces over for its own *global* count, still used as-is by
-  the popup's stepper info; the per-club KPI card and the popup's stepper number are deliberately
-  different scopes of the same per-member predicate). Both are positioned directly above the "Next
+  (`isMemberReadyForNextLevel()`, `shared/sync/delta.ts`, scoped to one club's members). Both are
+  positioned directly above the "Next
   Level Summary" heading — deliberately club-scoped rather than global, so reviewing one club's tab
   never shows another club's numbers. `renderClubTabs()` separately prefixes a warning-sign icon
   (`warningIconHtml()`, `shared/dom-utils.ts` — shared with
@@ -1047,8 +1093,9 @@ entrypoint itself (no `index.html`, no separate build output):
   presence/confidence badges plus the same level-by-level diff table (`renderLevelsTable()`) both
   tables share.
 - **`entrypoints/app/views/members.ts`** — the primary member-matching review workflow,
-  titled "Member Review" (a `ViewModule`, reached from the popup's vertical stepper, and
-  cross-linked with Club Review/Club Progress via in-app hash links, e.g. `<a href="#clubReview">`).
+  titled "Member Review" (a `ViewModule`, the wizard's last step, cross-linked with Club Review via
+  in-app hash links, e.g. `<a href="#clubReview">`). Its step footer's right-hand button is
+  "Complete Setup" (`renderStepFooter()`), not a "next step" — see "The merged app/ SPA" above.
   Same storage-reads-only pattern as `report.ts`.
   `renderClubMatchWarning()` (`#conflictWarning`, called from `refresh()`) mirrors `report.ts`'s
   conflict banner but with member-matching-specific advice: whenever any club has no counterpart in
@@ -1157,7 +1204,7 @@ entrypoint itself (no `index.html`, no separate build output):
 - **`entrypoints/app/views/globalSettings.ts`** — titled
   "Global Settings", reached via the header gear icon (`shared/app-shell.ts`'s `renderAppShell()`,
   `<a href="#globalSettings">`) or the popup's gear icon (`shared/app-tab.ts`'s
-  `focusOrOpenAppTab("globalSettings")`), not one of the five wizard steps in `NAV_ITEMS`
+  `focusOrOpenAppTab("globalSettings")`), not one of the four wizard steps in `NAV_ITEMS`
   (`active: null` + `settingsActive: true`, so no step circle renders as current — and the shell
   renders no `#stepFooter` content for this route either, since Previous/Next only make sense
   between wizard steps). Hosts cross-cutting preferences that aren't tied to a specific
@@ -1196,13 +1243,17 @@ entrypoint itself (no `index.html`, no separate build output):
   rendered via `innerHTML` into `entrypoints/app/main.ts`'s `#appShell` placeholder once per
   navigation (not the popup, which has its own static header and a separate `renderVerticalStepper()`
   export from this same file — see the popup's bullet above). `NAV_ITEMS` fixes both the set of
-  wizard steps and their left-to-right display order: Setup, Sync Data, Club Review, Member Review,
-  Club Progress — each entry's `key` is an `AppShellPage` (`"setup"|"syncData"|"clubReview"|
-  "members"|"report"`, a subset of `shared/pages.ts`'s broader `AppRoute`, which also includes
-  `"globalSettings"`) and `href` is now an in-page hash fragment (`"#setup"`, etc.) rather than a
-  separate page's filename — plain `<a href="#members">` navigates via the browser's native
-  `hashchange` event, no click handler needed. The active view passes its own key as `active` so its
-  own nav link renders highlighted.
+  wizard steps and their left-to-right display order: Setup, Sync Data, Club Review, Member Review
+  — four entries now (Club Progress left the wizard for the Home hub). Each entry's `key` is an
+  `AppShellPage` (`"setup"|"syncData"|"clubReview"|"members"` — the type still also has `"report"`
+  for the `StepperInfo`/`visitedSteps` slots and `AppRoute` overlap, but no `NAV_ITEMS` entry uses
+  it) and `href` is an in-page hash fragment (`"#setup"`, etc.) — plain `<a href="#members">`
+  navigates via the browser's native `hashchange` event, no click handler needed. The active view
+  passes its own key as `active` so its own nav link renders highlighted. `renderStepFooter()` shows
+  Previous/Next between steps, and on the last step (Member Review) a "Complete Setup" button
+  instead of Next. The header brand (logo + title) is itself an `<a href="#dashboard">` — clicking
+  it returns to the Home hub; `showStepper: false` (dashboard/exporter/report) drops the whole
+  stepper `<nav>` but keeps this header.
 - **`shared/dom-utils.ts`** — `escapeHtml()` and `escapeAttr()`, shared by all extension pages. **Use
   `escapeAttr`, not `escapeHtml`, for any untrusted text (scraped member/path names) written into an
   HTML attribute value** (e.g. an `<option value="...">`, a `data-*` attribute) — `escapeHtml`'s

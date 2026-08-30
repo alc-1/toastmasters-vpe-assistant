@@ -1,15 +1,15 @@
 // src/shared/stepper-info.ts
 //
-// Computes the five per-step info lines (e.g. "12 clubs followed") shown
-// under each step's label — used by both the popup's vertical stepper and
-// every options page's horizontal one (shared/app-shell.ts), so neither has
-// to duplicate the storage reads + buildReport() call this requires.
+// Computes the per-step info lines (e.g. "12 clubs followed") shown under
+// each wizard step's label — used by both the popup's vertical stepper and
+// the merged app's horizontal one (shared/app-shell.ts), so neither has to
+// duplicate the storage reads + buildReport() call this requires.
 
 import { loadResolutionData } from "./resolution-store";
 import { EASYSPEAK_SERVERS, getActiveProfile, getAnonymizeMode, getEasySpeakServer, getMockMode } from "./settings-store";
 import { local } from "./storage";
-import { buildReport, computeMatchSummary, countMembersReadyForNextLevel, isMemberResolved } from "./sync/delta";
-import { NAV_ITEMS, type AppShellPage, type StepperInfo } from "./app-shell";
+import { buildReport, computeMatchSummary, isMemberResolved } from "./sync/delta";
+import { NAV_ITEMS, type AppShellPage, type StepMeta, type StepperInfo } from "./app-shell";
 import type { ReportResult } from "./types";
 
 /** Which steps the current profile has reached at least once — see
@@ -32,12 +32,69 @@ export async function markStepVisited(step: AppShellPage): Promise<void> {
   await local.set({ visitedSteps: [...visited, step] });
 }
 
+/** Whether the user has explicitly finished the wizard via Member Review's
+ *  "Complete Setup" button. Profile-scoped (shared/storage.ts). Drives the
+ *  Home dashboard banner's "Club Data Ready" state and the Member Review
+ *  step's `done` mark below — independent of whether every fuzzy match was
+ *  resolved (finishing is the user's call to make). */
+export async function getSetupComplete(): Promise<boolean> {
+  return (await local.value("setupComplete")) ?? false;
+}
+
+/** Set by "Complete Setup" (entrypoints/app/main.ts's stepFooter listener).
+ *  Guarded against a redundant write, same reason as markStepVisited(). */
+export async function markSetupComplete(): Promise<void> {
+  if (await getSetupComplete()) return;
+  await local.set({ setupComplete: true });
+}
+
+// The four mandatory setup steps the Home dashboard's "Club Data Status"
+// banner tracks, in banner order. Labels are kept identical to NAV_ITEMS'
+// wizard/nav labels (shared/app-shell.ts) so a step is called the same thing
+// on every screen — the banner tracker, the top nav, the popup stepper, and
+// each view's own <h1>.
+export const SETUP_STEPS = [
+  { key: "setup", label: "Setup" },
+  { key: "syncData", label: "Sync Data" },
+  { key: "clubReview", label: "Club Review" },
+  { key: "members", label: "Member Review" },
+] as const satisfies readonly { key: AppShellPage; label: string }[];
+
+/** Whether a setup step should render as "complete" (a checked box) in the
+ *  Home dashboard's tracker. Mirrors the wizard stepper's own checkmark rule
+ *  (shared/app-shell.ts's circleGlyph/circleClass): a step counts as complete
+ *  only once it's both `done` *and* no longer `locked` — a step this profile
+ *  has never reached yet is never shown as complete, even if its underlying
+ *  requirement (e.g. every club already matched exactly) happens to be
+ *  satisfied. So the first not-yet-visited step is always "the next step",
+ *  exactly as the stepper treats it. Pure, so it's unit-testable. */
+export function isSetupStepComplete(meta: StepMeta | undefined): boolean {
+  return !!meta?.done && !meta.locked;
+}
+
+/** How many of the four SETUP_STEPS are complete in a computed StepperInfo —
+ *  see isSetupStepComplete() for the exact rule. Pure (takes StepperInfo), so
+ *  it's unit-testable without browser.*. */
+export function countCompletedSetupSteps(info: StepperInfo): number {
+  return SETUP_STEPS.filter((step) => isSetupStepComplete(info[step.key])).length;
+}
+
+/** Whether the Home dashboard's feature CTAs (Club Progress, Excel export,
+ *  Approval Helper) should be enabled: a profile is chosen and both sources
+ *  are imported. Club/member matching refine quality but every downstream
+ *  tool still produces useful output from imported data alone — this matches
+ *  the "Requires imported data" badge wording. Pure, same as above. */
+export function areFeaturesUnlocked(info: StepperInfo): boolean {
+  return !!info.setup?.done && !!info.syncData?.done;
+}
+
 export async function computeStepperInfo(): Promise<StepperInfo> {
-  const [activeProfile, cached, visited, anonymize] = await Promise.all([
+  const [activeProfile, cached, visited, anonymize, setupComplete] = await Promise.all([
     getActiveProfile(),
     local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]),
     getVisitedSteps(),
     getAnonymizeMode(),
+    getSetupComplete(),
   ]);
 
   // Index 0 (setup/Setup) is never locked — it's the entry point, reached
@@ -73,16 +130,18 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
     reportInfo = computeReportInfo(report);
   }
 
-  // reportDisabled deliberately keeps the pre-Anonymize-Mode formula (NOT
-  // gated on `anonymize`) — Club Progress must stay reachable while
-  // Anonymize Mode is on, that's the entire point of the feature. Only
-  // Member Review additionally requires it to be off.
-  const reportDisabled = noProfile || !hasBothData || clubReviewPending;
-  const membersDisabled = reportDisabled || anonymize;
+  // Member Review's prerequisites — a profile, both data sources, and no
+  // unresolved club matches. NOT gated on `anonymize` here; that's added
+  // separately for `members` just below (Club Progress, reached from the
+  // Home dashboard, must stay usable while Anonymize Mode is on).
+  const membersBlocked = noProfile || !hasBothData || clubReviewPending;
+  const membersDisabled = membersBlocked || anonymize;
 
   const clubReviewDone = hasBothData && !clubReviewPending;
   const membersPending = (reportInfo?.toReview ?? 0) > 0;
-  const membersDone = clubReviewDone && !membersPending;
+  // Done either by resolving every match, or by the user explicitly finishing
+  // the wizard via "Complete Setup" (Member Review's step footer).
+  const membersDone = setupComplete || (clubReviewDone && !membersPending);
 
   return {
     setup: { info: setupInfo, done: !noProfile },
@@ -102,14 +161,16 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
       info: membersDisabled ? undefined : reportInfo?.members,
       disabled: membersDisabled,
       done: membersDone,
-      warning: membersPending,
+      // Suppressed once the user has explicitly finished the wizard — the
+      // "N to review" info line still shows the real count, but the alarm
+      // icon would contradict the "Club Data Ready" state they chose.
+      warning: membersPending && !setupComplete,
+      // The unresolved-match count behind that warning — same number the
+      // "To do" filter shows in Member Review (see computeReportInfo's
+      // toReview / shared/sync/delta.ts's needsAction). The Home dashboard
+      // banner surfaces it as "Review Needed (N items)".
+      warningCount: reportInfo?.toReview ?? 0,
       locked: isLocked("members"),
-    },
-    report: {
-      info: reportDisabled ? undefined : reportInfo?.nextLevel,
-      disabled: reportDisabled,
-      done: membersDone,
-      locked: isLocked("report"),
     },
   };
 }
@@ -143,7 +204,6 @@ function formatRelativeTime(timestamp: number): string {
 interface ReportStepInfo {
   clubs: string;
   members: string;
-  nextLevel: string;
   toReview: number;
 }
 
@@ -161,12 +221,10 @@ function computeReportInfo(report: ReportResult): ReportStepInfo {
   const toReview = report.clubPairs
     .filter((club) => !club.clubOrphaned)
     .reduce((count, club) => count + club.members.filter((member) => !isMemberResolved(member)).length, 0);
-  const readyForNextLevel = countMembersReadyForNextLevel(report);
 
   return {
     clubs: `${clubCount} club${clubCount === 1 ? "" : "s"} followed`,
     members: `${total} member${total === 1 ? "" : "s"} · ${toReview} to review`,
-    nextLevel: toReview > 0 ? "Review members first" : `${readyForNextLevel} member${readyForNextLevel === 1 ? "" : "s"} ready for next level`,
     toReview,
   };
 }

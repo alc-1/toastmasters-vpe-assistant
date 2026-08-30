@@ -37,7 +37,15 @@ export function whatsNewUrl(previousVersion?: string): string {
 // members.html, settings.html, sync-data.html, club-review.html,
 // global-settings.html) — now client-side routes inside entrypoints/app/,
 // addressed by hash fragment (see entrypoints/app/router.ts).
-export type AppRoute = "report" | "members" | "setup" | "syncData" | "clubReview" | "globalSettings";
+export type AppRoute =
+  | "dashboard"
+  | "report"
+  | "members"
+  | "setup"
+  | "syncData"
+  | "clubReview"
+  | "exporter"
+  | "globalSettings";
 
 export function appRouteUrl(route: AppRoute): string {
   return `${pageUrl(PAGES.app)}#${route}`;

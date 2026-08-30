@@ -24,7 +24,7 @@ import {
 } from "../../../shared/sync-status-panel";
 import { countBasecampMembers, countEasySpeakMembers } from "../../../shared/sync/delta";
 import { exportToExcel } from "../../../shared/export/export-to-excel";
-import { EXPORT_TYPE_LABEL, type ExportType } from "../../../shared/export/rows";
+import { EXPORT_OPTION_DESC, EXPORT_TYPE_LABEL, type ExportType } from "../../../shared/export/rows";
 import { escapeHtml } from "../../../shared/dom-utils";
 import type { BasecampOverviewScrape, BasecampScrape, EasySpeakScrape, SourceKey } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
@@ -105,12 +105,6 @@ const BADGE_LABEL: Record<BadgeTone, string> = {
   danger: "Not Imported",
   pending: "Importing",
   success: "✓ Imported",
-};
-
-const EXPORT_OPTION_DESC: Record<ExportType, string> = {
-  all: "Aggregated data + sources + matches",
-  basecamp: "Original Basecamp data",
-  easyspeak: "Original EasySpeak data",
 };
 
 function computeExportAvailability(basecampData: BasecampScrape | null, easyspeakData: EasySpeakScrape | null): Record<ExportType, boolean> {
@@ -311,7 +305,7 @@ export const syncDataView: ViewModule = {
       if (disposed) return;
       renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, basecampLoading, countBasecampMembers, "basecamp", anonymize);
       renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, easyspeakLoading, countEasySpeakMembers, "easyspeak", anonymize);
-      document.getElementById("anonymizeExportNotice")!.textContent = anonymize ? "Anonymize Mode is on — this export will use anonymized names." : "";
+      document.getElementById("anonymizeExportNotice")!.textContent = anonymize ? "Privacy Mode is on — this export will use anonymized names." : "";
       await renderProgress();
       if (disposed) return;
 

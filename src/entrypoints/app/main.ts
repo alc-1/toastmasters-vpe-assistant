@@ -10,19 +10,28 @@
 import { renderAppShell, renderStepFooter, type AppShellPage, type StepperInfo } from "../../shared/app-shell";
 import { escapeHtml } from "../../shared/dom-utils";
 import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
-import { computeStepperInfo, markStepVisited } from "../../shared/stepper-info";
+import { formatProfileLabel, getActiveProfile, getAnonymizeMode, setAnonymizeMode } from "../../shared/settings-store";
+import { computeStepperInfo, markSetupComplete, markStepVisited } from "../../shared/stepper-info";
 import { resolveRoute } from "./router";
 import { VIEWS } from "./views";
 import type { AppRoute } from "../../shared/pages";
 
 const ROUTE_TITLE: Record<AppRoute, string> = {
+  dashboard: "Home",
   setup: "Setup",
   syncData: "Sync Data",
   clubReview: "Club Review",
   members: "Member Review",
   report: "Club Progress",
+  exporter: "Download Spreadsheet",
   globalSettings: "Global Settings",
 };
+
+// The four steps that render the wizard chrome (highlighted stepper item +
+// Previous/Next footer + markStepVisited). dashboard/exporter/globalSettings
+// /report are standalone routes outside the wizard flow (report — Club
+// Progress — is reached from the Home dashboard's feature grid now).
+const WIZARD_ROUTES: readonly AppShellPage[] = ["setup", "syncData", "clubReview", "members"];
 
 const selfUpdateBannerRoot = document.getElementById("selfUpdateBannerRoot")!;
 const appShellRoot = document.getElementById("appShell")!;
@@ -54,6 +63,32 @@ appShellRoot.addEventListener("click", (e) => {
   toggle.setAttribute("aria-expanded", String(expanded));
 });
 
+// The header's Privacy Mode toggle (shared/app-shell.ts's #appPrivacyToggle) —
+// delegated on the persistent #appShell root, same rationale as the stepper
+// accordion listener above. setAnonymizeMode() writes storage.local, which
+// the onChanged listener below turns into a navigate() → renderChrome() that
+// re-renders the header with the fresh state, so the header and Global
+// Settings' own toggle stay in sync.
+appShellRoot.addEventListener("change", (e) => {
+  const toggle = (e.target as HTMLElement).closest<HTMLInputElement>("#appPrivacyToggle");
+  if (toggle) void setAnonymizeMode(toggle.checked);
+});
+
+// The wizard's final "Complete Setup" button (Member Review's step footer —
+// shared/app-shell.ts's renderStepFooter()). Delegated on the persistent
+// #stepFooter root, same rationale as the listeners above. Marks the wizard
+// finished (→ Home banner flips to "Club Data Ready"), then navigates to the
+// hub. preventDefault + explicit hash set so the flag write lands before the
+// dashboard mounts, avoiding a "still in progress" flash.
+stepFooterRoot.addEventListener("click", (e) => {
+  if (!(e.target as HTMLElement).closest("#completeSetupBtn")) return;
+  e.preventDefault();
+  void (async () => {
+    await markSetupComplete();
+    location.hash = "dashboard";
+  })();
+});
+
 let currentDispose: (() => void) | null = null;
 let currentRoute: AppRoute | null = null;
 // Bumped on every navigate() call — lets a call bail out early if a newer
@@ -79,7 +114,11 @@ let mountToken = 0;
 
 async function navigate(rawHash: string) {
   const myNavToken = ++navToken;
-  const info = await computeStepperInfo();
+  const [info, profileId, anonymize] = await Promise.all([
+    computeStepperInfo(),
+    getActiveProfile(),
+    getAnonymizeMode(),
+  ]);
   if (myNavToken !== navToken) return; // a newer navigation started while we awaited
 
   const route = resolveRoute(rawHash, info);
@@ -90,7 +129,9 @@ async function navigate(rawHash: string) {
     location.hash = route;
   }
 
-  await renderChrome(route, info);
+  // No chip until a profile exists — "No profile selected yet" as a pill
+  // reads oddly, and the stepper/banner already call out that setup is needed.
+  await renderChrome(route, info, profileId ? formatProfileLabel(profileId) : undefined, anonymize);
 
   if (route === currentRoute) return; // chrome-only refresh (e.g. a storage change already re-ran this) — view stays mounted
   currentRoute = route;
@@ -112,14 +153,23 @@ async function navigate(rawHash: string) {
   currentDispose = dispose;
 }
 
-async function renderChrome(route: AppRoute, info: StepperInfo) {
-  const isWizardStep = route !== "globalSettings";
+async function renderChrome(route: AppRoute, info: StepperInfo, profileLabel: string | undefined, anonymize: boolean) {
+  const isWizardStep = (WIZARD_ROUTES as readonly string[]).includes(route);
   if (isWizardStep) await markStepVisited(route as AppShellPage);
   document.title = `Toastmasters VPE Assistant — ${ROUTE_TITLE[route]}`;
   appShellRoot.innerHTML = renderAppShell({
     active: isWizardStep ? (route as AppShellPage) : null,
     info,
     settingsActive: route === "globalSettings",
+    // The Home dashboard, the Excel Exporter, Club Progress and Global
+    // Settings are all outside the wizard flow — header-only, no stepper.
+    showStepper: route !== "dashboard" && route !== "exporter" && route !== "report" && route !== "globalSettings",
+    // The profile chip + Privacy toggle show on every route.
+    profileLabel,
+    anonymize,
+    // "← Back to Home" on every sub-view; the Home hub itself is the one
+    // route that doesn't get it.
+    showBackToHome: route !== "dashboard",
   });
   stepFooterRoot.innerHTML = isWizardStep ? renderStepFooter(route as AppShellPage, info) : "";
   await renderSelfUpdateBanner();

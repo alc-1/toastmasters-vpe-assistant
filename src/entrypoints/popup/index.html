@@ -45,6 +45,13 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+    .popup-home {
+      padding: var(--space-3) 0 0;
+    }
+    .popup-home__btn {
+      width: 100%;
+      min-height: 44px;
+    }
     .popup-footer {
       display: flex;
       justify-content: center;
@@ -74,6 +81,11 @@
 
   <div id="updateBannerRoot"></div>
   <div id="selfUpdateBannerRoot"></div>
+
+  <div class="popup-home">
+    <button id="popupHomeBtn" type="button" class="btn btn-primary popup-home__btn">Open Home</button>
+  </div>
+
   <div id="popupStepperRoot"></div>
 
   <div class="popup-footer">

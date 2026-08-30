@@ -8,9 +8,11 @@
 import { PAGES, seedDemoData, test, expect } from "./fixtures";
 
 const PAGES_TO_CHECK: { name: string; page: (typeof PAGES)[keyof typeof PAGES]; contentRootSelector: string }[] = [
+  { name: "Home dashboard", page: PAGES.dashboard, contentRootSelector: "#dashboardBannerRoot" },
   { name: "Club Progress", page: PAGES.report, contentRootSelector: "#clubTabs" },
   { name: "Member Review", page: PAGES.members, contentRootSelector: "#clubTabs" },
   { name: "Club Review", page: PAGES.clubReview, contentRootSelector: "#clubLookupRoot" },
+  { name: "Excel Exporter", page: PAGES.exporter, contentRootSelector: "#exporterOptionsRoot" },
 ];
 
 for (const { name, page: pagePath, contentRootSelector } of PAGES_TO_CHECK) {

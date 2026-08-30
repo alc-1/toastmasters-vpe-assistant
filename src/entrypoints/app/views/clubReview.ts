@@ -291,7 +291,7 @@ export const clubReviewView: ViewModule = {
       if (disposed) return;
       if (anonymize) {
         root.querySelector("#clubLookupRoot")!.innerHTML =
-          '<p class="empty-state">Club Review is unavailable while Anonymize Mode is on. ' +
+          '<p class="empty-state">Club Review is unavailable while Privacy Mode is on. ' +
           '<a href="#globalSettings">Turn it off in Global Settings</a> to review club matches.</p>';
         return;
       }

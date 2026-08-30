@@ -82,11 +82,17 @@ export interface LocalSchema {
   memberPathOrphans: MemberPathOrphan[];
   memberPathFlags: MemberPathFlag[];
   memberPathCompletions: MemberPathCompletion[];
-  // Which of the five options-page stepper steps this profile has reached at
-  // least once — see shared/stepper-info.ts's markStepVisited()/getVisitedSteps().
+  // Which of the wizard stepper steps this profile has reached at least once
+  // — see shared/stepper-info.ts's markStepVisited()/getVisitedSteps().
   // Drives the "locked until reached via Next" gating in shared/app-shell.ts,
   // separately from this same StepMeta's prerequisite-based `disabled`.
   visitedSteps: AppShellPage[];
+  // Set true by the wizard's final "Complete Setup" button (Member Review's
+  // step footer — see shared/app-shell.ts / entrypoints/app/main.ts). Drives
+  // the Home dashboard banner's "Club Data Ready" state and the Member Review
+  // step's `done` mark (shared/stepper-info.ts) — an explicit "I'm finished
+  // reviewing" signal, independent of whether every fuzzy match was resolved.
+  setupComplete: boolean;
   // Preview build only (see background/api/update-checker.ts /
   // background/index.preview.ts — physically absent from the store build).
   // Not profile-scoped: which preview build is newest has nothing to do with
@@ -139,6 +145,7 @@ const PROFILE_SCOPED_KEYS = [
   "memberPathFlags",
   "memberPathCompletions",
   "visitedSteps",
+  "setupComplete",
 ] as const satisfies readonly (keyof LocalSchema)[];
 
 type ProfileScopedKey = (typeof PROFILE_SCOPED_KEYS)[number];
@@ -283,6 +290,28 @@ export const local = {
     await ensureMigrated();
     const realKeys = PROFILE_SCOPED_KEYS.map((key) => toRealKey(key, profileId));
     await browser.storage.local.remove(realKeys);
+  },
+  /**
+   * Raw, un-scoped snapshot of the ENTIRE storage.local area — every real
+   * key, including every profile's `profile:<id>:<key>` bucket and the
+   * non-scoped settings. Used by shared/backup.ts to build a full
+   * "Save Backup File" export; deliberately not profile-aware, since a
+   * backup must capture all profiles, not just the active one.
+   */
+  async dumpAll(): Promise<Record<string, unknown>> {
+    await ensureMigrated();
+    return browser.storage.local.get(null);
+  },
+  /**
+   * Replaces the entire storage.local area with `data` (clear, then set) —
+   * the "Load Backup File" restore counterpart of dumpAll(). Callers must
+   * confirm with the user first: this drops every current key, including
+   * other profiles' data.
+   */
+  async replaceAll(data: Record<string, unknown>): Promise<void> {
+    await ensureMigrated();
+    await browser.storage.local.clear();
+    await browser.storage.local.set(data);
   },
 };
 

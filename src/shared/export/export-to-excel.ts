@@ -10,13 +10,12 @@
 
 import { local } from "../storage";
 import { loadResolutionData } from "../resolution-store";
-import { getActiveProfile, getAnonymizeMode, EASYSPEAK_SERVERS } from "../settings-store";
+import { formatProfileLabel, getActiveProfile, getAnonymizeMode } from "../settings-store";
 import { anonymizeBasecampScrape, anonymizeEasySpeakScrape, anonymizeReport, buildAnonymizationMaps } from "../anonymize";
 import { buildReport } from "../sync/delta";
 import { buildExportSheets, type ExportType } from "./rows";
 import { buildExportWorkbook } from "./workbook";
 import { downloadBlob } from "./download";
-import type { ProfileId } from "../types";
 
 export const EXPORT_SCHEMA_VERSION = "1";
 
@@ -31,12 +30,6 @@ export interface ExportSummary {
   hasBasecampData: boolean;
   hasEasySpeakData: boolean;
   memberRowCount: number;
-}
-
-function formatProfileLabel(profileId: ProfileId | null): string {
-  if (!profileId) return "No profile selected";
-  if (profileId === "demo") return "Demo";
-  return EASYSPEAK_SERVERS.find((s) => s.id === profileId)?.label ?? profileId;
 }
 
 /**

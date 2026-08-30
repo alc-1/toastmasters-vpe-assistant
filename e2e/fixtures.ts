@@ -29,11 +29,13 @@ const EXTENSION_PATH = path.resolve(__dirname, "../.output/store/chrome-mv3");
 // exists inside an extension page context, not this Node-side Playwright
 // process.
 export const PAGES = {
+  dashboard: "app.html#dashboard",
   setup: "app.html#setup",
   syncData: "app.html#syncData",
   report: "app.html#report",
   members: "app.html#members",
   clubReview: "app.html#clubReview",
+  exporter: "app.html#exporter",
 } as const;
 
 export const test = base.extend<{

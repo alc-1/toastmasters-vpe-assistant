@@ -8,6 +8,16 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+### Added
+
+- New Home screen: an overview of your club-data status and quick-access tiles for every tool.
+- Save a backup file of all your data and settings, and load it back later.
+
+### Changed
+
+- Privacy Mode and the active profile are now shown in the top bar on every screen.
+- The setup wizard is now four steps, ending at Member Review; Club Progress is reached from a Home screen tile.
+
 ### Fixed
 
 - The What's New page now shows the latest version's changes right after an update.
