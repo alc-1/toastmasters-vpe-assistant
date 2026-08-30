@@ -16,7 +16,6 @@
 // EasySpeak flow can steal focus and tear the popup down.
 
 import { escapeHtml } from "./dom-utils";
-import { local } from "./storage";
 import { sendMessage } from "./send-message";
 import { loadResolutionData } from "./resolution-store";
 import { anonymizeBasecampScrape, anonymizeEasySpeakScrape } from "./anonymize";
@@ -150,54 +149,6 @@ export async function onScrapeClick<T>({ els, message, loadingLabel, render, onD
   } finally {
     setButtonLoading(els, false, loadingLabel);
   }
-}
-
-// ---------------------------------------------------------------------------
-// Compact status summary — a quick-glance replacement for reading the two
-// per-source status lines individually. Self-contained (re-reads storage
-// itself) so any call site can refresh it without threading state through:
-// called once on page open, and again after each successful scrape. Returns
-// the cached data so callers can layer their own page-specific follow-up on
-// top (e.g. popup/index.ts's popup-subtitle update) without this module
-// needing to know about it.
-// ---------------------------------------------------------------------------
-
-export async function renderStatusSummary(
-  loading: { basecamp?: boolean; easyspeak?: boolean } = {}
-): Promise<{ basecampData: BasecampScrape | null; easyspeakData: EasySpeakScrape | null }> {
-  const cached = await local.get(["basecampData", "basecampCompletedPaths", "easyspeakData"]);
-  const root = document.getElementById("statusSummary")!;
-
-  const rows = [
-    renderStatusRow("Basecamp", sourceStatusValue(!!loading.basecamp, !!cached.basecampData)),
-    renderStatusRow("EasySpeak", sourceStatusValue(!!loading.easyspeak, !!cached.easyspeakData)),
-  ];
-
-  if (cached.basecampData && cached.easyspeakData) {
-    const { matched, total } = await loadMatchSummary(cached.basecampData, cached.easyspeakData, cached.basecampCompletedPaths ?? {});
-    rows.push(renderStatusRow("Matches", { text: `${matched}/${total}`, tone: total > 0 && matched === total ? "success" : "pending" }));
-  } else {
-    rows.push(renderStatusRow("Matches", { text: "—", tone: null }));
-  }
-
-  root.innerHTML = rows.join("");
-  return { basecampData: cached.basecampData ?? null, easyspeakData: cached.easyspeakData ?? null };
-}
-
-function sourceStatusValue(isLoading: boolean, hasData: boolean): { text: string; tone: "success" | "pending" | null } {
-  if (isLoading) return { text: "Extracting…", tone: "pending" };
-  if (hasData) return { text: "✓ Synced", tone: "success" };
-  return { text: "Not yet extracted", tone: null };
-}
-
-function renderStatusRow(label: string, value: { text: string; tone: "success" | "pending" | null }): string {
-  const toneClass = value.tone ? ` is-${value.tone}` : "";
-  return `
-    <div class="status-summary__row">
-      <span class="status-summary__label">${escapeHtml(label)}</span>
-      <span class="status-summary__value${toneClass}">${escapeHtml(value.text)}</span>
-    </div>
-  `;
 }
 
 // The actual "which members count as matched" rule (isMemberResolved) lives

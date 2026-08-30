@@ -2378,44 +2378,6 @@
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Popup-only: compact status summary rows                                */
-  /* ---------------------------------------------------------------------- */
-
-  .status-summary {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    margin: var(--space-3) 0;
-  }
-
-  .status-summary__row {
-    @apply bg-surface-alt border border-border rounded-sm text-sm;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-2) var(--space-3);
-  }
-
-  .status-summary__label {
-    @apply text-tm-gray-900;
-    font-weight: 600;
-  }
-
-  .status-summary__value {
-    @apply text-tm-gray-600;
-  }
-
-  .status-summary__value.is-success {
-    @apply text-success;
-    font-weight: 600;
-  }
-
-  .status-summary__value.is-pending {
-    @apply text-warning-text;
-    font-weight: 600;
-  }
-
-  /* ---------------------------------------------------------------------- */
   /* Status pages: centered confirmation card                               */
   /* ---------------------------------------------------------------------- */
 
