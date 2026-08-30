@@ -8,6 +8,8 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-30
+
 ### Added
 
 - New Home screen: an overview of your club-data status and quick-access tiles for every tool.
