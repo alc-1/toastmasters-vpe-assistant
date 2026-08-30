@@ -474,14 +474,28 @@
     flex-shrink: 0;
   }
 
+  /* The switch + its "Privacy Mode" label sit in one pill (mirroring the
+     profile chip beside it) so the control reads as a single labelled unit
+     rather than a loose toggle next to loose text. */
   .app-header__privacy {
-    @apply text-sm;
+    @apply text-sm rounded-pill;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    color: rgba(255, 255, 255, 0.9);
+    padding: var(--space-1) var(--space-3);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
     font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+
+  .app-header__privacy:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .app-header__privacy-lock {
+    line-height: 1;
   }
 
   /* Recolor daisyUI's <input class="toggle"> for the navy header bar: a
@@ -552,166 +566,100 @@
     display: block;
   }
 
-  /* Header version badge + release-notes popover (shared/app-shell.ts's
-     renderVersionBadge; toggle/dismiss handlers in entrypoints/app/main.ts).
-     Update surface in the header actions cluster showing the running version,
-     with a click-to-open popover summarising the latest release. Two states
-     ("Option B"): a high-contrast white pill with a gold sparkle + pulsing
-     red dot while a newer changelog entry hasn't been seen, reverting to a
-     quiet transparent pill once it has. The wrapper is a daisyUI `dropdown
-     dropdown-end`; only the pill + popover *contents* are styled here. */
-  .version-badge-wrap {
-    flex-shrink: 0;
+  /* App footer (shared/app-shell.ts's renderAppFooter; click handler in
+     entrypoints/app/main.ts) — a slim, centred bar under the view content on
+     every merged-app route, carrying the running version string + a "What's
+     New" link into the #whatsNew view. This replaced the old header version
+     badge: version metadata is non-critical, so it no longer competes for
+     space in the top-right actions cluster. When there are unread release
+     notes the link carries a gold sparkle + a pulsing dot. */
+  .app-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-top: var(--space-6);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--color-base-300);
   }
 
-  /* Read/default state: a quiet, transparent pill that recedes into the
-     navy header once the user has seen the latest notes. */
-  .version-badge {
-    @apply text-xs rounded-pill;
+  .app-footer__version,
+  .app-footer__sep {
+    @apply text-xs text-tm-gray-600;
+  }
+
+  .app-footer__link {
+    @apply text-xs text-navy-700 rounded-sm;
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.75);
-    background: rgba(255, 255, 255, 0.1);
-    font-family: inherit;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    font-weight: 600;
+    text-decoration: none;
   }
 
-  .version-badge:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
+  .app-footer__link:hover {
+    text-decoration: underline;
   }
 
-  .version-badge:focus-visible {
-    outline: 2px solid #ffffff;
+  .app-footer__link--unread {
+    font-weight: 700;
+  }
+
+  .app-footer__link:focus-visible {
+    @apply outline-navy-700;
+    outline-style: solid;
+    outline-width: 2px;
     outline-offset: 2px;
   }
 
-  /* Unread state ("Option B"): a high-contrast white pill that stands out
-     against the navy header, carrying a gold sparkle + a pulsing red dot.
-     entrypoints/app/main.ts strips this modifier the moment the popover
-     opens; the next chrome render then drops it from the markup for good. */
-  .version-badge--unread {
-    @apply text-tm-gray-900;
-    padding: var(--space-1) var(--space-3);
-    border-color: transparent;
-    background: #ffffff;
-    font-weight: 600;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-  }
-
-  .version-badge--unread:hover {
-    @apply text-tm-gray-900;
-    background: #f1f5f9;
-  }
-
-  .version-badge__sparkle {
+  .sparkle-icon {
     display: inline-flex;
     flex-shrink: 0;
     color: var(--warning);
   }
 
-  .version-badge__sparkle svg {
+  .sparkle-icon svg {
     display: block;
   }
 
-  /* Pulsing red notification dot on the right of the unread badge: a solid
-     core with a second span scaling up + fading out behind it (the standard
-     "ping" effect), suppressed under prefers-reduced-motion. */
-  .version-badge__dot {
+  /* Pulsing notification dot after the "What's New" text while release notes
+     are unread: a solid core with a second span scaling up + fading out
+     behind it (the standard "ping" effect), suppressed under
+     prefers-reduced-motion. */
+  .app-footer__dot {
     position: relative;
     display: inline-flex;
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     margin-left: 2px;
     flex-shrink: 0;
   }
 
-  .version-badge__dot-ping,
-  .version-badge__dot-core {
+  .app-footer__dot-ping,
+  .app-footer__dot-core {
     position: absolute;
     inset: 0;
     border-radius: 50%;
     background: var(--danger);
   }
 
-  .version-badge__dot-ping {
-    animation: version-badge-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  .app-footer__dot-ping {
+    animation: app-footer-dot-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
 
-  @keyframes version-badge-ping {
+  @keyframes app-footer-dot-ping {
     75%,
     100% {
-      transform: scale(2.2);
+      transform: scale(2.4);
       opacity: 0;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .version-badge__dot-ping {
+    .app-footer__dot-ping {
       animation: none;
     }
-  }
-
-  /* Positioned by daisyUI `.dropdown-content`; this styles its box + width. */
-  .version-popover {
-    @apply bg-surface border border-border rounded-md;
-    z-index: 30;
-    margin-top: var(--space-2);
-    width: min(288px, calc(100vw - 32px));
-    padding: var(--space-4);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
-  }
-
-  .version-popover__head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
-  }
-
-  .version-popover__version {
-    @apply text-sm text-tm-gray-900;
-    font-weight: 600;
-  }
-
-  .version-popover__date {
-    @apply text-xs text-tm-gray-600;
-    flex-shrink: 0;
-  }
-
-  .version-popover__list {
-    margin: 0 0 var(--space-3);
-    padding-left: var(--space-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-
-  .version-popover__list li {
-    @apply text-sm text-tm-gray-700;
-    line-height: 1.4;
-  }
-
-  .version-popover__empty {
-    @apply text-sm text-tm-gray-600;
-    margin: 0 0 var(--space-3);
-  }
-
-  .version-popover__footer {
-    @apply text-xs text-navy-700;
-    display: inline-block;
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .version-popover__footer:hover {
-    text-decoration: underline;
   }
 
   .app-header__logo {
@@ -738,20 +686,20 @@
     @apply text-sm;
     font-weight: 400;
     line-height: 1.4;
-    color: rgba(255, 255, 255, 0.85);
+    /* Near-opaque white on navy-700 (~10:1) — comfortably past WCAG AA for
+       this small body text; the previous 0.85 sat lower. */
+    color: rgba(255, 255, 255, 0.95);
   }
 
   /* Narrow-header overrides. Placed here — after every base .app-header__*
      rule — so they win on source order (equal specificity). The narrow header
-     can't fit the brand + profile chip + toggle + version badge, so: the chip
-     and the "Privacy Mode" words drop, the version badge drops (release notes
-     stay reachable from What's New / the popup), the logo + title + spacing
-     shrink, and the full-sentence subtitle clamps to one line so it doesn't
-     push content below the fold. */
+     can't fit the brand + profile chip + full toggle label, so: the chip and
+     the "Privacy Mode" words drop (the toggle + lock glyph stay), the logo +
+     title + spacing shrink, and the full-sentence subtitle clamps to one line
+     so it doesn't push content below the fold. */
   @media (max-width: 1024px) {
     .app-header__profile,
-    .app-header__privacy-text,
-    .version-badge-wrap {
+    .app-header__privacy-text {
       display: none;
     }
 
@@ -1648,8 +1596,11 @@
   /* ---------------------------------------------------------------------- */
 
   /* Club-data status hero banner — a soft-tinted box (not a .card) sitting
-     directly below the app header, the status headline + step tracker on the
-     left, the Start/Continue Setup / Refresh action on the right. */
+     directly below the app header. The read-only step tracker is on the left
+     (.dashboard-status__progress); the status headline + timestamp + the
+     Start/Continue Setup / Refresh action are grouped on the right
+     (.dashboard-status__action) so the data-status readout and the action
+     that changes it read as one unit. */
   .dashboard-status {
     border: 1px solid var(--color-base-300);
     border-radius: var(--radius-md);
@@ -1658,17 +1609,35 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-4);
+    gap: var(--space-4) var(--space-5);
     margin-bottom: var(--space-5);
     padding: var(--space-4) var(--space-5);
   }
 
-  .dashboard-status__main {
+  .dashboard-status__progress {
     display: flex;
     flex: 1 1 320px;
     min-width: 0;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .dashboard-status__caption {
+    @apply text-xs text-tm-gray-600;
+    margin: 0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* The status readout + timestamp + CTA, stacked and right-aligned so they
+     bind together visually against the CTA button below them. */
+  .dashboard-status__action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-1);
+    flex-shrink: 0;
   }
 
   .dashboard-status__headline {
@@ -1713,6 +1682,7 @@
 
   .dashboard-status__cta {
     min-height: 44px;
+    margin-top: var(--space-1);
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
@@ -1782,18 +1752,19 @@
   }
 
   /* The current step — the furthest one reached, which the banner's CTA
-     links to. Filled navy marker + halo + bold navy label, mirroring the
-     navy "Continue Setup →" button so the two read as one unit. */
+     links to. A quiet "you are here" emphasis only: an outlined navy marker
+     + navy label, deliberately NOT the filled/haloed treatment the
+     interactive wizard stepper uses for its active step, so this tracker
+     stays legible as a read-only progress indicator. */
   .dashboard-tracker__step.is-current .dashboard-tracker__marker {
-    border-color: transparent;
-    background: var(--primary);
-    color: white;
-    box-shadow: 0 0 0 3px var(--info-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--surface);
   }
 
   .dashboard-tracker__step.is-current .dashboard-tracker__name {
     @apply text-navy-700;
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .dashboard-tracker__connector {
@@ -1823,18 +1794,26 @@
       padding: var(--space-4);
     }
 
+    .dashboard-status__action {
+      align-items: stretch;
+      width: 100%;
+    }
+
     .dashboard-status__cta {
       width: 100%;
       justify-content: center;
     }
   }
 
-  /* Feature-tile grid — real two columns above the breakpoint, stacked below. */
+  /* Feature-tile grid — real two columns above the breakpoint, stacked below.
+     `align-items: stretch` (the grid default, spelled out) keeps both cards in
+     a row the same height regardless of description length; each tile's footer
+     is pinned to the bottom via `margin-top: auto` so the CTAs line up. */
   .dashboard-features {
     display: grid;
     grid-template-columns: 1fr;
     gap: var(--space-4);
-    align-items: start;
+    align-items: stretch;
   }
 
   @media (min-width: 1025px) {
@@ -1848,7 +1827,8 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    padding: var(--space-4);
+    height: 100%;
+    padding: var(--space-5);
     transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -1934,12 +1914,6 @@
     font-weight: 600;
   }
 
-  /* NEW pill sits at the far end of the icon/title row. */
-  .dashboard-tile__badge {
-    flex-shrink: 0;
-    margin-left: auto;
-  }
-
   .dashboard-tile__desc {
     @apply text-sm text-tm-gray-700;
     margin: 0 0 var(--space-4);
@@ -1968,20 +1942,24 @@
     width: 100%;
   }
 
-  /* Save File / Load File — a cohesive filled-grey secondary pair
-     (slate-100 idle → slate-200 hover), sharing the row width evenly. */
+  /* Save File / Load File — utility actions, so clearly-bordered secondary
+     buttons (white fill, 1px neutral border, gray-700 label — 9:1 on white)
+     that sit visibly below the primary navy CTAs on the other cards. They
+     share the row width evenly. */
   .dashboard-tile__actions .btn-secondary {
-    @apply rounded-md;
+    @apply rounded-md bg-surface;
     flex: 1 1 auto;
     justify-content: center;
     padding: var(--space-2) var(--space-4);
-    background: var(--tile-slate-bg);
-    border-color: transparent;
+    border: 1px solid var(--color-base-300);
+    color: var(--gray-700);
     font-weight: 600;
   }
 
   .dashboard-tile__actions .btn-secondary:hover:not(:disabled) {
-    background: var(--color-base-300);
+    background: var(--surface-alt);
+    border-color: var(--primary);
+    color: var(--primary);
   }
 
   .dashboard-tile__status {
@@ -1993,9 +1971,10 @@
     @apply text-danger;
   }
 
+  /* "Coming soon" — a single status tag (daisyUI `badge badge-soft`), the
+     only thing in the Approval Helper card's footer (no disabled button). */
   .dashboard-tile__soon {
-    @apply text-xs text-tm-gray-600;
-    font-style: italic;
+    flex-shrink: 0;
   }
 
   @media (max-width: 1024px) {

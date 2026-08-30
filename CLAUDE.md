@@ -333,7 +333,7 @@ src/
 │   │   │                             # ONE entrypoint, client-side hash-routed (#dashboard is the
 │   │   │                             # default; #setup, #syncData, ...), no full page reload
 │   │   │                             # between routes — see "The merged app/ SPA" below
-│   │   ├── index.html + main.ts     # the shell: #appShell/#viewRoot/#stepFooter roots + the router
+│   │   ├── index.html + main.ts     # the shell: #appShell/#viewRoot/#stepFooter/#appFooter roots + router
 │   │   ├── router.ts                # resolveRoute() — pure hash -> AppRoute resolution
 │   │   └── views/                   # plain TS modules, NOT entrypoints themselves (no index.html)
 │   │       ├── dashboard.ts         # the Home hub: setup-status banner + Global Settings card
@@ -376,7 +376,8 @@ src/
     ├── browser-action.ts    # actionApi = browser.action ?? browser.browserAction — see
     │                        # background/icon-state.ts below for why this fallback is required
     ├── countdown.ts         # shared auto-close-in-5s behavior for the two status pages above
-    ├── app-shell.ts         # shared header/nav bar (renderAppShell), rendered into #appShell once
+    ├── app-shell.ts         # shared header/nav bar (renderAppShell) + version/What's-New footer
+    │                        #   (renderAppFooter), rendered into #appShell / #appFooter once
     │                        # by entrypoints/app/main.ts (not per-view — see below)
     ├── app-tab.ts           # focusOrOpenAppTab() — finds-or-opens the merged app's tab on a given
     │                        # route, used by the popup instead of always opening a new tab
@@ -1013,9 +1014,16 @@ entrypoint itself (no `index.html`, no separate build output):
   `getAnonymizeMode()`/`setAnonymizeMode()` as Global Settings — the two views deliberately both
   expose it and both re-render on `storage.onChanged`) and the **Save/Load Backup File** unit
   (`shared/backup.ts`, with `shared/modal.ts`'s `confirmModal()` gating the destructive restore); and
-  a **feature-card grid** linking to `#report`, `#exporter`, and a permanently-disabled "Coming soon"
-  Pathways Approval Helper placeholder (`[NEW]` badge). The two live cards render inert with a
-  "🔒 Requires Data Sync" badge until `areFeaturesUnlocked()`. A closure-scoped `restoreStatus`
+  a **feature-card grid** linking to `#report`, `#exporter`, and a permanently-disabled Pathways
+  Approval Helper placeholder (footer is a single `badge badge-soft` "Coming soon" tag — no
+  disabled CTA). All cards share one height (`.dashboard-features` `align-items: stretch` +
+  `.dashboard-tile` `height: 100%`) and `--space-5` padding; the two live feature cards render
+  inert with a "🔒 Requires imported data" badge + a disabled CTA preview until
+  `areFeaturesUnlocked()`. The status banner groups the headline + timestamp with the CTA on the
+  right (`.dashboard-status__action`) and the captioned step tracker on the left
+  (`.dashboard-status__progress`) — the tracker's current-step marker is an outlined-navy "you are
+  here" cue, deliberately *not* the filled/haloed look the interactive wizard stepper uses. A
+  closure-scoped `restoreStatus`
   survives the `storage.onChanged`-triggered re-render a successful restore itself causes, so the
   "Backup restored." line stays visible.
 - **`entrypoints/app/views/exporter.ts`** — the standalone "Download Excel Spreadsheet" view
@@ -1253,7 +1261,17 @@ entrypoint itself (no `index.html`, no separate build output):
   Previous/Next between steps, and on the last step (Member Review) a "Complete Setup" button
   instead of Next. The header brand (logo + title) is itself an `<a href="#dashboard">` — clicking
   it returns to the Home hub; `showStepper: false` (dashboard/exporter/report) drops the whole
-  stepper `<nav>` but keeps this header.
+  stepper `<nav>` but keeps this header. The header's right-side actions cluster holds only the
+  active-profile chip, the Privacy Mode toggle (its `<label>` wraps switch + text in one pill), and
+  the gear. `renderAppFooter(versionBadge)` is a separate export rendered by `main.ts` into
+  `#appFooter` (below `#viewRoot`/`#stepFooter`): a slim centred bar with the running version
+  string + a `<a href="#whatsNew">` "What's New" link. This replaced the old top-right version
+  badge + release-notes popover — version metadata is non-critical, so it left the toolbar. When
+  `versionBadge.hasUnread` (a changelog entry newer than `lastViewedVersion`) the link gains a gold
+  sparkle + a pulsing dot; `main.ts`'s delegated `#appFooter` click handler clears that state
+  optimistically and calls `markVersionViewed()` as the `#whatsNew` navigation proceeds. The
+  `lastViewedVersion`-only `storage.onChanged` guard in `main.ts` still applies (that write must
+  not trigger a chrome re-render).
 - **`shared/dom-utils.ts`** — `escapeHtml()` and `escapeAttr()`, shared by all extension pages. **Use
   `escapeAttr`, not `escapeHtml`, for any untrusted text (scraped member/path names) written into an
   HTML attribute value** (e.g. an `<option value="...">`, a `data-*` attribute) — `escapeHtml`'s
@@ -1467,11 +1485,11 @@ A few decisions worth knowing before changing the config:
     `appearance: base-select` picker styling, so the options list stays the OS-native popup while
     the trigger keeps daisyUI's border/arrow/focus ring; the `appearance-none` utility lands in the
     `utilities` layer, after `daisyui`, so it wins with no `!important`),
-    banners (`alert alert-{warning|info} alert-soft`), and the Sync Data "Export" menu + header
-    version badge (`dropdown` — focus-based, so no open/close JS and no `document` listener; the
-    Export radios update the `.selected` class in place rather than re-rendering, or the focused
-    radio would blur and collapse the dropdown). The `.badge` / `.tabs` / `.alert` rules in
-    `@layer app` are now thin app-specific tweaks on top of daisyUI's base, not full components.
+    banners (`alert alert-{warning|info} alert-soft`), and the Sync Data "Export" menu (`dropdown`
+    — focus-based, so no open/close JS and no `document` listener; the Export radios update the
+    `.selected` class in place rather than re-rendering, or the focused radio would blur and
+    collapse the dropdown). The `.badge` / `.tabs` / `.alert` rules in `@layer app` are now thin
+    app-specific tweaks on top of daisyUI's base, not full components.
   - **Known toolchain bug + workaround:** Tailwind v4's bundled Lightning CSS mangles daisyUI
     5.7.22's dropdown show selector (`.dropdown:not(.dropdown-close):is(…, :focus-within)
     .dropdown-content`) into an invalid `:focus-within)` — the panel never fades in. `styles.css`'s
@@ -1485,7 +1503,8 @@ A few decisions worth knowing before changing the config:
   - **Still bespoke `@layer app` components** (kept deliberately — app-specific, no daisyUI
     equivalent that improves them): the stepper (`.app-stepper*`), `.card` / `.card-header` /
     `.card-body`, `.kpi-card`, the `.toolbar` / `.chip` filter row, `.dashboard-*`, `.app-header*`,
-    the option/region selectable cards, the version badge/popover, welcome-page mockups.
+    `.app-footer*` (the version + "What's New" bar), the option/region selectable cards,
+    welcome-page mockups.
     `styles.css` is ~2,990 lines (was 3,595). Don't churn these for daisyUI's sake.
 
 ## Landing page (marketing site)

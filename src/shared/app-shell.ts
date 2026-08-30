@@ -29,7 +29,7 @@
 // step's label, so both steppers surface identical information.
 
 import { chevronIconHtml, escapeHtml, settingsIconHtml, sparkleIconHtml, warningIconHtml } from "./dom-utils";
-import { changelogHighlights, formatChangelogDate, type VersionBadgeState } from "./whats-new-format";
+import type { VersionBadgeState } from "./whats-new-format";
 
 // "report" (Club Progress) is still a valid AppRoute (shared/pages.ts) and a
 // StepperInfo slot, but it's no longer one of the wizard steps in NAV_ITEMS
@@ -178,12 +178,6 @@ export interface AppShellOptions {
    *  toggle. entrypoints/app/main.ts wires its change event via a delegated
    *  listener on #appShell (this file stays browser.*-free / listener-free). */
   anonymize?: boolean;
-  /** Running version + unread state + latest changelog entry for the header
-   *  version badge and its release-notes popover (see renderVersionBadge
-   *  below). Built by shared/whats-new-badge.ts's loadVersionBadgeState();
-   *  entrypoints/app/main.ts passes it on every route. Omit to hide the badge
-   *  entirely (e.g. a caller that hasn't loaded it yet). */
-  versionBadge?: VersionBadgeState;
   /** Show a "← Back to Home" link under the header. entrypoints/app/main.ts
    *  passes `route !== "dashboard"` — the Home hub itself is the one route
    *  that doesn't get it. Plain <a href="#dashboard">, navigated via the
@@ -195,60 +189,41 @@ export interface AppShellOptions {
   showBackToHome?: boolean;
 }
 
-// The header version badge + its release-notes popover, rendered into the
-// right-side actions cluster next to the gear. The badge is a plain <button>
-// (its click/dismiss handlers are delegated on #appShell by
-// entrypoints/app/main.ts — this file stays listener-free); the popover is
-// `hidden` until opened.
+// The app footer — a slim bar under the view content on every merged-app
+// route (entrypoints/app/index.html's #appFooter, rendered by
+// entrypoints/app/main.ts's renderChrome()). It carries the running version
+// string + a "What's New" link into the #whatsNew view. This replaced the
+// old header version badge + release-notes popover: version metadata is
+// non-critical, so moving it out of the top-right actions cluster leaves
+// that cluster to the profile chip, Privacy Mode toggle and the gear alone.
 //
-// Two visual states ("Option B"):
-//  - Unread (hasUnread): a high-contrast white pill with a gold sparkle on
-//    the left and a pulsing red notification dot on the right.
-//  - Read/default: a subtle transparent pill showing just the version string.
-// entrypoints/app/main.ts's open handler strips the --unread modifier +
-// sparkle + dot the moment the popover opens, so the badge settles into the
-// read state without waiting for the next chrome re-render.
-function renderVersionBadge(badge: VersionBadgeState | undefined): string {
+// When `badge.hasUnread` is set (a newer changelog entry the user hasn't
+// opened) the link gains a gold sparkle + a pulsing notification dot;
+// entrypoints/app/main.ts's click handler clears that state and persists
+// "viewed" as the user follows the link.
+export function renderAppFooter(badge: VersionBadgeState | undefined): string {
   if (!badge) return "";
 
-  const sparkleHtml = badge.hasUnread ? sparkleIconHtml() : "";
-  const dotHtml = badge.hasUnread
-    ? `<span class="version-badge__dot" aria-hidden="true">
-          <span class="version-badge__dot-ping"></span>
-          <span class="version-badge__dot-core"></span>
+  const unread = badge.hasUnread;
+  const sparkleHtml = unread ? sparkleIconHtml() : "";
+  const dotHtml = unread
+    ? `<span class="app-footer__dot" aria-hidden="true">
+          <span class="app-footer__dot-ping"></span>
+          <span class="app-footer__dot-core"></span>
         </span>`
     : "";
-  const ariaLabel = badge.hasUnread ? "Release notes — unread changes" : "Release notes";
+  const ariaLabel = unread ? "What's New — unread changes" : "What's New";
 
-  const entry = badge.latest;
-  const popoverBody = entry
-    ? `
-        <div class="version-popover__head">
-          <span class="version-popover__version">Version ${escapeHtml(entry.version)}</span>
-          <span class="version-popover__date">${escapeHtml(formatChangelogDate(entry.date))}</span>
-        </div>
-        <ul class="version-popover__list">
-          ${changelogHighlights(entry)
-            .map((item) => `<li>${escapeHtml(item)}</li>`)
-            .join("")}
-        </ul>`
-    : `<p class="version-popover__empty">No release notes available.</p>`;
-
-  // daisyUI `dropdown` (open on focus, native blur to dismiss) — no
-  // open/close JS. entrypoints/app/main.ts only listens for the badge
-  // gaining focus, to clear the unread state + persist "viewed".
   return `
-      <div class="dropdown dropdown-end version-badge-wrap">
-        <button type="button" tabindex="0" class="version-badge${badge.hasUnread ? " version-badge--unread" : ""}" id="versionBadgeBtn" aria-label="${ariaLabel}">
-          ${sparkleHtml}
-          <span class="version-badge__text">v${escapeHtml(badge.version)}</span>
-          ${dotHtml}
-        </button>
-        <div tabindex="0" class="version-popover dropdown-content" id="versionPopover" role="group" aria-label="Release notes">
-          ${popoverBody}
-          <a class="version-popover__footer" href="#whatsNew">View full release history &rarr;</a>
-        </div>
-      </div>`;
+    <footer class="app-footer">
+      <span class="app-footer__version">v${escapeHtml(badge.version)}</span>
+      <span class="app-footer__sep" aria-hidden="true">&middot;</span>
+      <a href="#whatsNew" id="appWhatsNewLink" class="app-footer__link${unread ? " app-footer__link--unread" : ""}" aria-label="${ariaLabel}">
+        ${sparkleHtml}
+        <span>What's New</span>
+        ${dotHtml}
+      </a>
+    </footer>`;
 }
 
 export function renderAppShell({
@@ -258,7 +233,6 @@ export function renderAppShell({
   showStepper = true,
   profileLabel,
   anonymize,
-  versionBadge,
   showBackToHome,
 }: AppShellOptions): string {
   const activeIndex = active !== null ? NAV_ITEMS.findIndex((item) => item.key === active) : -1;
@@ -309,8 +283,9 @@ export function renderAppShell({
     : "";
 
   // Right-side header cluster: active-profile chip (links to Setup) + Privacy
-  // Mode toggle + the gear. Each of the first two is omitted when its value
-  // wasn't supplied. The toggle's change event is wired by
+  // Mode toggle + the gear — nothing else (the version string moved to the
+  // footer, see renderAppFooter above). Each of the first two is omitted when
+  // its value wasn't supplied. The toggle's change event is wired by
   // entrypoints/app/main.ts (delegated on #appShell) — this file only emits
   // markup.
   const profileHtml =
@@ -324,12 +299,16 @@ export function renderAppShell({
     ? `<a href="#dashboard" class="app-header__back">&larr; Back to Home</a>`
     : "";
 
+  // The <label> wraps the switch and its text so the two are one hit target
+  // and one visual unit (styles.css gives .app-header__privacy a pill
+  // background); the trailing lock glyph is a compact state cue that stays
+  // visible on the narrow header where the "Privacy Mode" words are dropped.
   const privacyHtml =
     anonymize !== undefined
-      ? `<label class="app-header__privacy">
+      ? `<label class="app-header__privacy" title="Hide member names across every view">
+        <span class="app-header__privacy-text">Privacy Mode</span>
         <input type="checkbox" class="toggle toggle-sm" id="appPrivacyToggle" aria-label="Privacy Mode (hide member names)"${anonymize ? " checked" : ""}>
         <span class="app-header__privacy-lock" aria-hidden="true">${anonymize ? "🔒" : "🔓"}</span>
-        <span class="app-header__privacy-text">Privacy Mode</span>
       </label>`
       : "";
 
@@ -345,7 +324,6 @@ export function renderAppShell({
       <div class="app-header__actions">
         ${profileHtml}
         ${privacyHtml}
-        ${renderVersionBadge(versionBadge)}
         <a href="#globalSettings" class="app-header__settings-btn${settingsActive ? " active" : ""}" title="Global Settings" aria-label="Global Settings">${settingsIconHtml()}</a>
       </div>
     </header>${backHtml}${stepperHtml}

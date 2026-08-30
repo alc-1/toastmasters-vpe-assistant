@@ -7,7 +7,7 @@
 // place, called once per navigation — each view module (shared/view.ts's
 // ViewModule) now owns only its own body content, not the shared chrome.
 
-import { renderAppShell, renderStepFooter, type AppShellPage, type StepperInfo } from "../../shared/app-shell";
+import { renderAppFooter, renderAppShell, renderStepFooter, type AppShellPage, type StepperInfo } from "../../shared/app-shell";
 import { escapeHtml } from "../../shared/dom-utils";
 import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
 import { formatProfileLabel, getActiveProfile, getAnonymizeMode, setAnonymizeMode } from "../../shared/settings-store";
@@ -39,6 +39,7 @@ const selfUpdateBannerRoot = document.getElementById("selfUpdateBannerRoot")!;
 const appShellRoot = document.getElementById("appShell")!;
 const stepFooterRoot = document.getElementById("stepFooter")!;
 const viewRoot = document.getElementById("viewRoot")!;
+const appFooterRoot = document.getElementById("appFooter")!;
 
 // Delegated once, same rationale as appShellRoot's own delegated listener
 // below — renderSelfUpdateBanner() replaces this root's innerHTML on every
@@ -91,21 +92,20 @@ stepFooterRoot.addEventListener("click", (e) => {
   })();
 });
 
-// The header version badge (shared/app-shell.ts's renderVersionBadge) — a
-// toolbar-style pill that toggles a release-notes popover. Delegated on the
-// persistent #appShell root. The version badge is a daisyUI `dropdown`
-// (open on focus, native blur/Esc to dismiss) — no open/close JS. This
-// only reacts to the badge *gaining focus* (= the user opening it): clear
-// the unread state from the DOM immediately, then persist "viewed". That
-// storage write is deliberately NOT allowed to trigger a chrome re-render
-// (see the storage.onChanged guard below) — a full renderChrome() would
-// rebuild the header and tear the just-opened popover back down.
-appShellRoot.addEventListener("focusin", (e) => {
-  const btn = (e.target as HTMLElement).closest<HTMLElement>("#versionBadgeBtn");
-  if (!btn || !btn.classList.contains("version-badge--unread")) return;
-  btn.classList.remove("version-badge--unread");
-  btn.querySelector(".version-badge__sparkle")?.remove();
-  btn.querySelector(".version-badge__dot")?.remove();
+// The footer "What's New" link (shared/app-shell.ts's renderAppFooter) —
+// delegated on the persistent #appFooter root. When it carries the unread
+// state, following it (the user is about to read the notes) clears that
+// state from the DOM immediately, then persists "viewed"; the href="#whatsNew"
+// navigation proceeds normally. That storage write is deliberately NOT
+// allowed to trigger a chrome re-render (see the storage.onChanged guard
+// below) — a full renderChrome() mid-navigation is redundant here since the
+// next navigate() recomputes the badge from storage anyway.
+appFooterRoot.addEventListener("click", (e) => {
+  const link = (e.target as HTMLElement).closest<HTMLElement>("#appWhatsNewLink");
+  if (!link || !link.classList.contains("app-footer__link--unread")) return;
+  link.classList.remove("app-footer__link--unread");
+  link.querySelector(".sparkle-icon")?.remove();
+  link.querySelector(".app-footer__dot")?.remove();
   void markVersionViewed(browser.runtime.getManifest().version);
 });
 
@@ -196,15 +196,17 @@ async function renderChrome(
       route !== "report" &&
       route !== "globalSettings" &&
       route !== "whatsNew",
-    // The profile chip + Privacy toggle + version badge show on every route.
+    // The profile chip + Privacy toggle show on every route.
     profileLabel,
     anonymize,
-    versionBadge,
     // "← Back to Home" on every sub-view; the Home hub itself is the one
     // route that doesn't get it.
     showBackToHome: route !== "dashboard",
   });
   stepFooterRoot.innerHTML = isWizardStep ? renderStepFooter(route as AppShellPage, info) : "";
+  // The version string + "What's New" link — shown on every route, below the
+  // view content (see shared/app-shell.ts's renderAppFooter).
+  appFooterRoot.innerHTML = renderAppFooter(versionBadge);
   await renderSelfUpdateBanner();
 }
 
@@ -237,12 +239,12 @@ async function renderSelfUpdateBanner(): Promise<void> {
 // two to race over regardless of firing order.
 browser.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && currentRoute) {
-    // The version-badge popover writes `lastViewedVersion` (an un-scoped
-    // key, so the real key name matches) on open, purely to clear its unread
-    // dot — already removed from the DOM optimistically. A full navigate() →
-    // renderChrome() here would rebuild the header and tear the just-opened
-    // popover back down, so a change touching only that one key is ignored;
-    // the next real navigation recomputes the badge from storage anyway.
+    // The footer "What's New" link writes `lastViewedVersion` (an un-scoped
+    // key, so the real key name matches) when followed, purely to clear its
+    // unread dot — already removed from the DOM optimistically. A change
+    // touching only that one key is ignored here; the #whatsNew navigation
+    // it accompanies re-runs navigate(), which recomputes the badge from
+    // storage anyway.
     const keys = Object.keys(changes);
     if (keys.length === 1 && keys[0] === "lastViewedVersion") return;
     navigate(location.hash);

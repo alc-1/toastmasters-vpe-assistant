@@ -1,24 +1,27 @@
 // src/shared/whats-new-format.ts
 //
-// Pure formatting/predicate helpers for the header version badge + its
-// release-notes popover (shared/app-shell.ts's renderVersionBadge). No
-// browser.* or storage dependency — the stateful side (reading the running
-// version, the "last seen" storage key, fetching changelog.json) lives in
+// Pure formatting/predicate helpers for the app footer's version string +
+// "What's New" link (shared/app-shell.ts's renderAppFooter). No browser.* or
+// storage dependency — the stateful side (reading the running version, the
+// "last seen" storage key, fetching changelog.json) lives in
 // shared/whats-new-badge.ts, which builds on these.
 
 import { compareVersions } from "./version-compare";
 import type { ChangelogEntry } from "./whats-new-types";
 
-/** The view-model renderVersionBadge() consumes — built by
+/** The view-model renderAppFooter() consumes — built by
  *  shared/whats-new-badge.ts's loadVersionBadgeState(). */
 export interface VersionBadgeState {
   /** The running extension version, e.g. "1.2.0" (no leading "v"). */
   version: string;
   /** True when there's at least one changelog entry newer than what the user
-   *  has already seen via the popover — drives the unread dot. */
+   *  has already seen (opened the #whatsNew view for) — drives the unread dot
+   *  on the footer link. */
   hasUnread: boolean;
-  /** Newest changelog entry at or below the running version, for the popover
-   *  body. null only when changelog.json is empty or failed to load. */
+  /** Newest changelog entry at or below the running version. Retained on the
+   *  view-model (built by loadVersionBadgeState) even though renderAppFooter
+   *  no longer shows a summary inline; null only when changelog.json is empty
+   *  or failed to load. */
   latest: ChangelogEntry | null;
 }
 

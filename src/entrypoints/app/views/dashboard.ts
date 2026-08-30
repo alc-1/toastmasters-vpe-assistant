@@ -82,10 +82,11 @@ interface FeatureCard {
   /** The single-CTA label. Omitted for the `backup` tile (two buttons). */
   ctaLabel?: string;
   href?: string;
-  badgeNew?: boolean;
-  /** Rendered but inert with a "Requires imported data" badge. */
+  /** Rendered but inert with a "Requires imported data" badge + a disabled
+   *  preview of the CTA (so the card still says what unlocking it gives). */
   locked?: boolean;
-  /** Rendered but inert with a "Coming soon" note (Approval Helper). */
+  /** Rendered but inert with just a "Coming soon" badge — no CTA at all
+   *  (Approval Helper). */
   comingSoon?: boolean;
   /** The Save/Restore tile: two buttons + a status line instead of one CTA. */
   backup?: boolean;
@@ -215,18 +216,25 @@ export const dashboardView: ViewModule = {
             ? "All 4 setup steps complete"
             : `Step ${completed + 1} of ${total}`;
 
+      // The status headline + timestamp are grouped with the CTA on the right
+      // (data status and the action that changes it read as one unit); the
+      // step tracker on the left is a read-only progress indicator, captioned
+      // and styled distinctly from the interactive wizard stepper.
       bannerRoot.innerHTML = `
         <div class="dashboard-status">
-          <div class="dashboard-status__main">
-            <div class="dashboard-status__headline">
-              <span class="dashboard-status__dot ${dotClass}" aria-hidden="true"></span>
-              <span class="dashboard-status__label">${statusLabel}</span>
-              ${timestampHtml}
-            </div>
+          <div class="dashboard-status__progress">
+            <p class="dashboard-status__caption">Setup progress</p>
             <ol class="dashboard-tracker dashboard-tracker--wide">${wideSteps}</ol>
             <p class="dashboard-tracker dashboard-tracker--narrow">${narrowText}</p>
           </div>
-          <a href="${ctaHref}" class="btn btn-primary dashboard-status__cta">${escapeHtml(cta)}</a>
+          <div class="dashboard-status__action">
+            <span class="dashboard-status__headline">
+              <span class="dashboard-status__dot ${dotClass}" aria-hidden="true"></span>
+              <span class="dashboard-status__label">${statusLabel}</span>
+            </span>
+            ${timestampHtml}
+            <a href="${ctaHref}" class="btn btn-primary dashboard-status__cta">${escapeHtml(cta)}</a>
+          </div>
         </div>
       `;
     }
@@ -256,8 +264,6 @@ export const dashboardView: ViewModule = {
           description: "Check live Basecamp completion details for a member before approving.",
           accent: "amber",
           iconHtml: ICON_APPROVAL,
-          badgeNew: true,
-          ctaLabel: "Select Member →",
           comingSoon: true,
         },
         {
@@ -278,7 +284,6 @@ export const dashboardView: ViewModule = {
     }
 
     function renderFeatureCard(card: FeatureCard): string {
-      const badge = card.badgeNew ? '<span class="badge badge-soft badge-info dashboard-tile__badge">NEW</span>' : "";
       const inert = card.comingSoon || card.locked;
       // A single-CTA active card becomes one big click target (see
       // onFeatureCardClick() in mount()): the whole `.dashboard-tile--link`
@@ -289,6 +294,8 @@ export const dashboardView: ViewModule = {
 
       let footer: string;
       if (card.backup) {
+        // Save/Load are utility actions — bordered secondary buttons, clearly
+        // subordinate to the primary CTAs on the other cards.
         const statusClass = restoreStatus?.kind === "error" ? " is-error" : "";
         footer = `
           <div class="dashboard-tile__actions">
@@ -297,12 +304,14 @@ export const dashboardView: ViewModule = {
           </div>
           <p class="help-text dashboard-tile__status${statusClass}" aria-live="polite">${restoreStatus ? escapeHtml(restoreStatus.text) : ""}</p>
         `;
-      } else if (inert) {
-        const cta = `<span class="btn btn-primary dashboard-tile__cta" aria-disabled="true">${escapeHtml(card.ctaLabel ?? "")}</span>`;
-        const trailing = card.comingSoon
-          ? '<span class="dashboard-tile__soon">Coming soon</span>'
-          : '<span class="badge badge-soft dashboard-tile__lock">&#128274; Requires imported data</span>';
-        footer = `${cta}${trailing}`;
+      } else if (card.comingSoon) {
+        // No disabled button — just a single status tag (design feedback).
+        footer = '<span class="badge badge-soft dashboard-tile__soon">Coming soon</span>';
+      } else if (card.locked) {
+        footer = `
+          <span class="btn btn-primary dashboard-tile__cta" aria-disabled="true">${escapeHtml(card.ctaLabel ?? "")}</span>
+          <span class="badge badge-soft dashboard-tile__lock">&#128274; Requires imported data</span>
+        `;
       } else {
         footer = `<a href="${card.href}" class="btn btn-primary dashboard-tile__cta">${escapeHtml(card.ctaLabel ?? "")}</a>`;
       }
@@ -313,7 +322,6 @@ export const dashboardView: ViewModule = {
           <div class="dashboard-tile__head">
             <span class="dashboard-tile__icon ${ACCENT_ICON_CLASS[card.accent]}" aria-hidden="true">${card.iconHtml}</span>
             <h2 class="dashboard-tile__title">${escapeHtml(card.title)}</h2>
-            ${badge}
           </div>
           <p class="dashboard-tile__desc">${escapeHtml(card.description)}</p>
           <div class="dashboard-tile__footer">${footer}</div>
