@@ -1426,20 +1426,44 @@ A few decisions worth knowing before changing the config:
   pre-WXT strictness level rather than surfacing a wave of unrelated "possibly undefined" errors
   project-wide; don't remove that override without fixing the resulting errors throughout
   `shared/sync/*`/`shared/parsers/*`/`tests/*` first.
-- **Tailwind (`tailwind.config.ts`/`postcss.config.js`/`tailwind-tokens.js`) is a design-token
-  source, not a utility-class framework used across markup.** `src/shared/styles.css` is still the
-  actual stylesheet every page links; Tailwind's role is that its `:root` custom-property block
-  resolves each value via Tailwind's `theme()` CSS function (`theme("colors.navy.700")`, etc.)
-  instead of restating hex/px literals, so `tailwind.config.ts`'s `theme.extend` is the single
-  source of truth those custom properties (and therefore every `var(--*)` consumer, including
-  per-page inline `<style>` blocks) resolve from. `content: ["./src/**/*.html", "./src/**/*.ts"]`
-  and Preflight is deliberately **off** (see the config file's own comments) — this app does not use
-  Tailwind utility classes in markup, only the `theme()` function inside `styles.css`. The brand
-  color palette itself lives in `tailwind-tokens.js`, imported by both this config and
-  `landing/tailwind.config.js` (see below) so the extension and the marketing site never hand-copy
-  the same hex values independently — but this app's own `tailwind.config.ts` layers extra
-  tokens (`--info`/`--disabled-bg`/`--border`, the `tm-gray`/`space-*` scales) on top that
-  `tailwind-tokens.js` doesn't cover and `landing/` has no use for.
+- **Tailwind CSS v4 (CSS-first) + daisyUI 5, utilities used directly in markup.** There is **no
+  `tailwind.config.ts` / `postcss.config.js`** — v4 is wired in as a Vite plugin
+  (`@tailwindcss/vite`) through `wxt.config.ts`'s `vite()` hook, and the theme lives entirely in
+  `src/shared/styles.css`:
+  - `@import "tailwindcss";` then an explicit `@layer theme, base, components, daisyui, app,
+    utilities;` — the app's own component classes sit in **`@layer app`**, after daisyUI, so a
+    semantic class (`.badge-exact`, `.card`, `.app-stepper`, `.tabs`) reliably wins over a
+    same-named daisyUI primitive, while plain utility classes in markup still win over component
+    defaults (utilities layer is last). Add new shared/reused components to `@layer app`; use
+    plain utilities in view markup for one-off layout/spacing (this reverses the old "no utilities
+    in markup" rule).
+  - `@plugin "daisyui" { themes: false }` + `@plugin "daisyui/theme"` define a single custom
+    `toastmasters` theme (Loyal Blue = `--color-primary`; `--color-secondary` is repurposed as the
+    app's light-grey neutral button, not a second brand accent; `--color-error` = the danger red).
+    daisyUI supplies the primitives — `btn` / `btn-primary` / `btn-secondary` / `btn-error` /
+    `btn-sm`, `toggle`, and (as they migrate) `badge` / `card` / `tabs` / `table` / `alert` /
+    `input` / `select` / `stats` / `modal`.
+  - An `@theme` block holds the notch-smaller type scale (`--text-xs`…`--text-xl` = 11–20px) and a
+    set of **legacy color tokens** (`--color-navy-700`, `--color-tm-gray-*`, `--color-surface*`,
+    `--color-*-bg`, …) kept only so the not-yet-migrated `@apply` rules in `@layer app` keep
+    compiling; a `:root` block holds the legacy `--space-*` / `--radius-*` / `--primary` / `--gray-*`
+    vars for the same reason. Both shrink as components migrate to daisyUI + utilities.
+  - **Watch for token-name collisions with daisyUI:** daisyUI owns `--border` (a border *width*),
+    `--radius-selector/field/box`, `--size-*`, `--depth`, `--noise`. The legacy border *color* is
+    `var(--color-base-300)`, never `var(--border)`.
+  - Preflight is **on** now (ships with `@import "tailwindcss"`); the old hand-rolled border reset
+    is gone.
+  - Firefox floor is **128** (`strict_min_version` in `wxt.config.ts`) — v4's generated CSS uses
+    `@property` / `color-mix()`.
+  - **`tailwind-tokens.js` is now only `landing/`'s** (a separate Tailwind 3 project). The
+    extension's brand hexes are mirrored into `styles.css`'s theme block with a cross-reference
+    comment; keep the two in sync when a brand color changes.
+  - **Migration status:** the toolchain + `@layer` architecture + buttons + toggles are on the new
+    foundation. Still on legacy `@layer app` classes (safe to migrate incrementally): badges,
+    cards, tabs, alerts (`.conflict-warning` / `.update-banner`), KPI cards, inputs, the
+    `confirmModal` `.modal`, and the ~400-line responsive table→card CSS
+    (`body[data-view=...]` blocks — slated for dual-render: a `<table hidden md:table>` + a
+    `md:hidden` card list from one row view-model).
 
 ## Landing page (marketing site)
 
