@@ -13,6 +13,7 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 - New Home screen: an overview of your club-data status and quick-access tiles for every tool.
 - Save a backup file of all your data and settings, and load it back later.
 - A footer on every screen shows the current version and a "What's New" link, with a dot when there are release notes you haven't read.
+- Import your club roster from Toastmasters.org Club Central. Who's not enrolled in Pathways? Answer comes from there.
 
 ### Changed
 

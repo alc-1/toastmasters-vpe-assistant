@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head><title>Membership Management</title></head>
+<body>
+<main id="mainContent">
+  <div class="membership-text">
+    <p class="printDescription">
+      Current Time at Toastmasters World Headquarters: 8/30/2026 12:01:08 PM Mountain Time Currently Managing:Riverside Toastmasters Club
+    </p>
+  </div>
+
+  <a href="ClubMembershipCSV" class="print-btn">Export Excel/CSV</a>
+
+  <!-- Decoy grid-view table: different headers, must NOT be picked. -->
+  <div class="main-member-menu" id="HtmlPageViewData">
+    <table>
+      <thead><tr><th>Member</th><th>Details</th></tr></thead>
+      <tbody><tr><td>Grid card placeholder</td><td>ignored</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="main-member-menu-main custom-invisible" id="HtmlListViewData">
+    <div class="main-member-menu-list">
+      <table>
+        <thead>
+          <tr>
+            <th><div class="member-profile-heading"><p>Name </p></div></th>
+            <th><div class="member-profile-heading"><p>Position </p></div></th>
+            <th><div class="member-profile-heading"><p>Payment Status</p></div></th>
+            <th><div class="member-profile-heading"><p>Paid Until</p></div></th>
+            <th class="hidden-print"><div class="member-profile-heading"><p>Actions </p></div></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="member-menu-profile">
+                <p>
+                  Ada Fernández
+                  <span>, DL1</span>
+                </p>
+                <p>Pathways Enrolled</p>
+                <a style="cursor:pointer" class="hidden-print" onclick="showListModal('11111111-1111-1111-1111-111111111111','PN-00000001');" data-toggle="modal">Edit Profile</a>
+              </div>
+            </td>
+            <td><div class="member-position"><p>President</p></div></td>
+            <td><div class="payment-status"><p>Paid</p></div></td>
+            <td><div class="paid-untill"><p>September 30, 2026</p></div></td>
+            <td><div class="action-btn"></div></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="member-menu-profile">
+                <p>
+                  Bruno Kovač
+                </p>
+                <a style="cursor:pointer" class="hidden-print" onclick="showListModal('22222222-2222-2222-2222-222222222222','PN-00000002');" data-toggle="modal">Edit Profile</a>
+              </div>
+            </td>
+            <td><div class="member-position"><p></p></div></td>
+            <td><div class="payment-status"><p>Membership Pending</p></div></td>
+            <td><div class="paid-untill"><p></p></div></td>
+            <td><div class="action-btn"></div></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="member-menu-profile">
+                <p>
+                  Chloé Nwosu
+                  <span>, EC2</span>
+                </p>
+                <p>Pathways Enrolled</p>
+                <a style="cursor:pointer" class="hidden-print" onclick="showListModal('33333333-3333-3333-3333-333333333333','PN-00000003');" data-toggle="modal">Edit Profile</a>
+              </div>
+            </td>
+            <td><div class="member-position"><p></p></div></td>
+            <td><div class="payment-status"><p>Unpaid</p></div></td>
+            <td><div class="paid-untill"><p>March 31, 2026</p></div></td>
+            <td><div class="action-btn"></div></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="member-menu-profile">
+                <p>
+                  Devon Ramaswamy
+                </p>
+              </div>
+            </td>
+            <td><div class="member-position"><p></p></div></td>
+            <td><div class="payment-status"><p>Paid</p></div></td>
+            <td><div class="paid-untill"><p>September 30, 2027</p></div></td>
+            <td><div class="action-btn"></div></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="member-menu-profile">
+                <p>
+                  Esme Bäcklund
+                </p>
+                <a style="cursor:pointer" class="hidden-print" onclick="showListModal('55555555-5555-5555-5555-555555555555','PN-00000005');" data-toggle="modal">Edit Profile</a>
+              </div>
+            </td>
+            <td><div class="member-position"><p></p></div></td>
+            <td><div class="payment-status"><p>Suspended</p></div></td>
+            <td><div class="paid-untill"><p></p></div></td>
+            <td><div class="action-btn"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+</body>
+</html>

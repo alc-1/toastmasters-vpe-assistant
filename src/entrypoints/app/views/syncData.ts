@@ -21,18 +21,18 @@ import {
   renderScrapeResult,
   type SourceEls,
 } from "../../../shared/sync-status-panel";
-import { countBasecampMembers, countEasySpeakMembers } from "../../../shared/sync/delta";
+import { countBasecampMembers, countClubCentralMembers, countEasySpeakMembers } from "../../../shared/sync/delta";
 import { exportToExcel } from "../../../shared/export/export-to-excel";
 import { EXPORT_OPTION_DESC, EXPORT_TYPE_LABEL, type ExportType } from "../../../shared/export/rows";
 import { escapeHtml } from "../../../shared/dom-utils";
-import type { BasecampOverviewScrape, BasecampScrape, EasySpeakScrape, SourceKey } from "../../../shared/types";
+import type { BasecampOverviewScrape, BasecampScrape, ClubCentralScrape, EasySpeakScrape, SourceKey } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
 
 const SHELL_HTML = `
   <div class="page-intro page-intro--with-actions">
     <div class="page-intro__text">
       <h1 class="page-title">Sync Data</h1>
-      <p class="page-intro__desc">Import your club data from Basecamp and EasySpeak before continuing to the review steps.</p>
+      <p class="page-intro__desc">Import your club data from Club Central, Basecamp, and EasySpeak before continuing to the review steps.</p>
     </div>
     <div class="dropdown dropdown-end shrink-0">
       <button id="exportMenuBtn" tabindex="0" class="btn btn-secondary btn-sm" type="button">
@@ -51,6 +51,26 @@ const SHELL_HTML = `
   </div>
 
   <div class="sync-cards">
+    <div class="card sync-card">
+      <div class="card-header sync-card__header">
+        <span class="sync-card__title">Club Central</span>
+        <span id="badgeClubCentral" class="badge badge-soft badge-error">Not Imported</span>
+      </div>
+      <div class="card-body sync-card__body">
+        <p id="statusClubCentral" class="sync-card__status-text help-text" aria-live="polite"></p>
+        <div id="metaClubCentral" class="sync-card__result"></div>
+        <button id="scrapeClubCentralBtn" class="btn btn-primary sync-card__action">
+          <span class="sync-card__action-label">Import Club Central Roster</span>
+          <span class="sync-card__action-sublabel">Opens a new toastmasters.org tab during import.</span>
+        </button>
+        <details id="detailsClubCentral" class="sync-card__details" hidden>
+          <summary>View details</summary>
+          <div id="summaryClubCentral" class="summary"></div>
+          <pre id="rawDataClubCentral" class="raw-data"></pre>
+        </details>
+      </div>
+    </div>
+
     <div class="card sync-card">
       <div class="card-header sync-card__header">
         <span class="sync-card__title">Basecamp</span>
@@ -149,6 +169,7 @@ export const syncDataView: ViewModule = {
 
     const basecampEls: SourceEls = bindSourceEls({ btn: "scrapeBasecampBtn", status: "statusBasecamp", summary: "summaryBasecamp", rawData: "rawDataBasecamp" });
     const easyspeakEls: SourceEls = bindSourceEls({ btn: "scrapeEasySpeakBtn", status: "statusEasySpeak", summary: "summaryEasySpeak", rawData: "rawDataEasySpeak" });
+    const clubCentralEls: SourceEls = bindSourceEls({ btn: "scrapeClubCentralBtn", status: "statusClubCentral", summary: "summaryClubCentral", rawData: "rawDataClubCentral" });
 
     const badgeBasecamp = document.getElementById("badgeBasecamp")!;
     const progressBasecamp = document.getElementById("progressBasecamp")!;
@@ -157,6 +178,9 @@ export const syncDataView: ViewModule = {
     const badgeEasySpeak = document.getElementById("badgeEasySpeak")!;
     const metaEasySpeak = document.getElementById("metaEasySpeak")!;
     const detailsEasySpeak = document.getElementById("detailsEasySpeak") as HTMLDetailsElement;
+    const badgeClubCentral = document.getElementById("badgeClubCentral")!;
+    const metaClubCentral = document.getElementById("metaClubCentral")!;
+    const detailsClubCentral = document.getElementById("detailsClubCentral") as HTMLDetailsElement;
     const completionSummary = document.getElementById("completionSummary")!;
     const continueHelper = document.getElementById("continueHelper")!;
 
@@ -187,6 +211,19 @@ export const syncDataView: ViewModule = {
         message: { type: "SCRAPE_EASYSPEAK" },
         loadingLabel: "Importing…",
         render: (els, data) => renderScrapeResult(els, data, "easyspeak", anonymize),
+      });
+      importActionOccurred = true;
+      await refresh();
+    });
+
+    clubCentralEls.btn.addEventListener("click", async () => {
+      setBadge(badgeClubCentral, "pending");
+      const anonymize = await getAnonymizeMode();
+      await onScrapeClick<ClubCentralScrape>({
+        els: clubCentralEls,
+        message: { type: "SCRAPE_CLUBCENTRAL" },
+        loadingLabel: "Importing…",
+        render: (els, data) => renderScrapeResult(els, data, "clubcentral", anonymize),
       });
       importActionOccurred = true;
       await refresh();
@@ -292,18 +329,28 @@ export const syncDataView: ViewModule = {
       // background/messaging.ts) must never break this view's render, so a
       // rejection falls back to the same "idle" default a falsy response
       // already does.
-      const statuses = (await sendMessage({ type: "POPUP_OPENED" }).catch(() => null)) || { basecamp: "idle", easyspeak: "idle" };
-      const cached = await local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]);
+      const statuses = (await sendMessage({ type: "POPUP_OPENED" }).catch(() => null)) || { basecamp: "idle", easyspeak: "idle", clubcentral: "idle" };
+      const cached = await local.get([
+        "basecampData",
+        "basecampScrapedAt",
+        "basecampCompletedPaths",
+        "easyspeakData",
+        "easyspeakScrapedAt",
+        "clubCentralData",
+        "clubCentralScrapedAt",
+      ]);
 
       if (disposed || myToken !== refreshToken) return; // this view was navigated away from, or a newer refresh() has since started — this one is stale
 
       const basecampLoading = statuses.basecamp === "loading" && !cached.basecampData;
       const easyspeakLoading = statuses.easyspeak === "loading" && !cached.easyspeakData;
+      const clubCentralLoading = statuses.clubcentral === "loading" && !cached.clubCentralData;
 
       const anonymize = await getAnonymizeMode();
       if (disposed) return;
       renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, basecampLoading, countBasecampMembers, "basecamp", anonymize);
       renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, easyspeakLoading, countEasySpeakMembers, "easyspeak", anonymize);
+      renderSourceCard(clubCentralEls, badgeClubCentral, metaClubCentral, detailsClubCentral, "Import Club Central Roster", cached.clubCentralData ?? null, cached.clubCentralScrapedAt, clubCentralLoading, countClubCentralMembers, "clubcentral", anonymize);
       document.getElementById("anonymizeExportNotice")!.textContent = anonymize ? "Privacy Mode is on — this export will use anonymized names." : "";
       await renderProgress();
       if (disposed) return;
@@ -338,7 +385,7 @@ export const syncDataView: ViewModule = {
           : `${clubLabel} — ${progress.currentClubMembersFetched} member${progress.currentClubMembersFetched === 1 ? "" : "s"} out of ${progress.currentClubMembersTotal} loaded so far`;
     }
 
-    function renderSourceCard<T extends BasecampScrape | EasySpeakScrape>(
+    function renderSourceCard<T extends BasecampScrape | EasySpeakScrape | ClubCentralScrape>(
       els: SourceEls,
       badge: HTMLElement,
       result: HTMLElement,

@@ -12,7 +12,7 @@ import type { ScrapeProgress, ScrapeProgressState, SourceKey } from "../shared/t
 
 async function getState(): Promise<ScrapeProgressState> {
   const state = await session.value("scrapeProgress");
-  return state || { basecamp: null, easyspeak: null };
+  return state || { basecamp: null, easyspeak: null, clubcentral: null };
 }
 
 export async function setScrapeProgress(source: SourceKey, progress: ScrapeProgress): Promise<void> {

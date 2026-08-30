@@ -14,6 +14,7 @@ export const PAGES = {
   app: "app.html",
   basecampAuth: "basecamp-auth.html",
   easyspeakDone: "easyspeak-done.html",
+  clubcentralDone: "clubcentral-done.html",
   welcome: "welcome.html",
 } as const;
 

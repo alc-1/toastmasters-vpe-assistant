@@ -20,6 +20,7 @@ import type {
   BasecampOverviewMember,
   BasecampOverviewScrape,
   BasecampScrape,
+  ClubCentralScrape,
   ClubPairReport,
   EasySpeakMemberRow,
   EasySpeakScrape,
@@ -143,6 +144,13 @@ export function countBasecampMembers(data: BasecampScrape): number {
 /** EasySpeak counterpart to countBasecampMembers() above. */
 export function countEasySpeakMembers(data: EasySpeakScrape): number {
   return Object.values(data).reduce((sum, club) => sum + groupEasySpeakMembers(club.members).length, 0);
+}
+
+/** Club Central counterpart — its rows are already one-per-member, so this
+ *  is a plain sum. (Club Central data never enters buildReport(); this lives
+ *  here only so the Sync Data cards import all three counts from one place.) */
+export function countClubCentralMembers(data: ClubCentralScrape): number {
+  return Object.values(data).reduce((sum, club) => sum + club.members.length, 0);
 }
 
 // ---------------------------------------------------------------------------

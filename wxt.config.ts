@@ -60,6 +60,7 @@ export default defineConfig({
         "https://tmclub.eu/*",
         "https://toastmasterclub.org/*",
         "https://easy-speak.org/*",
+        "https://www.toastmasters.org/*",
         ...(isPreview ? ["https://api.github.com/*"] : []),
       ],
 

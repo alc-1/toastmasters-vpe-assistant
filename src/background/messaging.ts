@@ -9,9 +9,10 @@
 
 import { scrapeAllClubs } from "./api/basecamp";
 import { scrapeAllEasySpeakClubs } from "./api/easyspeak";
+import { scrapeAllClubCentralClubs } from "./api/clubcentral";
 import { acknowledgeIconStatuses, setSourceStatus } from "./icon-state";
 import { clearScrapeProgress } from "./scrape-progress";
-import type { BasecampScrape, EasySpeakScrape, Request, ScrapeEnvelope, ScrapeFn, SourceKey } from "../shared/types";
+import type { BasecampScrape, ClubCentralScrape, EasySpeakScrape, Request, ScrapeEnvelope, ScrapeFn, SourceKey } from "../shared/types";
 
 /**
  * Runs a scrape function, following its loading/success/error status (and
@@ -65,6 +66,10 @@ export function registerMessageHandlers(): void {
 
     if (message?.type === "SCRAPE_EASYSPEAK") {
       return runScrape<EasySpeakScrape>("easyspeak", scrapeAllEasySpeakClubs, sendResponse);
+    }
+
+    if (message?.type === "SCRAPE_CLUBCENTRAL") {
+      return runScrape<ClubCentralScrape>("clubcentral", scrapeAllClubCentralClubs, sendResponse);
     }
 
     if (message?.type === "POPUP_OPENED") {

@@ -26,6 +26,7 @@ import type { AppShellPage } from "./app-shell";
 import type {
   BasecampOverviewScrape,
   BasecampScrape,
+  ClubCentralScrape,
   ClubLookupEntry,
   ClubOrphan,
   ClubRejectedPair,
@@ -66,6 +67,12 @@ export interface LocalSchema {
   basecampCompletedPaths: BasecampOverviewScrape;
   easyspeakData: EasySpeakScrape;
   easyspeakScrapedAt: number;
+  // From toastmasters.org Club Central (background/api/clubcentral.ts) — the
+  // full club roster (every member, enrolled or not) with payment standing
+  // and a Pathways-enrolled flag. Independent of basecampData/easyspeakData;
+  // never feeds buildReport().
+  clubCentralData: ClubCentralScrape;
+  clubCentralScrapedAt: number;
   memberLinks: MemberLink[];
   // NB: stored under this name, exposed in-memory as `rejectedPairs` by
   // resolution-store.ts's loadResolutionData() — a pre-existing naming
@@ -139,6 +146,8 @@ const PROFILE_SCOPED_KEYS = [
   "basecampCompletedPaths",
   "easyspeakData",
   "easyspeakScrapedAt",
+  "clubCentralData",
+  "clubCentralScrapedAt",
   "memberLinks",
   "memberRejectedPairs",
   "clubLookup",

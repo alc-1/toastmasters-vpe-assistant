@@ -18,11 +18,14 @@
 import { escapeHtml } from "./dom-utils";
 import { sendMessage } from "./send-message";
 import { loadResolutionData } from "./resolution-store";
-import { anonymizeBasecampScrape, anonymizeEasySpeakScrape } from "./anonymize";
+import { anonymizeBasecampScrape, anonymizeClubCentralScrape, anonymizeEasySpeakScrape } from "./anonymize";
 import { buildReport, computeMatchSummary, type MatchSummary } from "./sync/delta";
-import type { BasecampOverviewScrape, BasecampScrape, EasySpeakScrape, SourceKey } from "./types";
+import type { BasecampOverviewScrape, BasecampScrape, ClubCentralScrape, EasySpeakScrape, SourceKey } from "./types";
 
-export type ScrapeRequest = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSPEAK" };
+export type ScrapeRequest =
+  | { type: "SCRAPE_BASECAMP" }
+  | { type: "SCRAPE_EASYSPEAK" }
+  | { type: "SCRAPE_CLUBCENTRAL" };
 
 export interface SourceEls {
   btn: HTMLButtonElement;
@@ -86,20 +89,29 @@ export function setButtonLoading(els: SourceEls, isLoading: boolean, loadingLabe
 // (BasecampScrape/EasySpeakScrape aren't distinguishable at runtime by shape
 // alone once a club has zero members) — same SourceKey tag callers already
 // have on hand (it's what picked SCRAPE_BASECAMP vs. SCRAPE_EASYSPEAK).
-export function renderScrapeResult(els: SourceEls, data: BasecampScrape | EasySpeakScrape, source: SourceKey, anonymize: boolean) {
-  const displayData = anonymize
-    ? source === "basecamp"
+export function renderScrapeResult(
+  els: SourceEls,
+  data: BasecampScrape | EasySpeakScrape | ClubCentralScrape,
+  source: SourceKey,
+  anonymize: boolean
+) {
+  const displayData = !anonymize
+    ? data
+    : source === "basecamp"
       ? anonymizeBasecampScrape(data as BasecampScrape)
-      : anonymizeEasySpeakScrape(data as EasySpeakScrape)
-    : data;
+      : source === "clubcentral"
+        ? anonymizeClubCentralScrape(data as ClubCentralScrape)
+        : anonymizeEasySpeakScrape(data as EasySpeakScrape);
   const clubCount = Object.keys(displayData).length;
   const totalMembers = Object.values(displayData).reduce((sum, club) => sum + club.members.length, 0);
 
-  let html = `<table><tr><th>Club</th><th>Entries (member x path)</th></tr>`;
+  const countHeader = source === "clubcentral" ? "Members" : "Entries (member x path)";
+  let html = `<table><tr><th>Club</th><th>${countHeader}</th></tr>`;
   for (const club of Object.values(displayData)) {
     html += `<tr><td>${escapeHtml(club.name)}</td><td>${club.members.length}</td></tr>`;
   }
-  html += `</table><p>${clubCount} club(s), ${totalMembers} entries total.</p>`;
+  const totalNoun = source === "clubcentral" ? "members" : "entries";
+  html += `</table><p>${clubCount} club(s), ${totalMembers} ${totalNoun} total.</p>`;
   els.summary.innerHTML = html;
 
   els.rawData.textContent = JSON.stringify(displayData, null, 2);

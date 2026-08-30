@@ -16,7 +16,7 @@ import { actionApi } from "../shared/browser-action";
 import { session } from "../shared/storage";
 import type { IconStatuses, SourceKey, SourceStatus } from "../shared/types";
 
-const SOURCES: SourceKey[] = ["basecamp", "easyspeak"];
+const SOURCES: SourceKey[] = ["basecamp", "easyspeak", "clubcentral"];
 const SIZES = [16, 32, 48, 128] as const;
 const LOADING_FRAME_COUNT = 8;
 const LOADING_FRAME_INTERVAL_MS = 150;
@@ -51,7 +51,7 @@ let animationFrame = 0;
 
 export async function getIconStatuses(): Promise<IconStatuses> {
   const statuses = await session.value("iconStatus");
-  return statuses || { basecamp: "idle", easyspeak: "idle" };
+  return statuses || { basecamp: "idle", easyspeak: "idle", clubcentral: "idle" };
 }
 
 /** Records a source's status (called around each scrape) and updates the toolbar icon to match. */

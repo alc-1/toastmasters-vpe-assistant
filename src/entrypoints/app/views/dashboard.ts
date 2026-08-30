@@ -30,7 +30,13 @@ import { escapeHtml } from "../../../shared/dom-utils";
 import { formatProfileLabel, getActiveProfile } from "../../../shared/settings-store";
 import { loadResolutionData } from "../../../shared/resolution-store";
 import { local } from "../../../shared/storage";
-import { buildReport, computeMatchSummary, countBasecampMembers, countEasySpeakMembers } from "../../../shared/sync/delta";
+import {
+  buildReport,
+  computeMatchSummary,
+  countBasecampMembers,
+  countClubCentralMembers,
+  countEasySpeakMembers,
+} from "../../../shared/sync/delta";
 import type { AppShellPage, StepperInfo } from "../../../shared/app-shell";
 import type { ViewModule } from "../../../shared/view";
 
@@ -105,6 +111,7 @@ type RestoreStatus = { kind: "ok" | "error"; text: string } | null;
 // data sources are guaranteed present by the time this runs.
 interface SetupDetails {
   profileLabel: string;
+  clubCentralMembers: number;
   basecampMembers: number;
   easyspeakMembers: number;
   clubCount: number;
@@ -118,6 +125,7 @@ interface SetupDetails {
 
 async function computeSetupDetails(info: StepperInfo): Promise<SetupDetails | null> {
   const cached = await local.get([
+    "clubCentralData",
     "basecampData",
     "basecampScrapedAt",
     "basecampCompletedPaths",
@@ -141,6 +149,7 @@ async function computeSetupDetails(info: StepperInfo): Promise<SetupDetails | nu
 
   return {
     profileLabel: formatProfileLabel(profile),
+    clubCentralMembers: cached.clubCentralData ? countClubCentralMembers(cached.clubCentralData) : 0,
     basecampMembers: countBasecampMembers(basecampData),
     easyspeakMembers: countEasySpeakMembers(easyspeakData),
     clubCount: report.clubPairs.length,
@@ -329,10 +338,6 @@ export const dashboardView: ViewModule = {
     }
 
     function renderSetupCompletePanel(pipeline: SetupPipelineState, d: SetupDetails) {
-      const syncLine = d.syncRelative
-        ? `${escapeHtml(d.syncAbsolute)} (${escapeHtml(d.syncRelative)})`
-        : escapeHtml(d.syncAbsolute);
-
       // Setup can be "complete" (the user hit "Complete Setup") while
       // Member Review still has unresolved matches. When it does, Step 4 —
       // and the panel's own header — swap the green check for the same amber
@@ -354,9 +359,9 @@ export const dashboardView: ViewModule = {
         {
           name: "Sync Data",
           detail:
-            `EasySpeak: ${escapeHtml(countLabel(d.easyspeakMembers, "member"))} &nbsp;|&nbsp; ` +
-            `Basecamp: ${escapeHtml(countLabel(d.basecampMembers, "member"))}` +
-            `<span class="setup-steps__meta">Last sync: ${syncLine}</span>`,
+            `Club Central: ${escapeHtml(countLabel(d.clubCentralMembers, "member"))} &nbsp;|&nbsp; ` +
+            `Basecamp: ${escapeHtml(countLabel(d.basecampMembers, "member"))} &nbsp;|&nbsp; ` +
+            `EasySpeak: ${escapeHtml(countLabel(d.easyspeakMembers, "member"))}`,
           href: "#syncData",
           action: "Refresh Data",
         },

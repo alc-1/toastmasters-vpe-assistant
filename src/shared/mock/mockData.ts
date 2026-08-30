@@ -21,11 +21,12 @@
 // meant to read as "could plausibly be the same person" to a human skimming
 // the unmatched list.
 
-import type { BasecampScrape, EasySpeakScrape } from "../types";
+import type { BasecampScrape, ClubCentralScrape, EasySpeakScrape } from "../types";
 
 const CLUB_NAME = "Metro Toastmasters";
 const BASECAMP_CLUB_UUID = "11111111-1111-1111-1111-111111111111";
 const EASYSPEAK_CLUB_ID = "101";
+const CLUB_CENTRAL_CLUB_ID = "CB-00000101";
 
 export const MOCK_BASECAMP_DATA: BasecampScrape = {
   [BASECAMP_CLUB_UUID]: {
@@ -370,6 +371,34 @@ export const MOCK_EASYSPEAK_DATA: EasySpeakScrape = {
           { level: 5, needed: 2, done: 0 },
         ],
       },
+    ],
+  },
+};
+
+// The full club roster as Club Central sees it — every member, whether or
+// not they've enrolled in Pathways. Deliberately broader than the two sets
+// above: it includes people with no Basecamp/EasySpeak counterpart at all
+// (Tobias Lindqvist, Rachel Osei, Dmitri Volkov) — the "in good standing but
+// hasn't enrolled yet" case this source exists to surface — plus a mix of
+// payment states.
+export const MOCK_CLUBCENTRAL_DATA: ClubCentralScrape = {
+  [CLUB_CENTRAL_CLUB_ID]: {
+    name: CLUB_NAME,
+    members: [
+      { name: "Alice Johnson", memberNumber: "PN-00000001", crmId: "aaaa0001-0000-0000-0000-000000000001", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "VP Education" },
+      { name: "Frank Delgado", memberNumber: "PN-00000002", crmId: "aaaa0002-0000-0000-0000-000000000002", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
+      { name: "Grace Kim", memberNumber: "PN-00000003", crmId: "aaaa0003-0000-0000-0000-000000000003", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "March 31, 2027", position: "" },
+      { name: "Henry O'Sullivan", memberNumber: "PN-00000004", crmId: "aaaa0004-0000-0000-0000-000000000004", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "President" },
+      { name: "Isabel Rossi", memberNumber: "PN-00000005", crmId: "aaaa0005-0000-0000-0000-000000000005", pathwaysEnrolled: true, paymentStatus: "Unpaid", paidUntil: "March 31, 2026", position: "" },
+      { name: "Ben Carter", memberNumber: "PN-00000006", crmId: "aaaa0006-0000-0000-0000-000000000006", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
+      { name: "Carla Mendes", memberNumber: "PN-00000007", crmId: "aaaa0007-0000-0000-0000-000000000007", pathwaysEnrolled: false, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
+      { name: "Diane Ostrowski", memberNumber: "PN-00000008", crmId: "aaaa0008-0000-0000-0000-000000000008", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2027", position: "" },
+      { name: "Nathaniel Brooks", memberNumber: "PN-00000009", crmId: "aaaa0009-0000-0000-0000-000000000009", pathwaysEnrolled: false, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
+      { name: "Owen Fitzgerald", memberNumber: "PN-00000011", crmId: "aaaa0011-0000-0000-0000-000000000011", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
+      { name: "Priya Chandrasekaran", memberNumber: "PN-00000012", crmId: "aaaa0012-0000-0000-0000-000000000012", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
+      { name: "Tobias Lindqvist", memberNumber: "PN-00000013", crmId: "aaaa0013-0000-0000-0000-000000000013", pathwaysEnrolled: false, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
+      { name: "Rachel Osei", memberNumber: "PN-00000014", crmId: "aaaa0014-0000-0000-0000-000000000014", pathwaysEnrolled: false, paymentStatus: "Paid", paidUntil: "March 31, 2027", position: "Treasurer" },
+      { name: "Dmitri Volkov", memberNumber: null, crmId: null, pathwaysEnrolled: false, paymentStatus: "Membership Pending", paidUntil: null, position: "" },
     ],
   },
 };

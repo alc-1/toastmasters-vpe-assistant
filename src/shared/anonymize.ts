@@ -13,7 +13,7 @@
 // same label too — so the same person/club reads identically on both sides.
 
 import { memberKey } from "./sync/delta";
-import type { BasecampScrape, ClubPairReport, EasySpeakScrape, MemberReport, ReportResult } from "./types";
+import type { BasecampScrape, ClubCentralScrape, ClubPairReport, EasySpeakScrape, MemberReport, ReportResult } from "./types";
 
 const FALLBACK_CLUB_LABEL = "Unknown club";
 const FALLBACK_MEMBER_LABEL = "Unknown member";
@@ -145,6 +145,34 @@ export function anonymizeEasySpeakScrape(data: EasySpeakScrape, maps?: Anonymiza
         if (!label) {
           label = maps ? FALLBACK_MEMBER_LABEL : `Member ${nextMemberIndex++}`;
           if (!maps) seen.set(id, label);
+        }
+        return { ...member, name: label };
+      }),
+    };
+  });
+  return out;
+}
+
+// Club Central never feeds a matched ReportResult, so there's no `maps`
+// variant — it always self-numbers from its own club/member order, like the
+// no-`maps` branch above. Only `name` is scrubbed; payment status, dates and
+// the Pathways-enrolled flag aren't personal data and stay as-is (the member
+// number / CRM id do identify a person, but they're opaque ids kept for
+// possible future matching — mirrors how anonymizeEasySpeakScrape keeps
+// memberId).
+export function anonymizeClubCentralScrape(data: ClubCentralScrape): ClubCentralScrape {
+  const out: ClubCentralScrape = {};
+  Object.entries(data).forEach(([clubId, club], clubIndex) => {
+    const seen = new Map<string, string>();
+    let nextMemberIndex = 1;
+    out[clubId] = {
+      name: `Club ${clubIndex + 1}`,
+      members: club.members.map((member) => {
+        const key = member.memberNumber ?? member.name;
+        let label = seen.get(key);
+        if (!label) {
+          label = `Member ${nextMemberIndex++}`;
+          seen.set(key, label);
         }
         return { ...member, name: label };
       }),

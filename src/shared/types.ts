@@ -105,6 +105,56 @@ export interface LevelCellCounts {
 }
 
 // ---------------------------------------------------------------------------
+// Club Central (toastmasters.org) raw scrape + parser I/O shapes
+// ---------------------------------------------------------------------------
+//
+// A third, independent source: the official Toastmasters.org "Club Central"
+// membership roster (see background/api/clubcentral.ts). Unlike Basecamp/
+// EasySpeak this lists EVERY club member — including those not enrolled in
+// Pathways — with their payment standing. Deliberately NOT fed into
+// buildReport()/the Excel export; it's a standalone roster snapshot.
+
+export type ClubCentralPaymentStatus = "Paid" | "Unpaid" | "Membership Pending" | "Unknown";
+
+export interface ClubCentralMemberRow {
+  name: string;
+  /** "PN-67820561" — 2nd arg of the row's showListModal(...) onclick; null when the Edit-Profile link is absent. */
+  memberNumber: string | null;
+  /** CRM contact GUID — 1st arg of showListModal(...). Kept for possible future cross-source matching. */
+  crmId: string | null;
+  /** True only when a bare <p>Pathways Enrolled</p> is present in the row. */
+  pathwaysEnrolled: boolean;
+  paymentStatus: ClubCentralPaymentStatus;
+  /** Raw date text as shown, e.g. "September 30, 2026"; null when the cell is empty. */
+  paidUntil: string | null;
+  /** Officer position text from the Position column; "" when none. */
+  position: string;
+}
+
+export interface ClubCentralClubScrape {
+  name: string;
+  members: ClubCentralMemberRow[];
+}
+
+/** Keyed by Club Central club id, e.g. "CB-28675805". */
+export type ClubCentralScrape = Record<string, ClubCentralClubScrape>;
+
+export interface ClubCentralClub {
+  id: string;
+  name: string;
+}
+
+export interface ClubListParseResult {
+  clubs: ClubCentralClub[];
+}
+
+export interface ClubRosterParseResult {
+  /** From the page's "Currently Managing:<name>" line — null if not found. */
+  clubName: string | null;
+  members: ClubCentralMemberRow[];
+}
+
+// ---------------------------------------------------------------------------
 // Report / delta domain (see shared/sync/conflicts.ts + shared/sync/delta.ts)
 // ---------------------------------------------------------------------------
 
@@ -393,7 +443,7 @@ export interface EasySpeakServer {
  */
 export type ProfileId = "demo" | EasySpeakServerId;
 
-export type SourceKey = "basecamp" | "easyspeak";
+export type SourceKey = "basecamp" | "easyspeak" | "clubcentral";
 export type SourceStatus = "idle" | "loading" | "success" | "error";
 export type IconStatuses = Record<SourceKey, SourceStatus>;
 
@@ -455,7 +505,11 @@ export type ScrapeEnvelope<T> = { ok: true; data: T } | { ok: false; error: stri
 // messaging.ts or any UI page needing to know.
 export type ScrapeFn<T> = () => Promise<T>;
 
-export type Request = { type: "SCRAPE_BASECAMP" } | { type: "SCRAPE_EASYSPEAK" } | { type: "POPUP_OPENED" };
+export type Request =
+  | { type: "SCRAPE_BASECAMP" }
+  | { type: "SCRAPE_EASYSPEAK" }
+  | { type: "SCRAPE_CLUBCENTRAL" }
+  | { type: "POPUP_OPENED" };
 
 // NB: POPUP_OPENED deliberately returns a bare IconStatuses, not the
 // {ok,data} envelope the two scrape messages use — an existing
@@ -464,6 +518,8 @@ export type ResponseFor<M extends Request> = M extends { type: "SCRAPE_BASECAMP"
   ? ScrapeEnvelope<BasecampScrape>
   : M extends { type: "SCRAPE_EASYSPEAK" }
     ? ScrapeEnvelope<EasySpeakScrape>
-    : M extends { type: "POPUP_OPENED" }
-      ? IconStatuses
-      : never;
+    : M extends { type: "SCRAPE_CLUBCENTRAL" }
+      ? ScrapeEnvelope<ClubCentralScrape>
+      : M extends { type: "POPUP_OPENED" }
+        ? IconStatuses
+        : never;

@@ -159,6 +159,9 @@ at-rules).
 - `tests/easyspeak-parser.test.ts` exercises the pure, DOM-based HTML-parsing logic in
   `shared/parsers/easyspeak-parser.ts` (`parseProfileLinks`, `parseMemberchart`, `parseLevelCell`)
   via `jsdom` against `test-data/easyspeak/profile.html`/`memberchart.html`.
+- `tests/clubcentral-parser.test.ts` exercises `shared/parsers/clubcentral-parser.ts`
+  (`parseClubList`, `parseRoster`, `normalizePaymentStatus`) via `jsdom` against
+  `test-data/clubcentral/club-list.html`/`roster.html` (fully synthetic).
 - `tests/report.test.ts` exercises the matching/diff pipeline split across `shared/sync/conflicts.ts`
   and `shared/sync/delta.ts` (`buildReport`, `matchClubs`, `matchMembers`, `nameScore`,
   `canonicalizePathName`, `matchPaths`, `hasOrphanedPaths`, `diffLevel`, `buildLevelSummary`, etc.) against
@@ -350,12 +353,13 @@ src/
 │   │       ├── whatsNew.ts          # changelog viewer ("What's New", #whatsNew) — reads the
 │   │       │                        #   bundled changelog.json, never gated
 │   │       └── index.ts             # the AppRoute -> ViewModule registry main.ts routes against
-│   ├── basecamp-auth/, easyspeak-done/
+│   ├── basecamp-auth/, easyspeak-done/, clubcentral-done/
 │   │   └── index.html + main.ts     # background-initiated interstitial pages, no user entry point
 │   ├── welcome/                     # first-run-only tab, opened by entrypoints/background.ts's onInstalled
 │   │   └── index.html + main.ts
-│   └── easyspeak-parser.content.ts  # registration:"runtime" content script, dynamically injected
-│                                     # into a live EasySpeak tab — see below
+│   ├── easyspeak-parser.content.ts  # registration:"runtime" content script, dynamically injected
+│   │                                 # into a live EasySpeak tab — see below
+│   └── clubcentral-parser.content.ts # ditto, injected into a live toastmasters.org Club Central tab
 ├── background/                      # plain supporting modules for entrypoints/background.ts —
 │   │                                 # not entrypoints themselves, never imported from a page
 │   ├── messaging.ts                 # onMessage listener + runScrape() helper
@@ -364,6 +368,7 @@ src/
 │   └── api/
 │       ├── basecamp.ts              # Basecamp scraping (fetch-based)
 │       ├── easyspeak.ts             # EasySpeak scraping (tab-navigation based)
+│       ├── clubcentral.ts           # toastmasters.org Club Central roster scraping (tab-navigation based)
 │       └── update-checker.ts        # preview-build-only GitHub-release poller
 └── shared/                          # no browser.* dependency except storage.ts/resolution-store.ts/
                                       # settings-store.ts/sync-status-panel.ts/update-store.ts/
@@ -404,7 +409,8 @@ src/
     │   └── export-to-excel.ts    # browser.*-dependent orchestrator: storage + resolution-store +
     │                              # buildReport() -> rows -> workbook -> download
     ├── parsers/
-    │   └── easyspeak-parser.ts   # pure DOM parsing, imported by entrypoints/easyspeak-parser.content.ts
+    │   ├── easyspeak-parser.ts   # pure DOM parsing, imported by entrypoints/easyspeak-parser.content.ts
+    │   └── clubcentral-parser.ts # pure DOM parsing, imported by entrypoints/clubcentral-parser.content.ts
     └── mock/
         └── mockData.ts       # demo/mock-mode scaffold — NOT wired up anywhere yet
 ```
@@ -787,7 +793,63 @@ EasySpeak's are `{memberId, name, path, levels: [{level, needed, done}, ...]}`. 
 `Record<clubId, {...}>` shape is intentional — it's what the matching/delta computation below keys
 off of.
 
-`example/` holds real (anonymize before sharing) HTML fixtures for the two EasySpeak pages
+- **Club Central is a THIRD source (`SourceKey === "clubcentral"`), deliberately isolated from
+  the Basecamp↔EasySpeak matching/delta/export pipeline.** It scrapes the official
+  toastmasters.org "Club Central → Membership Management" roster — every club member, whether or
+  not they've enrolled in Pathways — for every club where the user is an officer, storing
+  `clubCentralData`/`clubCentralScrapedAt` (profile-scoped, `shared/storage.ts`). Shape:
+  `ClubCentralScrape = Record<"CB-…" clubId, {name, members: ClubCentralMemberRow[]}>`, one row
+  per member (not member×path), each `{name, memberNumber, crmId, pathwaysEnrolled, paymentStatus,
+  paidUntil, position}` (`shared/types.ts`). It's shown only as a third card on the Sync Data
+  view; nothing reads `clubCentralData` yet beyond that card's raw preview and
+  `countClubCentralMembers()` (`shared/sync/delta.ts`). `buildReport()` never sees it.
+  - **`background/api/clubcentral.ts`** — orchestration, modeled on `easyspeak.ts` (tab-navigation
+    + `browser.scripting` parser injection; Club Central has no API and sits behind Azure AD B2C
+    auth). `PARSER_FILE = "/content-scripts/clubcentral-parser.js"`. **Navigation is driven by
+    clicking the page's own links, not by setting `tab.url`** — deep links like
+    `…/club-central/club-membership` return a server-side "Page Not Found" (`aspxerrorpath=…`) when
+    requested directly (they need the same-origin referer / session state a real click carries).
+    The only direct navigations are the initial `browser.tabs.create({ url: LANDING_URL })` and
+    re-requesting that *same* landing URL (after a login round-trip, or as the club-picker fallback
+    between clubs). Flow per run: open the tab on
+    `www.toastmasters.org/my-toastmasters/profile/club-central` → `parseClubList` → for each club:
+    `returnToClubPicker()` (2nd club onward) → `selectClub()` (clicks the club tile) →
+    `clickMembershipManagement()` (clicks `#Membership_Management`) → `parseRoster` → write once
+    after the last club → redirect the tab to `clubcentral-done.html`. On any throw the tab is
+    left open as-is.
+  - **`waitForPage()` / `clickAndWait()`** — `waitForPage()` **polls** `probe()` (a DOM read via
+    `executeScript`) every ~600ms until the tab shows a page satisfying `expect` (`PROBE_FN`
+    classifies the current page as `notfound` / `roster` / `dashboard` / `landing` / `other`).
+    Polling — not `tabs.onUpdated` — because Club Central mixes full navigations, ASP.NET
+    postbacks and client-side content swaps, and a `"complete"` event doesn't reliably fire for
+    all three. `clickAndWait()` runs an `executeScript` that dispatches the click / `change`
+    (returning `"clicked"` / `"none"`) then calls `waitForPage`. First load only, `waitForPage`
+    also absorbs the login round-trip: the built manifest has **no `tabs` permission and no
+    `login.toastmasters.org` host permission** (both deliberate — don't add them), so while the
+    tab sits on the login origin `browser.tabs.get(tabId).url` is `undefined` and `executeScript`
+    throws; it keeps polling under the 5-minute timeout and re-requests `LANDING_URL` **once** if
+    the post-login redirect overshoots to My Home or a 404.
+  - **`selectClub()`** — clicks the visible club **tile** (`.clubTile[data-club-id]`), which is
+    the control a human uses on the multi-club landing (the `#SelectedClub` `<select>` is
+    `display:none` there — it's only for switching clubs mid-session, and is the fallback here).
+    It must **never** `form.submit()`/`requestSubmit()` the landing form — a raw POST to the
+    landing URL without the site's postback fields is exactly what the server answers with
+    `PageNotFound?aspxerrorpath=…/club-central` (the bug that cost three debugging rounds).
+    `#Membership_Management` and the between-clubs "Club Central" link are likewise reached by
+    `.click()` on the real `<a>`, never `tabs.update` to their href.
+  - **`shared/parsers/clubcentral-parser.ts`** — pure DOM (`parseClubList`, `parseRoster`,
+    `normalizePaymentStatus`), same "disambiguate the table by its header text" approach as
+    `easyspeak-parser.ts`. Parses the hidden **list view** (`#HtmlListViewData table`), not the
+    grid view — its cells are clean single values. `normalizePaymentStatus` maps only
+    `Paid`/`Unpaid`/`Membership Pending`; anything else → `"Unknown"` (never throws — one odd row
+    mustn't kill the scrape).
+
+`example/toastmasters.org/…` holds real (anonymize before sharing) HTML fixtures for the three
+Club Central pages (`club-central_multipleClubs.html`, `club-central_singleClubOrAfterSelection.html`,
+`club-central/club-membership.html`) — the source of truth for `shared/parsers/clubcentral-parser.ts`.
+The Vitest fixtures under `test-data/clubcentral/` are synthetic, hand-built from that structure.
+
+`example/` also holds real (anonymize before sharing) HTML fixtures for the two EasySpeak pages
 (`profile.php_mode=editprofile`, `memberchart.php_chart=10&c=359`) — the source of truth for the
 parsing logic in `shared/parsers/easyspeak-parser.ts`. If EasySpeak's markup changes, re-capture
 fresh fixtures there before touching the parser.
