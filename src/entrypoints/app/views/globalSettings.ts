@@ -77,7 +77,7 @@ export const globalSettingsView: ViewModule = {
           ([canonical, aliases]) => `
           <tr data-canonical="${escapeAttr(canonical)}">
             <td>${escapeHtml(canonical)}</td>
-            <td><input type="text" data-role="alias-input" value="${escapeAttr(aliases.join(", "))}" aria-label="Alternate spellings for ${escapeAttr(canonical)}"></td>
+            <td><input type="text" class="input input-xs w-full" data-role="alias-input" value="${escapeAttr(aliases.join(", "))}" aria-label="Alternate spellings for ${escapeAttr(canonical)}"></td>
             <td>
               <button class="btn btn-secondary" data-action="save-aliases">Save</button>
               <button class="btn btn-secondary" data-action="delete-canonical">Delete</button>
@@ -101,7 +101,7 @@ export const globalSettingsView: ViewModule = {
             </p>
             ${table}
             <div class="add-form">
-              <input type="text" id="newPathCanonical" placeholder="New canonical path name (lowercase)" aria-label="New canonical path name">
+              <input type="text" id="newPathCanonical" class="input input-sm" placeholder="New canonical path name (lowercase)" aria-label="New canonical path name">
               <button class="btn btn-primary" data-action="add-canonical">Add path</button>
             </div>
           </div>

@@ -1262,10 +1262,6 @@
     color: var(--gray-700);
   }
 
-  .whats-new__from-select {
-    @apply text-sm;
-    padding: 4px 6px;
-  }
 
   /* Lock glyph before the "Privacy Mode" card title on Global Settings,
      mirroring the header's own .app-header__privacy-lock. */
@@ -2210,29 +2206,15 @@
     font-weight: 700;
   }
 
-  /* Shared by Club Review's club-name lookup table and Global Settings'
-     path-name lookup table — both edit a small, low-cardinality mapping via
-     an inline text input per row plus an "add new" form below the table. */
-  table.lookup input[type="text"] {
-    width: 100%;
-    box-sizing: border-box;
-    font-size: var(--text-sm);
-    padding: 3px 6px;
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-sm);
-  }
-
+  /* Club Review / Global Settings lookup tables + their "add new" form use
+     daisyUI `input` / `select` (input-xs / input-sm) in markup; .add-form just
+     lays the controls out. */
   .add-form {
     display: flex;
     gap: 6px;
     align-items: center;
     margin-bottom: 20px;
     flex-wrap: wrap;
-  }
-
-  .add-form select, .add-form input[type="text"] {
-    font-size: var(--text-sm);
-    padding: 4px 6px;
   }
 
   /* Club Review's arrow between the two club dropdowns: a left-right arrow
@@ -2255,8 +2237,8 @@
       align-items: stretch;
     }
 
-    .add-form select,
-    .add-form input[type="text"],
+    .add-form .select,
+    .add-form .input,
     .add-form > button {
       width: 100%;
       box-sizing: border-box;
@@ -2339,24 +2321,23 @@
   /* Tabs + warning icon + conflict banner                                  */
   /* ---------------------------------------------------------------------- */
 
+  /* Club tab strip — daisyUI `tabs tabs-border` + `tab` / `tab-active` in
+     markup (tab-active picks up --color-primary = navy automatically). These
+     rules only add the app's bottom margin, the smaller type, and let the row
+     scroll horizontally on a phone instead of overflowing the page. */
   .tabs {
-    @apply border-b border-border;
-    display: flex;
-    gap: 4px;
     margin-bottom: 12px;
   }
 
-  .tab-btn {
-    @apply text-base text-tm-gray-600;
-    padding: 8px 14px;
-    cursor: pointer;
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
+  .tabs .tab {
+    @apply text-base;
+    font-weight: 500;
   }
 
-  /* A club-tab row that doesn't fit at phone width becomes swipeable instead
-     of silently overflowing the page. */
+  .tabs .tab-active {
+    font-weight: 600;
+  }
+
   @media (max-width: 1024px) {
     .tabs {
       overflow-x: auto;
@@ -2364,20 +2345,9 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    .tab-btn {
+    .tabs .tab {
       flex-shrink: 0;
     }
-  }
-
-  .tab-btn:hover {
-    @apply text-tm-gray-900;
-  }
-
-  .tab-btn.active {
-    @apply text-navy-700 border-navy-700;
-    font-weight: 600;
-    border-bottom-width: 3px;
-    border-bottom-style: solid;
   }
 
   .warning-icon {
@@ -2451,16 +2421,6 @@
 
   .chip.active .chip-count {
     @apply text-navy-700 bg-surface;
-  }
-
-  .search-input {
-    @apply text-sm border border-border rounded-sm;
-    display: block;
-    padding: 6px 10px;
-    width: 100%;
-    max-width: 280px;
-    box-sizing: border-box;
-    margin-bottom: var(--space-3);
   }
 
   /* ---------------------------------------------------------------------- */
@@ -2938,12 +2898,8 @@ table.summary col.col-detail { width: 25%; }
 
 /* Club Progress's Next Level Summary is dual-rendered by report.ts (a
    `hidden lg:table` <table> + an `lg:hidden` .summary-cards list), so there
-   is no table->card CSS transposition here any more. */
-@media (max-width: 1024px) {
-  body[data-view="report"] .search-input {
-    max-width: none;
-  }
-}
+   is no table->card CSS transposition here any more. The search box is a
+   daisyUI `input` sized with utilities (w-full lg:max-w-[280px]). */
 
 table.summary th, table.summary td {
   overflow: hidden;
@@ -2994,13 +2950,10 @@ table.members tr.detail-row td {
   white-space: nowrap;
 }
 
+/* The inline "search to link" fields are daisyUI `input input-xs`; in a table
+   cell they should fill the cell. */
 input.link-search {
-  font-size: var(--text-sm);
-  padding: 3px 6px;
   width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--color-base-300);
-  border-radius: var(--radius-sm);
 }
 
 .path-pair-row {
@@ -3040,12 +2993,6 @@ input.link-search {
 
 .member-cards input.link-search {
   margin-top: 4px;
-}
-
-@media (max-width: 1024px) {
-  body[data-view="members"] .search-input {
-    max-width: none;
-  }
 }
 
 /* Sync Data — scoped defensively: .summary is generic enough that a future

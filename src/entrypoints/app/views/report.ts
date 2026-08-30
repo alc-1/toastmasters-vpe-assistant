@@ -20,10 +20,10 @@ const SHELL_HTML = `
   <div class="meta" id="reportMeta"></div>
   <div class="anonymize-indicator" id="anonymizeIndicator"></div>
 
-  <div id="clubTabs" class="tabs"></div>
+  <div id="clubTabs" class="tabs tabs-border" role="tablist"></div>
   <div id="conflictWarning" aria-live="polite"></div>
   <div id="kpiRoot" class="kpi-grid"></div>
-  <input type="text" id="summarySearch" class="search-input" placeholder="Search by member or path name…">
+  <input type="text" id="summarySearch" class="input input-sm w-full lg:max-w-[280px] mb-3 block" placeholder="Search by member or path name…">
 
   <h2 class="section-header section-header--first">Next Level Summary</h2>
   <p class="help-text summary-help-text--wide">
@@ -324,11 +324,11 @@ export const reportView: ViewModule = {
               ? `<span class="tab-count">${missingCount}</span>`
               : "";
           const fullName = s.clubName ?? "(unnamed club)";
-          return `<button class="tab-btn" data-club-key="${s.clubKey}" title="${escapeAttr(fullName)}">${warningIcon}${escapeHtml(shortenClubName(fullName))}${countBadge}</button>`;
+          return `<button class="tab" data-club-key="${s.clubKey}" title="${escapeAttr(fullName)}">${warningIcon}${escapeHtml(shortenClubName(fullName))}${countBadge}</button>`;
         })
         .join("");
 
-      tabsRoot.querySelectorAll<HTMLButtonElement>(".tab-btn").forEach((btn) => {
+      tabsRoot.querySelectorAll<HTMLButtonElement>(".tab").forEach((btn) => {
         btn.addEventListener("click", () => {
           activeClubKey = btn.dataset.clubKey ?? null;
           mainTable.expandedRowKey = null;
@@ -343,8 +343,8 @@ export const reportView: ViewModule = {
     }
 
     function updateActiveTab() {
-      root.querySelectorAll<HTMLButtonElement>("#clubTabs .tab-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.clubKey === activeClubKey);
+      root.querySelectorAll<HTMLButtonElement>("#clubTabs .tab").forEach((btn) => {
+        btn.classList.toggle("tab-active", btn.dataset.clubKey === activeClubKey);
       });
     }
 

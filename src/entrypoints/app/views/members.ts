@@ -37,9 +37,9 @@ const SHELL_HTML = `
   <div class="meta" id="pageMeta"></div>
 
   <div id="conflictWarning" aria-live="polite"></div>
-  <div id="clubTabs" class="tabs"></div>
+  <div id="clubTabs" class="tabs tabs-border" role="tablist"></div>
   <div id="filterChips" class="toolbar"></div>
-  <input type="text" id="memberSearch" class="search-input" placeholder="Search by member or path name…">
+  <input type="text" id="memberSearch" class="input input-sm w-full lg:max-w-[280px] mb-3 block" placeholder="Search by member or path name…">
   <div id="membersRoot"></div>
 `;
 
@@ -207,11 +207,11 @@ export const membersView: ViewModule = {
             : missingCount > 0
               ? `<span class="tab-count">${missingCount}</span>`
               : "";
-          return `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}" title="${escapeAttr(s.clubName)}">${warningIcon}${escapeHtml(shortenClubName(s.clubName))}${countBadge}</button>`;
+          return `<button class="tab${s.clubKey === activeClubKey ? " tab-active" : ""}" data-club-key="${s.clubKey}" title="${escapeAttr(s.clubName)}">${warningIcon}${escapeHtml(shortenClubName(s.clubName))}${countBadge}</button>`;
         })
         .join("");
 
-      tabsRoot.querySelectorAll<HTMLButtonElement>(".tab-btn").forEach((btn) => {
+      tabsRoot.querySelectorAll<HTMLButtonElement>(".tab").forEach((btn) => {
         btn.addEventListener("click", () => {
           activeClubKey = btn.dataset.clubKey ?? null;
           renderClubTabs();
@@ -450,7 +450,7 @@ export const membersView: ViewModule = {
       const key = memberKey(member);
       return (
         `<span class="name-header">${labelPrefix}<span class="not-linked-label">(Not linked)</span></span>` +
-        `<input type="text" class="link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" aria-label="Search ${label} members to link" autocomplete="off">`
+        `<input type="text" class="input input-xs link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" aria-label="Search ${label} members to link" autocomplete="off">`
       );
     }
 
@@ -646,7 +646,7 @@ export const membersView: ViewModule = {
                 const bindControls =
                   candidates.length > 0
                     ? `<span>&harr;</span>
-                     <input type="text" class="link-search" list="${pathDatalistId}" data-role="path-bind-input" data-member-key="${key}" placeholder="Search Basecamp paths…" aria-label="Choose a path to bind this member's orphaned path to" autocomplete="off">
+                     <input type="text" class="input input-xs link-search" list="${pathDatalistId}" data-role="path-bind-input" data-member-key="${key}" placeholder="Search Basecamp paths…" aria-label="Choose a path to bind this member's orphaned path to" autocomplete="off">
                      <button data-action="bind-path" data-member-key="${key}" data-es-index="${esIndex}" disabled>Bind</button>`
                     : "";
                 const done = pathSpeechesDone(esPath);
