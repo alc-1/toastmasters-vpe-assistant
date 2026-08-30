@@ -3058,9 +3058,11 @@ table.members tr.detail-row td {
   white-space: nowrap;
 }
 
-/* The inline "search to link" fields are daisyUI `input input-xs`; in a table
-   cell they should fill the cell. */
-input.link-search {
+/* The inline "search to link" fields are daisyUI `input input-xs` (path bind)
+   or `select select-xs` (member link); in a table cell they should fill the
+   cell. */
+input.link-search,
+select.link-search {
   width: 100%;
 }
 
@@ -3099,7 +3101,8 @@ input.link-search {
   display: block;
 }
 
-.member-cards input.link-search {
+.member-cards input.link-search,
+.member-cards select.link-search {
   margin-top: 4px;
 }
 

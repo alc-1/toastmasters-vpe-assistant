@@ -341,15 +341,6 @@ export const membersView: ViewModule = {
         return `<p class="empty-state">No members match this filter.</p>`;
       }
 
-      const datalists = `
-        <datalist id="dl-es-${activeClubKey}">
-          ${pools.easyspeakOnly.map((c) => `<option value="${escapeAttr(candidateOptionValue(c))}">`).join("")}
-        </datalist>
-        <datalist id="dl-bc-${activeClubKey}">
-          ${pools.basecampOnly.map((c) => `<option value="${escapeAttr(candidateOptionValue(c))}">`).join("")}
-        </datalist>
-      `;
-
       const rows = sorted.map((member) => renderMemberRows(member, pools)).join("");
       const cards = sorted.map((member) => renderMemberCard(member, pools)).join("");
 
@@ -359,7 +350,6 @@ export const membersView: ViewModule = {
       // whichever is on screen. onLink()/onLinkInputChange() scope with
       // closest("tr, .member-card") so the search field works in both.
       return `
-        ${datalists}
         <table class="data-table members hidden lg:table">
           <thead>
             <tr>
@@ -446,11 +436,14 @@ export const membersView: ViewModule = {
         return `<span class="name-header">${labelPrefix}<span class="cell-detail muted-text">No unmatched candidates</span><span class="not-linked-label">(Not linked)</span></span>`;
       }
 
-      const datalistId = side === "easyspeak" ? `dl-es-${activeClubKey}` : `dl-bc-${activeClubKey}`;
       const key = memberKey(member);
+      const options = candidates.map((c) => `<option value="${escapeAttr(String(c.id))}">${escapeHtml(c.name)}</option>`).join("");
       return (
         `<span class="name-header">${labelPrefix}<span class="not-linked-label">(Not linked)</span></span>` +
-        `<input type="text" class="input input-xs link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" aria-label="Search ${label} members to link" autocomplete="off">`
+        `<select class="select select-xs link-search appearance-none" data-role="link-input" data-member-key="${key}" aria-label="Select ${label} member to link">` +
+        `<option value="" disabled selected>Select ${side === "easyspeak" ? "an EasySpeak" : "a Basecamp"} member</option>` +
+        options +
+        `</select>`
       );
     }
 
@@ -768,8 +761,8 @@ export const membersView: ViewModule = {
       membersRoot.querySelectorAll<HTMLButtonElement>('[data-action="force-unbind-path"]').forEach((btn) => {
         btn.addEventListener("click", () => onForceUnbindPath(btn));
       });
-      membersRoot.querySelectorAll<HTMLInputElement>('[data-role="link-input"]').forEach((input) => {
-        input.addEventListener("input", () => onLinkInputChange(input));
+      membersRoot.querySelectorAll<HTMLSelectElement>('[data-role="link-input"]').forEach((select) => {
+        select.addEventListener("change", () => onLinkInputChange(select));
       });
       membersRoot.querySelectorAll<HTMLButtonElement>('[data-action="link"]').forEach((btn) => {
         btn.addEventListener("click", () => onLink(btn));
@@ -915,22 +908,21 @@ export const membersView: ViewModule = {
       await refresh();
     }
 
-    function onLinkInputChange(input: HTMLInputElement) {
-      const member = findMemberByKey(input.dataset.memberKey!);
-      const row = input.closest("tr, .member-card")!;
+    function onLinkInputChange(select: HTMLSelectElement) {
+      const member = findMemberByKey(select.dataset.memberKey!);
+      const row = select.closest("tr, .member-card")!;
       const linkBtn = row.querySelector<HTMLButtonElement>('[data-action="link"]');
       if (!member || !linkBtn) return;
-      const candidates = getCandidatesForMember(member);
-      linkBtn.disabled = !parseCandidateSelection(input.value, candidates);
+      linkBtn.disabled = !select.value;
     }
 
     async function onLink(btn: HTMLButtonElement) {
       const member = findMemberByKey(btn.dataset.memberKey!);
       if (!member) return;
       const row = btn.closest("tr, .member-card")!;
-      const input = row.querySelector<HTMLInputElement>('[data-role="link-input"]')!;
+      const select = row.querySelector<HTMLSelectElement>('[data-role="link-input"]')!;
       const candidates = getCandidatesForMember(member);
-      const match = parseCandidateSelection(input.value, candidates);
+      const match = candidates.find((c) => String(c.id) === select.value);
       if (!match) return;
 
       const basecampUserId = member.presence === "basecamp-only" ? member.basecampUserId! : (match.id as number);
