@@ -2646,104 +2646,25 @@ select:focus-visible {
   margin-right: 4px;
 }
 
-/* Club Review — phone-width companion to table.lookup's default (desktop)
-   rows: same per-club-pair data, transposed to one card per row (readable
-   at ~360-400px) instead of a cramped 4-column table. Scoped to this view
-   only, not table.lookup generally — Global Settings' own table.lookup
-   (path-name aliases) has a different 3-column shape and stays a plain
-   horizontally-scrollable table (table-scroll) at this width. */
+/* Club Review's mobile card: demote "Unlink"/"Unmark" on a linked pair to a
+   subtle text link tucked in the corner, so an accidental tap doesn't casually
+   break a working match (Confirm / "Not this one" stay as real buttons). */
+.club-card__actions [data-action="unlink-club"],
+.club-card__actions [data-action="unorphan-club"] {
+  height: auto;
+  min-height: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--gray-600);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+}
+
+/* Club Review — the club-pair table is dual-rendered by clubReview.ts (a
+   `hidden lg:block` <table> + an `lg:hidden` card list), so there's no
+   table→card CSS transposition here any more. */
 @media (max-width: 1024px) {
-  body[data-view="clubReview"] table.lookup {
-    display: block;
-    background: none;
-  }
-
-  body[data-view="clubReview"] table.lookup > thead {
-    display: none;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody {
-    display: block;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "bc      status"
-      "es      status"
-      "actions actions";
-    gap: 6px 8px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    background: var(--surface);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-md);
-  }
-
-  /* Cards drop the table's own zebra striping — every card stays plain
-     white, odd or even. */
-  body[data-view="clubReview"] table.lookup > tbody > tr:nth-child(2n) {
-    background: var(--surface);
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td {
-    display: block;
-    border: none;
-    padding: 0;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td:nth-child(1) {
-    grid-area: bc;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td:nth-child(2) {
-    grid-area: es;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td:nth-child(3) {
-    grid-area: status;
-    justify-self: end;
-  }
-
-  /* Platform label ("Basecamp"/"EasySpeak") rendered above each club name —
-     with <thead> hidden there's nothing else on a card telling the two
-     names apart. clubReview.ts sets data-label on exactly these two cells. */
-  body[data-view="clubReview"] table.lookup td[data-label]::before {
-    content: attr(data-label);
-    display: block;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--gray-600);
-    margin-bottom: 2px;
-  }
-
-  /* Actions become a right-aligned footer row spanning the card's full
-     width. A Linked Clubs card only ever shows one action, Unlink — styled
-     here as a subtle ghost/text button tucked in the card's corner (not a
-     solid button) specifically so an accidental tap doesn't casually break
-     a working match; Unmatched Clubs' Confirm/"Not this one" pair are left
-     as regular buttons, since those are meant to invite a tap. */
-  body[data-view="clubReview"] table.lookup > tbody > tr > td.actions {
-    grid-area: actions;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 6px;
-    margin-top: 4px;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td.actions [data-action="unlink-club"] {
-    background: transparent;
-    border: none;
-    color: var(--gray-600);
-    text-decoration: underline;
-    padding: 4px 2px;
-    font-size: var(--text-xs);
-  }
-
   /* Pins "Continue to Member Review →" to the bottom of the viewport so it's
      reachable without scrolling past the (now often long, card-based) club
      list above — .step-footer (rendered into #stepFooter, the last element
