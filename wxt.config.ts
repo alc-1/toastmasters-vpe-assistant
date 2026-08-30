@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
 import { generateChangelogJson } from "./scripts/generate-changelog-json";
 
@@ -12,6 +13,14 @@ import { generateChangelogJson } from "./scripts/generate-changelog-json";
 export default defineConfig({
   srcDir: "src",
   outDirTemplate: "{{mode}}/{{browser}}-mv{{manifestVersion}}",
+
+  // Tailwind CSS v4 is wired in as a Vite plugin (v4's official integration —
+  // there is no tailwind.config.ts / postcss.config.js anymore; theme + the
+  // daisyUI plugin live in src/shared/styles.css). WXT merges this into its
+  // own Vite config for every entrypoint's build.
+  vite: () => ({
+    plugins: [tailwindcss()],
+  }),
 
   hooks: {
     // Regenerate public/changelog.json from CHANGELOG.md before every build.
@@ -75,6 +84,11 @@ export default defineConfig({
               gecko: {
                 id: "vpe-assistant@toastmasters-vpe-assistant.app",
                 data_collection_permissions: { required: ["none"] },
+                // Tailwind v4's generated CSS uses @property and color-mix(),
+                // supported from Firefox 128 — which the extension already
+                // effectively requires (browser.action aliasing lands in 128,
+                // and the UI uses :has() from 121).
+                strict_min_version: "128.0",
               },
             }
           : undefined,

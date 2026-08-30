@@ -1,136 +1,164 @@
 /* src/shared/styles.css
  *
- * Tailwind entry point + shared design tokens/component classes for every
- * extension page (popup, options/*, status/*). Referenced via
- * <link rel="stylesheet" href="../shared/styles.css"> from each HTML entry —
- * Vite dedupes it into one hashed dist/assets/*.css chunk shared across all
- * pages, the same way shared JS modules already are.
+ * Tailwind CSS v4 entry point + daisyUI plugin + the extension's custom
+ * component layer, shared by every extension page (popup, app/*, welcome,
+ * status pages). Referenced via <link rel="stylesheet"> from each HTML entry;
+ * Vite dedupes it into one hashed /assets/*.css chunk.
  *
- * The :root custom properties below are resolved from tailwind.config.ts's
- * theme.extend (colors/fontSize/spacing/borderRadius) via Tailwind's theme()
- * CSS function, rather than a second set of hand-written literals — that
- * config is the single source of truth for every value; this block only
- * exists so each page's own residual \3c style> block for genuinely page-unique
- * layout (popup's fixed width, report's <col> widths, status pages' centered
- * layout) can keep referencing plain var(--*) instead of needing @apply
- * itself. Component rules in @layer components below use Tailwind's @apply
- * directly against the same underlying config.
+ * v4 is CSS-first: there is no tailwind.config.ts / postcss.config.js. The
+ * theme is defined below via daisyUI's custom "toastmasters" theme + a small
+ * @theme block. daisyUI supplies the primitives (btn / badge / card / modal /
+ * tabs / toggle / table / alert / input / select / stats / dropdown …) used
+ * directly in view markup; @layer components below holds only the components
+ * daisyUI has no equivalent for (the stepper, selectable option/region cards,
+ * the branded app header, dashboard feature tiles, the version popover).
  *
- * Toastmasters brand system: Loyal Blue is the primary brand color and also
- * doubles as the "info" accent (badges/hovers that used to be True Maroon
- * were switched to Loyal Blue — it clashed with the rest of the page), Cool
- * Gray is reserved for subtle brand-tinted borders, Happy Yellow is used
- * only for the app title text. Font stays the existing system sans-serif
- * stack — Inter isn't bundled anywhere in this project and adding it would
- * mean either a new npm dependency or a remote font request (blocked by
+ * Toastmasters brand: Loyal Blue (#004165) is --color-primary and also the
+ * "info" accent; Happy Yellow (#f2df74) is --color-accent, used only for the
+ * app-header title; Cool Gray for subtle brand-tinted borders. System
+ * sans-serif stack (no bundled web font — a remote font request is blocked by
  * MV3's default CSP anyway).
+ *
+ * Brand hex values are mirrored from ./tailwind-tokens.js (still the source of
+ * truth for landing/, which stays on Tailwind 3). Keep the two in sync when a
+ * brand color changes.
  */
 
-:root {
-  /* Toastmasters brand — resolved from tailwind.config.ts's navy/yellow/
-     silver color scales via theme(), not restated as literals. */
-  --tm-navy: theme("colors.navy.700"); /* Loyal Blue */
-  --tm-navy-hover: theme("colors.navy.800");
-  --tm-navy-active: theme("colors.navy.900");
-  --tm-silver: theme("colors.silver.DEFAULT"); /* Cool Gray */
-  --tm-yellow: theme("colors.yellow.accent"); /* Happy Yellow — app-header__title only, nowhere else */
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: false;
+}
+@plugin "daisyui/theme" {
+  name: "toastmasters";
+  default: true;
+  color-scheme: light;
 
-  /* Semantic roles — component rules reference these, not the physical
-     --tm-* variables directly, so a future re-theme only touches these. */
-  --primary: var(--tm-navy);
-  --primary-hover: var(--tm-navy-hover);
-  --primary-active: var(--tm-navy-active);
+  --color-base-100: #ffffff; /* --surface */
+  --color-base-200: #f7f8fa; /* --surface-alt */
+  --color-base-300: #e2e8f0; /* --border */
+  --color-base-content: #222222; /* body text (--gray-900) */
 
-  /* Semantic status colors — one solid + one pale-bg tint each. --warning's
-     solid value (theme("colors.warning.DEFAULT")) is too light for AA-safe
-     small bold text on its own tint, so --warning-text is a darkened variant
-     used specifically for badge/label text; --warning itself stays available
-     for larger accents/icons where that headroom doesn't matter. --success
-     and --danger are dark enough to double as their own text color. */
-  --success: theme("colors.success.DEFAULT");
-  --success-bg: theme("colors.success.bg");
-  --warning: theme("colors.warning.DEFAULT");
-  --warning-text: theme("colors.warning.text");
-  --warning-bg: theme("colors.warning.bg");
-  --danger: theme("colors.danger.DEFAULT");
-  --danger-bg: theme("colors.danger.bg");
-  --info: var(--tm-navy);
-  --info-bg: theme("colors.info.bg");
-  --disabled-bg: theme("colors.disabled.DEFAULT");
+  --color-primary: #004165; /* Loyal Blue */
+  --color-primary-content: #ffffff;
+  --color-secondary: #003654; /* navy-800 */
+  --color-secondary-content: #ffffff;
+  --color-accent: #f2df74; /* Happy Yellow — header title only */
+  --color-accent-content: #002e47;
+  --color-neutral: #444444; /* --gray-700 */
+  --color-neutral-content: #ffffff;
 
-  /* Surfaces (cards, page background, dividers) */
-  --surface: theme("colors.surface.DEFAULT");
-  --surface-alt: theme("colors.surface.alt");
-  --border: theme("colors.border.DEFAULT");
+  --color-info: #004165;
+  --color-info-content: #ffffff;
+  --color-success: #2e7d32;
+  --color-success-content: #ffffff;
+  --color-warning: #d97706;
+  --color-warning-content: #ffffff;
+  --color-error: #c62828;
+  --color-error-content: #ffffff;
 
-  /* Text grays — not part of the brand palette above, still needed for
-     body copy / muted text and kept separate from --border on purpose
-     (a border color and a text color drifting apart independently is
-     fine; collapsing them would just be coincidental). */
-  --gray-900: theme("colors.tm-gray.900"); /* body text */
-  --gray-700: theme("colors.tm-gray.700"); /* secondary-btn text, inactive tabs */
-  --gray-600: theme("colors.tm-gray.600"); /* the one "muted but AA-readable" text color */
+  --radius-selector: 999px; /* toggles, badges */
+  --radius-field: 4px; /* buttons, inputs, tabs */
+  --radius-box: 8px; /* cards, modals, alerts */
 
-  --text-xs: theme("fontSize.xs");
-  --text-sm: theme("fontSize.sm");
-  --text-base: theme("fontSize.base");
-  --text-md: theme("fontSize.md");
-  --text-lg: theme("fontSize.lg");
-  --text-xl: theme("fontSize.xl");
-
-  --space-1: theme("spacing.space-1");
-  --space-2: theme("spacing.space-2");
-  --space-3: theme("spacing.space-3");
-  --space-4: theme("spacing.space-4");
-  --space-5: theme("spacing.space-5");
-  --space-6: theme("spacing.space-6");
-
-  --radius-sm: theme("borderRadius.sm"); /* inputs */
-  --radius-md: theme("borderRadius.md"); /* buttons, boxes, banners, cards — the brand target */
-  --radius-pill: theme("borderRadius.pill"); /* badges, chips, count badges */
-
-  --font-sans: theme("fontFamily.sans");
-
-  /* Home dashboard feature-tile icon badges only (one accent per tile) —
-     resolved from tailwind.config.ts's namespaced tile-* color scales. */
-  --tile-indigo: theme("colors.tile-indigo.DEFAULT");
-  --tile-indigo-bg: theme("colors.tile-indigo.bg");
-  --tile-emerald: theme("colors.tile-emerald.DEFAULT");
-  --tile-emerald-bg: theme("colors.tile-emerald.bg");
-  --tile-amber: theme("colors.tile-amber.DEFAULT");
-  --tile-amber-bg: theme("colors.tile-amber.bg");
-  --tile-slate: theme("colors.tile-slate.DEFAULT");
-  --tile-slate-bg: theme("colors.tile-slate.bg");
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* @theme: a notch-smaller type scale than Tailwind's default, the system font
+ * stack, plus legacy color/spacing/radius tokens still referenced by name in
+ * this file's @layer components (`@apply bg-navy-700`, `text-tm-gray-600`, …)
+ * and by a handful of var(--*) call sites in view markup. These shrink as
+ * views migrate to daisyUI primitives + plain utilities. */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
-/* Preflight is off (see tailwind.config.ts), but Tailwind's border-width/
- * border-color utilities (used all over @layer components below via
- * `border`/`border-t`/`border-b`/`border-border` etc.) only ever set
- * border-width and border-color — never border-style. Preflight normally
- * supplies that piece globally so those utilities render at all. The reset
- * is two properties together, not one: `border-width: 0` AND
- * `border-style: solid` on every element. Setting style alone (a bug in an
- * earlier version of this rule) is actively worse than setting neither —
- * the browser's own initial border-width is `medium` (~3-4px), which
- * `border-style: none` had been suppressing entirely; making style solid
- * without also zeroing the width makes that ~3-4px default border render,
- * in the current text color, on every single element on the page that
- * doesn't have an explicit border-width utility. With both properties reset
- * together, an element stays borderless until something explicitly gives it
- * a border-width (at which point Tailwind's/this file's border-color
- * utilities can style it), which is the actual Preflight behavior.
- */
-@layer base {
-  *,
-  ::before,
-  ::after {
-    border-width: 0;
-    border-style: solid;
-  }
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-pill: 999px;
+
+  --color-navy-700: #004165;
+  --color-navy-800: #003654;
+  --color-navy-900: #002e47;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f7f8fa;
+  --color-border: #e2e8f0;
+  --color-silver: #a9b2b1;
+  --color-yellow-accent: #f2df74;
+  --color-tm-gray-900: #222222;
+  --color-tm-gray-700: #444444;
+  --color-tm-gray-600: #666666;
+  --color-success-bg: #e6f4ea;
+  --color-warning-text: #92400e;
+  --color-warning-bg: #fef3e2;
+  --color-danger: #c62828;
+  --color-danger-bg: #fdecea;
+  --color-info-bg: #e3ecf3;
+  --color-disabled: #aaaaaa;
+}
+
+:root {
+  --primary: #004165;
+  --primary-hover: #003654;
+  --primary-active: #002e47;
+  --tm-navy: #004165;
+  --tm-silver: #a9b2b1;
+  --tm-yellow: #f2df74;
+
+  --success: #2e7d32;
+  --success-bg: #e6f4ea;
+  --warning: #d97706;
+  --warning-text: #92400e;
+  --warning-bg: #fef3e2;
+  --danger: #c62828;
+  --danger-bg: #fdecea;
+  --info: #004165;
+  --info-bg: #e3ecf3;
+  --disabled-bg: #aaaaaa;
+
+  --surface: #ffffff;
+  --surface-alt: #f7f8fa;
+  --border: #e2e8f0;
+
+  --gray-900: #222222;
+  --gray-700: #444444;
+  --gray-600: #666666;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-pill: 999px;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --tile-indigo: #4f46e5;
+  --tile-indigo-bg: #eef2ff;
+  --tile-emerald: #047857;
+  --tile-emerald-bg: #ecfdf5;
+  --tile-amber: #b45309;
+  --tile-amber-bg: #fffbeb;
+  --tile-slate: #475569;
+  --tile-slate-bg: #f1f5f9;
 }
 
 @layer components {
