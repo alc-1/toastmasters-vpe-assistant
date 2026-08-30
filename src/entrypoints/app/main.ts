@@ -12,6 +12,7 @@ import { escapeHtml } from "../../shared/dom-utils";
 import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
 import { formatProfileLabel, getActiveProfile, getAnonymizeMode, setAnonymizeMode } from "../../shared/settings-store";
 import { computeStepperInfo, markSetupComplete, markStepVisited } from "../../shared/stepper-info";
+import { loadVersionBadgeState, markVersionViewed, type VersionBadgeState } from "../../shared/whats-new-badge";
 import { resolveRoute } from "./router";
 import { VIEWS } from "./views";
 import type { AppRoute } from "../../shared/pages";
@@ -25,6 +26,7 @@ const ROUTE_TITLE: Record<AppRoute, string> = {
   report: "Club Progress",
   exporter: "Download Spreadsheet",
   globalSettings: "Global Settings",
+  whatsNew: "What's New",
 };
 
 // The four steps that render the wizard chrome (highlighted stepper item +
@@ -89,6 +91,54 @@ stepFooterRoot.addEventListener("click", (e) => {
   })();
 });
 
+// The header version badge (shared/app-shell.ts's renderVersionBadge) — a
+// toolbar-style pill that toggles a release-notes popover. Delegated on the
+// persistent #appShell root, same rationale as the listeners above. Opening
+// the popover clears the unread dot: removed from the DOM immediately, then
+// persisted via markVersionViewed(). That storage write is deliberately NOT
+// allowed to trigger a chrome re-render (see the storage.onChanged guard
+// below) — a full renderChrome() would rebuild the header and tear the
+// just-opened popover back down.
+function closeVersionPopover(): void {
+  const popover = document.getElementById("versionPopover");
+  if (!popover || popover.hidden) return;
+  popover.hidden = true;
+  document.getElementById("versionBadgeBtn")?.setAttribute("aria-expanded", "false");
+}
+
+appShellRoot.addEventListener("click", (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLElement>("#versionBadgeBtn");
+  if (!btn) return;
+  const popover = document.getElementById("versionPopover");
+  if (!popover) return;
+  const willOpen = popover.hidden;
+  popover.hidden = !willOpen;
+  btn.setAttribute("aria-expanded", String(willOpen));
+  if (willOpen) {
+    // Settle the badge into its read/default state immediately — drop the
+    // white "unread" pill styling along with the sparkle + pulsing dot — then
+    // persist it. (The storage write is barred from re-rendering the chrome,
+    // see the storage.onChanged guard below, so this DOM cleanup is what the
+    // user actually sees until the next navigation.)
+    btn.classList.remove("version-badge--unread");
+    btn.querySelector(".version-badge__sparkle")?.remove();
+    btn.querySelector(".version-badge__dot")?.remove();
+    void markVersionViewed(browser.runtime.getManifest().version);
+  }
+});
+
+// Close the popover on an outside click or Esc. Bound to `document` (the
+// popover lives inside the header, outside any view's #viewRoot) and never
+// removed — main.ts owns the page for its whole lifetime, same as the
+// hashchange listener at the bottom of this file.
+document.addEventListener("mousedown", (e) => {
+  if ((e.target as HTMLElement).closest(".version-badge-wrap")) return;
+  closeVersionPopover();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeVersionPopover();
+});
+
 let currentDispose: (() => void) | null = null;
 let currentRoute: AppRoute | null = null;
 // Bumped on every navigate() call — lets a call bail out early if a newer
@@ -114,10 +164,11 @@ let mountToken = 0;
 
 async function navigate(rawHash: string) {
   const myNavToken = ++navToken;
-  const [info, profileId, anonymize] = await Promise.all([
+  const [info, profileId, anonymize, versionBadge] = await Promise.all([
     computeStepperInfo(),
     getActiveProfile(),
     getAnonymizeMode(),
+    loadVersionBadgeState(),
   ]);
   if (myNavToken !== navToken) return; // a newer navigation started while we awaited
 
@@ -131,7 +182,7 @@ async function navigate(rawHash: string) {
 
   // No chip until a profile exists — "No profile selected yet" as a pill
   // reads oddly, and the stepper/banner already call out that setup is needed.
-  await renderChrome(route, info, profileId ? formatProfileLabel(profileId) : undefined, anonymize);
+  await renderChrome(route, info, profileId ? formatProfileLabel(profileId) : undefined, anonymize, versionBadge);
 
   if (route === currentRoute) return; // chrome-only refresh (e.g. a storage change already re-ran this) — view stays mounted
   currentRoute = route;
@@ -153,7 +204,13 @@ async function navigate(rawHash: string) {
   currentDispose = dispose;
 }
 
-async function renderChrome(route: AppRoute, info: StepperInfo, profileLabel: string | undefined, anonymize: boolean) {
+async function renderChrome(
+  route: AppRoute,
+  info: StepperInfo,
+  profileLabel: string | undefined,
+  anonymize: boolean,
+  versionBadge: VersionBadgeState,
+) {
   const isWizardStep = (WIZARD_ROUTES as readonly string[]).includes(route);
   if (isWizardStep) await markStepVisited(route as AppShellPage);
   document.title = `Toastmasters VPE Assistant — ${ROUTE_TITLE[route]}`;
@@ -161,12 +218,18 @@ async function renderChrome(route: AppRoute, info: StepperInfo, profileLabel: st
     active: isWizardStep ? (route as AppShellPage) : null,
     info,
     settingsActive: route === "globalSettings",
-    // The Home dashboard, the Excel Exporter, Club Progress and Global
-    // Settings are all outside the wizard flow — header-only, no stepper.
-    showStepper: route !== "dashboard" && route !== "exporter" && route !== "report" && route !== "globalSettings",
-    // The profile chip + Privacy toggle show on every route.
+    // The Home dashboard, the Excel Exporter, Club Progress, Global Settings
+    // and What's New are all outside the wizard flow — header-only, no stepper.
+    showStepper:
+      route !== "dashboard" &&
+      route !== "exporter" &&
+      route !== "report" &&
+      route !== "globalSettings" &&
+      route !== "whatsNew",
+    // The profile chip + Privacy toggle + version badge show on every route.
     profileLabel,
     anonymize,
+    versionBadge,
     // "← Back to Home" on every sub-view; the Home hub itself is the one
     // route that doesn't get it.
     showBackToHome: route !== "dashboard",
@@ -202,8 +265,18 @@ async function renderSelfUpdateBanner(): Promise<void> {
 // mount()) — the two write to disjoint DOM subtrees and both re-derive
 // fresh state from storage every time, so there's no shared cache for the
 // two to race over regardless of firing order.
-browser.storage.onChanged.addListener((_changes, area) => {
-  if (area === "local" && currentRoute) navigate(location.hash);
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && currentRoute) {
+    // The version-badge popover writes `lastViewedVersion` (an un-scoped
+    // key, so the real key name matches) on open, purely to clear its unread
+    // dot — already removed from the DOM optimistically. A full navigate() →
+    // renderChrome() here would rebuild the header and tear the just-opened
+    // popover back down, so a change touching only that one key is ignored;
+    // the next real navigation recomputes the badge from storage anyway.
+    const keys = Object.keys(changes);
+    if (keys.length === 1 && keys[0] === "lastViewedVersion") return;
+    navigate(location.hash);
+  }
   // pendingSelfUpdate lives in .session, not .local (see shared/storage.ts) —
   // a lighter-weight, banner-only refresh is enough here since a session
   // change is never a real navigation and doesn't need computeStepperInfo()/

@@ -19,6 +19,7 @@ const VALID_ROUTES: AppRoute[] = [
   "report",
   "exporter",
   "globalSettings",
+  "whatsNew",
 ];
 
 function isAppRoute(value: string): value is AppRoute {
@@ -31,12 +32,12 @@ function isAppRoute(value: string): value is AppRoute {
  * currently-disabled wizard step (e.g. a bookmarked #members saved before
  * setup was finished) is redirected back to "setup"; the hub features
  * #exporter and #report are redirected to "dashboard" until data is
- * imported. "dashboard" and "globalSettings" are never gated.
+ * imported. "dashboard", "globalSettings" and "whatsNew" are never gated.
  */
 export function resolveRoute(rawHash: string, info: StepperInfo | null): AppRoute {
   const key = rawHash.replace(/^#/, "");
   const route = isAppRoute(key) ? key : "dashboard";
-  if (route === "dashboard" || route === "globalSettings") return route;
+  if (route === "dashboard" || route === "globalSettings" || route === "whatsNew") return route;
   if (route === "exporter" || route === "report") return info && areFeaturesUnlocked(info) ? route : "dashboard";
   if (info?.[route]?.disabled) return "setup";
   return route;

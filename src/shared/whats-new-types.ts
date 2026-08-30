@@ -2,7 +2,7 @@
 //
 // The shape of changelog.json (see scripts/generate-changelog-json.ts),
 // parsed at build time from CHANGELOG.md by scripts/changelog.ts and
-// consumed at runtime by entrypoints/whats-new/main.ts. Imported as
+// consumed at runtime by entrypoints/app/views/whatsNew.ts. Imported as
 // types-only by the Node-side parser, so this file has no browser.*
 // dependency and is safe to import from either side.
 

@@ -2,7 +2,8 @@
 //
 // Regenerates public/changelog.json from CHANGELOG.md. public/ is copied
 // verbatim into every build's output root by WXT (same as public/icons/**),
-// so this lands the file next to whats-new.html in all 4 build combinations
+// so this lands the file at each build's output root (fetched at runtime by
+// entrypoints/app/views/whatsNew.ts) in all 4 build combinations
 // automatically — no per-target/per-browser logic needed.
 //
 // Regeneration is wired two ways, deliberately overlapping:

@@ -15,7 +15,6 @@ export const PAGES = {
   basecampAuth: "basecamp-auth.html",
   easyspeakDone: "easyspeak-done.html",
   welcome: "welcome.html",
-  whatsNew: "whats-new.html",
 } as const;
 
 export type PagePath = (typeof PAGES)[keyof typeof PAGES];
@@ -24,19 +23,10 @@ export function pageUrl(page: PagePath): string {
   return browser.runtime.getURL(`/${page}`);
 }
 
-// entrypoints/background.ts's onInstalled("update") handler opens this with
-// the browser's own previousVersion event data — a plain string concat after
-// pageUrl(), never re-passed through getURL(), so PublicPath's stricter
-// exact-match typing (vs. the looser `${HtmlPublicPath}${string}` overload
-// used only inside getURL itself) never comes into play here.
-export function whatsNewUrl(previousVersion?: string): string {
-  return pageUrl(PAGES.whatsNew) + (previousVersion ? `?from=${encodeURIComponent(previousVersion)}` : "");
-}
-
-// The 6 in-app views formerly served as separate pages (report.html,
+// The in-app views formerly served as separate pages (report.html,
 // members.html, settings.html, sync-data.html, club-review.html,
-// global-settings.html) — now client-side routes inside entrypoints/app/,
-// addressed by hash fragment (see entrypoints/app/router.ts).
+// global-settings.html, whats-new.html) — now client-side routes inside
+// entrypoints/app/, addressed by hash fragment (see entrypoints/app/router.ts).
 export type AppRoute =
   | "dashboard"
   | "report"
@@ -45,8 +35,21 @@ export type AppRoute =
   | "syncData"
   | "clubReview"
   | "exporter"
-  | "globalSettings";
+  | "globalSettings"
+  | "whatsNew";
 
 export function appRouteUrl(route: AppRoute): string {
   return `${pageUrl(PAGES.app)}#${route}`;
+}
+
+// Used by the popup's "What's New" footer link (entrypoints/popup/main.ts) to
+// open the merged app's What's New view in a new tab. The optional ?from=
+// query param lands before the hash (app.html?from=1.2.0#whatsNew) so the
+// view can read it off location.search and filter the changelog to entries
+// newer than it (see shared/whats-new-filter.ts's selectVisibleEntries) —
+// the popup passes nothing, so every entry shows. (Installing an update no
+// longer opens this automatically — see shared/whats-new-badge.ts.)
+export function whatsNewUrl(previousVersion?: string): string {
+  const query = previousVersion ? `?from=${encodeURIComponent(previousVersion)}` : "";
+  return `${pageUrl(PAGES.app)}${query}#whatsNew`;
 }

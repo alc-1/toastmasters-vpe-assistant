@@ -1,6 +1,6 @@
 // src/shared/whats-new-filter.ts
 //
-// Pure selection logic for entrypoints/whats-new/main.ts: given the bundled
+// Pure selection logic for entrypoints/app/views/whatsNew.ts: given the bundled
 // changelog and the current/"since" version, decides which entries to show
 // so a user who skipped several releases sees everything they missed.
 

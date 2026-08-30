@@ -87,6 +87,20 @@ export function chevronIconHtml(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>`;
 }
 
+// The gold sparkle that rides on the left of the header version badge while
+// it has unread release notes (shared/app-shell.ts's renderVersionBadge).
+// Fixed fill — it's always the same "something new" accent regardless of
+// context, same reasoning as warningIconHtml/approvedCheckIconHtml above; the
+// wrapping span is aria-hidden since the badge's own aria-label already says
+// "unread changes".
+export function sparkleIconHtml(): string {
+  return `
+    <span class="version-badge__sparkle" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 3.1a2 2 0 0 0-1.3 1.3L12 22l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-3.1a2 2 0 0 0 1.3-1.3L12 2z"/></svg>
+    </span>
+  `;
+}
+
 // The header gear icon linking to the Global Settings page (shared/app-shell.ts).
 // stroke="currentColor" so it tints via CSS (default vs. hover vs. the
 // page's own "active" state) without needing its own fill override, same

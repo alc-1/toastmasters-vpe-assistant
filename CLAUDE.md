@@ -347,6 +347,8 @@ src/
 │   │       ├── exporter.ts          # standalone "Download Excel Spreadsheet" view (#exporter),
 │   │       │                        #   gated behind imported data — reuses export-to-excel.ts
 │   │       ├── globalSettings.ts    # Anonymize Mode + path-name lookup ("Global Settings")
+│   │       ├── whatsNew.ts          # changelog viewer ("What's New", #whatsNew) — reads the
+│   │       │                        #   bundled changelog.json, never gated
 │   │       └── index.ts             # the AppRoute -> ViewModule registry main.ts routes against
 │   ├── basecamp-auth/, easyspeak-done/
 │   │   └── index.html + main.ts     # background-initiated interstitial pages, no user entry point
@@ -1480,7 +1482,8 @@ changes) — no other code is shared between the two projects.
   and has to be done by hand. `scripts/generate-changelog-json.ts` parses every *dated* section
   (never `## [Unreleased]` itself, since nothing under it has shipped yet) into
   `public/changelog.json` (gitignored, fully derived) at build time, bundled into every build for
-  `entrypoints/whats-new/` (the What's New page) to render offline. Regeneration is wired **both**
+  `entrypoints/app/views/whatsNew.ts` (the merged app's What's New view, route `#whatsNew`) to render
+  offline. Regeneration is wired **both**
   through the npm-script chain (`postinstall` + the `dev`/`build*`/`zip*` scripts each run
   `generate:changelog-json` first) **and** a `build:before` hook in `wxt.config.ts` — the hook is
   what covers callers that invoke `wxt` directly and skip the npm wrappers (e.g. an earlier

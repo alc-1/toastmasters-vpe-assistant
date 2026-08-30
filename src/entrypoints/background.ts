@@ -24,15 +24,19 @@
 // behind the puzzle-piece menu and there's nothing prompting the user to fix
 // that.
 //
-// On "update", opens whats-new.html with ?from=<previousVersion> instead —
-// stateless (no browser.storage tracking of what's already been "seen"): the
-// browser's own onInstalled event data is enough to derive which changelog
-// entries are new, see shared/whats-new-filter.ts's selectVisibleEntries().
+// On "update", it no longer opens a What's New tab — "Strategy 3" for update
+// notifications replaced that auto-launch with a quiet header version badge
+// (shared/whats-new-badge.ts + shared/app-shell.ts's renderVersionBadge).
+// All this handler does now is seed `lastViewedVersion` so that badge's
+// unread dot has a correct baseline: on a fresh install the user is already
+// on the latest version (nothing unread); on an update, if no baseline
+// exists yet (upgrading from a build that predates the badge) it's seeded
+// from `previousVersion` so the dot lights up for the release just installed.
+// An existing baseline is left untouched.
 // NOTE: Chrome fires onInstalled/"update" on essentially every extension
-// reload during local unpacked/temporary-install dev, not just real version
-// bumps (same quirk background/api/update-checker.ts lives with) — so this
-// tab reopens on every dev-mode reload. Not a real-user-facing issue (a real
-// update only fires this once), just a minor dev-loop annoyance.
+// reload during local unpacked/temporary-install dev (same quirk
+// background/api/update-checker.ts lives with); the seed logic is a no-op on
+// a repeat fire, so that's harmless here.
 //
 // The store-vs-preview split that used to be two physically separate entry
 // files (background/index.ts / background/index.preview.ts, picked by each
@@ -51,15 +55,26 @@
 
 import { registerMessageHandlers } from "../background/messaging";
 import { registerSelfUpdateWatcher } from "../background/self-update";
-import { PAGES, pageUrl, whatsNewUrl } from "../shared/pages";
+import { PAGES, pageUrl } from "../shared/pages";
+import { getLastViewedVersion, markVersionViewed } from "../shared/whats-new-badge";
 
 export default defineBackground(() => {
-  browser.runtime.onInstalled.addListener((details) => {
+  browser.runtime.onInstalled.addListener(async (details) => {
     console.log("[Toastmasters VPE Assistant] Extension installed.");
     if (details.reason === "install") {
       browser.tabs.create({ url: pageUrl(PAGES.welcome) });
+      // Fresh install is already on the latest version — nothing "new" to flag.
+      await markVersionViewed(browser.runtime.getManifest().version);
     } else if (details.reason === "update") {
-      browser.tabs.create({ url: whatsNewUrl(details.previousVersion) });
+      // No auto-opened What's New tab (see the header comment). Seed the
+      // "last seen" baseline from the version we upgraded FROM, but only if
+      // there's no baseline yet — so the header badge's unread dot lights up
+      // for users coming from a build that predates it, without overriding a
+      // baseline a badge user has already set by opening the popover.
+      const baseline = await getLastViewedVersion();
+      if (baseline == null && details.previousVersion) {
+        await markVersionViewed(details.previousVersion);
+      }
     }
   });
 

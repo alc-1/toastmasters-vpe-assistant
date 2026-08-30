@@ -433,6 +433,180 @@
     display: block;
   }
 
+  /* Header version badge + release-notes popover (shared/app-shell.ts's
+     renderVersionBadge; toggle/dismiss handlers in entrypoints/app/main.ts).
+     Update surface in the header actions cluster showing the running version,
+     with a click-to-open popover summarising the latest release. Two states
+     ("Option B"): a high-contrast white pill with a gold sparkle + pulsing
+     red dot while a newer changelog entry hasn't been seen, reverting to a
+     quiet transparent pill once it has. Anchoring mirrors
+     .export-popover-wrapper / .export-popover further down. */
+  .version-badge-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  /* Read/default state: a quiet, transparent pill that recedes into the
+     navy header once the user has seen the latest notes. */
+  .version-badge {
+    @apply text-xs rounded-pill;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.1);
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .version-badge:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+  }
+
+  .version-badge:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+  }
+
+  /* Unread state ("Option B"): a high-contrast white pill that stands out
+     against the navy header, carrying a gold sparkle + a pulsing red dot.
+     entrypoints/app/main.ts strips this modifier the moment the popover
+     opens; the next chrome render then drops it from the markup for good. */
+  .version-badge--unread {
+    @apply text-tm-gray-900;
+    padding: var(--space-1) var(--space-3);
+    border-color: transparent;
+    background: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+
+  .version-badge--unread:hover {
+    @apply text-tm-gray-900;
+    background: #f1f5f9;
+  }
+
+  .version-badge__sparkle {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--warning);
+  }
+
+  .version-badge__sparkle svg {
+    display: block;
+  }
+
+  /* Pulsing red notification dot on the right of the unread badge: a solid
+     core with a second span scaling up + fading out behind it (the standard
+     "ping" effect), suppressed under prefers-reduced-motion. */
+  .version-badge__dot {
+    position: relative;
+    display: inline-flex;
+    width: 8px;
+    height: 8px;
+    margin-left: 2px;
+    flex-shrink: 0;
+  }
+
+  .version-badge__dot-ping,
+  .version-badge__dot-core {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--danger);
+  }
+
+  .version-badge__dot-ping {
+    animation: version-badge-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes version-badge-ping {
+    75%,
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .version-badge__dot-ping {
+      animation: none;
+    }
+  }
+
+  .version-popover {
+    @apply bg-surface border border-border rounded-md;
+    position: absolute;
+    right: 0;
+    top: calc(100% + var(--space-2));
+    z-index: 30;
+    width: 288px;
+    padding: var(--space-4);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
+  }
+
+  .version-popover[hidden] {
+    display: none;
+  }
+
+  @media (max-width: 1024px) {
+    .version-popover {
+      width: min(288px, calc(100vw - 32px));
+    }
+  }
+
+  .version-popover__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .version-popover__version {
+    @apply text-sm text-tm-gray-900;
+    font-weight: 600;
+  }
+
+  .version-popover__date {
+    @apply text-xs text-tm-gray-600;
+    flex-shrink: 0;
+  }
+
+  .version-popover__list {
+    margin: 0 0 var(--space-3);
+    padding-left: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .version-popover__list li {
+    @apply text-sm text-tm-gray-700;
+    line-height: 1.4;
+  }
+
+  .version-popover__empty {
+    @apply text-sm text-tm-gray-600;
+    margin: 0 0 var(--space-3);
+  }
+
+  .version-popover__footer {
+    @apply text-xs text-navy-700;
+    display: inline-block;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .version-popover__footer:hover {
+    text-decoration: underline;
+  }
+
   .app-header__logo {
     @apply rounded-sm;
     width: 48px;
@@ -903,7 +1077,7 @@
     margin-bottom: 0;
   }
 
-  /* What's New page (entrypoints/whats-new/) — one .card per release, its
+  /* What's New view (entrypoints/app/views/whatsNew.ts) — one .card per release, its
      own header layout (title + date side by side) scoped via this extra
      class rather than changing the shared .card-header rule every other
      page's cards also use. */

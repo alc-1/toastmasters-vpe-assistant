@@ -12,9 +12,11 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 - New Home screen: an overview of your club-data status and quick-access tiles for every tool.
 - Save a backup file of all your data and settings, and load it back later.
+- Current version now appears in the top bar. Clicking on it displays the latest changes with a link to the full history.
 
 ### Changed
 
+- Installing an update no longer opens the What's New page in a new tab; the top-bar version badge flags new release notes instead.
 - Privacy Mode and the active profile are now shown in the top bar on every screen.
 - The setup wizard is now four steps, ending at Member Review; Club Progress is reached from a Home screen tile.
 - The popup's progress steps are now a read-only indicator; use "Open Home" or "What's New" to navigate. The Global Settings icon was removed from the popup header.

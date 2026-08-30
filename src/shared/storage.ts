@@ -111,6 +111,13 @@ export interface LocalSchema {
   // — has nothing to do with which club/region profile is active, same
   // reasoning as updateCheck/anonymizeMode above.
   lastUpdateCheckRequestedAt: number;
+  // The extension version whose changelog the user has most recently seen via
+  // the header version badge's release-notes popover (shared/whats-new-badge.ts's
+  // markVersionViewed()). Drives that badge's unread dot. Absent until the
+  // popover is first opened or entrypoints/background.ts's onInstalled seeds a
+  // baseline. Not profile-scoped, same reasoning as updateCheck/anonymizeMode
+  // above — which build's notes you've read is unrelated to the active profile.
+  lastViewedVersion: string;
 }
 
 export interface SessionSchema {
