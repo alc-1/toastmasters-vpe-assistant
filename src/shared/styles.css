@@ -40,8 +40,10 @@
 
   --color-primary: #004165; /* Loyal Blue */
   --color-primary-content: #ffffff;
-  --color-secondary: #003654; /* navy-800 */
-  --color-secondary-content: #ffffff;
+  /* "secondary" is the app's light-grey neutral button (btn-secondary) — not a
+     second brand accent. Kept muted so it reads as secondary to the navy CTA. */
+  --color-secondary: #e8ecf1;
+  --color-secondary-content: #3a4654;
   --color-accent: #f2df74; /* Happy Yellow — header title only */
   --color-accent-content: #002e47;
   --color-neutral: #444444; /* --gray-700 */
@@ -125,7 +127,8 @@
 
   --surface: #ffffff;
   --surface-alt: #f7f8fa;
-  --border: #e2e8f0;
+  /* NB: no legacy --border here — that name is daisyUI's border-WIDTH token.
+     Border color is var(--color-base-300); see the sed in the v4 migration. */
 
   --gray-900: #222222;
   --gray-700: #444444;
@@ -371,28 +374,18 @@
     cursor: pointer;
   }
 
-  /* Recolor the shared .toggle-switch (defined near .toggle-row below) for
-     the navy header bar: a translucent-white track that fills solid white
-     when on, with the thumb inverting to navy so the "on" state still reads
-     at a glance against the dark bar. */
-  .app-header__privacy .toggle-switch {
-    background: rgba(255, 255, 255, 0.3);
+  /* Recolor daisyUI's <input class="toggle"> for the navy header bar: a
+     translucent-white track/border that fills solid white (navy knob) when on,
+     so the "on" state still reads against the dark bar. */
+  .app-header__privacy .toggle {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.6);
+    --input-color: rgba(255, 255, 255, 0.9);
   }
 
-  .app-header__privacy .toggle-switch::after {
-    background: white;
-  }
-
-  .app-header__privacy .toggle-switch__input:checked + .toggle-switch {
-    background: white;
-  }
-
-  .app-header__privacy .toggle-switch__input:checked + .toggle-switch::after {
-    background: var(--primary);
-  }
-
-  .app-header__privacy .toggle-switch__input:focus-visible + .toggle-switch {
-    outline-color: white;
+  .app-header__privacy .toggle:checked {
+    background-color: #ffffff;
+    color: var(--primary);
   }
 
   @media (max-width: 1024px) {
@@ -852,7 +845,7 @@
       flex-direction: column;
       margin-top: var(--space-2);
       padding-top: var(--space-2);
-      border-top: 1px solid var(--border);
+      border-top: 1px solid var(--color-base-300);
     }
 
     .app-stepper.expanded .app-stepper__list {
@@ -1164,67 +1157,6 @@
      mirroring the header's own .app-header__privacy-lock. */
   .settings-lock-icon {
     margin-right: var(--space-2);
-  }
-
-  /* Global Settings' Privacy Mode row + the header's Privacy Mode control
-     both use .toggle-switch below for the control itself. */
-  .toggle-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    font-weight: 600;
-    cursor: pointer;
-    margin-bottom: var(--space-2);
-  }
-
-  /* Toggle switch — a visually-hidden real checkbox (.toggle-switch__input,
-     kept as the actual control so <label> wrapping and delegated change
-     handlers keyed on its id keep working) followed by a CSS track/thumb
-     span. Track/thumb colors are overridden per context — see
-     .app-header__privacy above for the navy-bar variant. */
-  .toggle-switch__input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .toggle-switch {
-    position: relative;
-    flex-shrink: 0;
-    width: 36px;
-    height: 20px;
-    border-radius: var(--radius-pill);
-    background: var(--disabled-bg);
-    transition: background-color 0.15s ease;
-  }
-
-  .toggle-switch::after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    border-radius: var(--radius-pill);
-    background: var(--surface);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-    transition: transform 0.15s ease;
-  }
-
-  .toggle-switch__input:checked + .toggle-switch {
-    background: var(--primary);
-  }
-
-  .toggle-switch__input:checked + .toggle-switch::after {
-    transform: translateX(16px);
-  }
-
-  .toggle-switch__input:focus-visible + .toggle-switch {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -1593,67 +1525,9 @@
     margin-top: 2px;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Buttons                                                                 */
-  /* ---------------------------------------------------------------------- */
-
-  .btn {
-    @apply text-base rounded-sm;
-    padding: var(--space-2) var(--space-3);
-    cursor: pointer;
-    border: none;
-  }
-
-  .btn-primary {
-    @apply bg-navy-700;
-    color: white;
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    @apply bg-navy-800;
-  }
-
-  .btn-primary:active:not(:disabled) {
-    @apply bg-navy-900;
-  }
-
-  .btn-secondary {
-    @apply bg-surface-alt text-tm-gray-700 border border-border;
-  }
-
-  /* Destructive confirm — currently only the Home dashboard's "Load Backup
-     File" modal (shared/modal.ts). */
-  .btn-danger {
-    @apply bg-danger;
-    color: white;
-  }
-
-  /* Smaller variant, same colors as .btn-primary/.btn-secondary — used
-     where a bare .btn's default size is too large (e.g. Member Review's
-     inline row actions). Additive: pair with .btn/.btn-primary or
-     .btn/.btn-secondary rather than standing alone. */
-  .btn-sm {
-    @apply text-xs;
-    padding: 4px 8px;
-  }
-
-  .btn:disabled {
-    @apply bg-disabled;
-    color: white;
-    border-color: transparent;
-    cursor: not-allowed;
-  }
-
-  /* Mirrors .btn:disabled for the non-button <span> case used by a locked
-     step-footer Next button (see shared/app-shell.ts's renderStepFooter()) —
-     a <span> can't be a real disabled form control. */
-  .btn[aria-disabled="true"] {
-    @apply bg-disabled;
-    color: white;
-    border-color: transparent;
-    cursor: not-allowed;
-    pointer-events: none;
-  }
+  /* Buttons are daisyUI's `btn` / `btn-primary` (navy CTA) / `btn-secondary`
+     (light-grey neutral) / `btn-error` (destructive) / `btn-sm`. Only the
+     app-specific extras live here. */
 
   /* ---------------------------------------------------------------------- */
   /* Home dashboard (entrypoints/app/views/dashboard.ts)                     */
@@ -1663,7 +1537,7 @@
      directly below the app header, the status headline + step tracker on the
      left, the Start/Continue Setup / Refresh action on the right. */
   .dashboard-status {
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-radius: var(--radius-md);
     background: var(--surface-alt);
     display: flex;
@@ -1753,7 +1627,7 @@
     @apply text-xs;
     width: 20px;
     height: 20px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-radius: var(--radius-pill);
     background: var(--surface);
     color: var(--gray-600);
@@ -1812,7 +1686,7 @@
     flex: 1 1 12px;
     min-width: 12px;
     height: 1px;
-    background: var(--border);
+    background: var(--color-base-300);
   }
 
   .dashboard-tracker--narrow {
@@ -1998,7 +1872,7 @@
   }
 
   .dashboard-tile__actions .btn-secondary:hover:not(:disabled) {
-    background: var(--border);
+    background: var(--color-base-300);
   }
 
   .dashboard-tile__status {
@@ -2250,7 +2124,7 @@
     box-sizing: border-box;
     font-size: var(--text-sm);
     padding: 3px 6px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-radius: var(--radius-sm);
   }
 
@@ -2814,7 +2688,7 @@ select:focus-visible {
     padding: 10px 12px;
     margin-bottom: 8px;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-radius: var(--radius-md);
   }
 
@@ -2899,7 +2773,7 @@ select:focus-visible {
     margin: 0 -20px;
     padding: var(--space-3) 20px calc(var(--space-3) + 20px);
     background: var(--surface-alt);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--color-base-300);
   }
 }
 
@@ -3007,7 +2881,7 @@ table.levels tfoot td {
   font-style: italic;
   color: var(--gray-600);
   background: var(--surface-alt);
-  border-top: 2px solid var(--border);
+  border-top: 2px solid var(--color-base-300);
 }
 
 table.levels td[title] {
@@ -3134,7 +3008,7 @@ table.summary col.col-detail { width: 25%; }
     padding: 10px 12px;
     margin-bottom: 8px;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-radius: var(--radius-md);
   }
 
@@ -3200,7 +3074,7 @@ table.summary col.col-detail { width: 25%; }
     font-size: var(--text-xs);
     margin: 4px -12px -10px;
     padding: 8px 32px 10px 12px;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--color-base-300);
     border-radius: 0 0 var(--radius-md) var(--radius-md);
     background-color: rgb(247 248 250 / var(--tw-bg-opacity, 1));
   }
@@ -3226,7 +3100,7 @@ table.summary col.col-detail { width: 25%; }
     margin: -8px 0 8px;
     padding: 10px 12px;
     background: var(--info-bg);
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-top: none;
     border-radius: 0 0 var(--radius-md) var(--radius-md);
   }
@@ -3256,7 +3130,7 @@ table.summary th {
 }
 
 table.summary th:hover {
-  background: var(--border);
+  background: var(--color-base-300);
 }
 
 table.summary th .sort-indicator {
@@ -3299,7 +3173,7 @@ input.link-search {
   padding: 3px 6px;
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-base-300);
   border-radius: var(--radius-sm);
 }
 
@@ -3359,7 +3233,7 @@ input.link-search {
     padding: 10px 12px;
     margin-bottom: 8px;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-radius: var(--radius-md);
   }
 
@@ -3573,7 +3447,7 @@ input.link-search {
     margin: -8px 0 8px;
     padding: 10px 12px;
     background: var(--surface-alt);
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-top: none;
     border-radius: 0 0 var(--radius-md) var(--radius-md);
   }
@@ -3618,5 +3492,5 @@ body[data-view="syncData"] .summary td,
 body[data-view="syncData"] .summary th {
   text-align: left;
   padding: 2px 4px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-base-300);
 }

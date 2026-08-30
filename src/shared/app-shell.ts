@@ -324,8 +324,7 @@ export function renderAppShell({
   const privacyHtml =
     anonymize !== undefined
       ? `<label class="app-header__privacy">
-        <input type="checkbox" class="toggle-switch__input" id="appPrivacyToggle" aria-label="Privacy Mode (hide member names)"${anonymize ? " checked" : ""}>
-        <span class="toggle-switch" aria-hidden="true"></span>
+        <input type="checkbox" class="toggle toggle-sm" id="appPrivacyToggle" aria-label="Privacy Mode (hide member names)"${anonymize ? " checked" : ""}>
         <span class="app-header__privacy-lock" aria-hidden="true">🔒</span>
         <span class="app-header__privacy-text">Privacy Mode</span>
       </label>`
@@ -379,7 +378,7 @@ export function renderStepFooter(active: AppShellPage, info?: StepperInfo): stri
     // Arrow mirrors Previous's leading "&larr;" — trailing here since Next
     // points the opposite direction, both on the outer edge of their button.
     nextHtml = nextDisabled
-      ? `<span class="btn btn-primary step-footer__btn" aria-disabled="true">${escapeHtml(label)} &rarr;</span>`
+      ? `<span class="btn btn-primary btn-disabled step-footer__btn" aria-disabled="true">${escapeHtml(label)} &rarr;</span>`
       : `<a href="${nextItem.href}" class="btn btn-primary step-footer__btn">${escapeHtml(label)} &rarr;</a>`;
   } else if (index === NAV_ITEMS.length - 1) {
     // Last wizard step — finish the wizard and go back to the hub.

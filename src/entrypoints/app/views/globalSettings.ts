@@ -41,9 +41,8 @@ export const globalSettingsView: ViewModule = {
         <div class="card">
           <div class="card-header"><span class="card-header__title"><span class="settings-lock-icon" aria-hidden="true">🔒</span>Privacy Mode</span></div>
           <div class="card-body">
-            <label class="toggle-row">
-              <input type="checkbox" class="toggle-switch__input" id="anonymizeModeToggle"${anonymize ? " checked" : ""}>
-              <span class="toggle-switch" aria-hidden="true"></span>
+            <label class="flex items-center gap-3 mb-2 font-semibold cursor-pointer">
+              <input type="checkbox" class="toggle toggle-primary" id="anonymizeModeToggle"${anonymize ? " checked" : ""}>
               <span>Replace member and club names with generic labels</span>
             </label>
             <p class="help-text">Useful to generate statistics with AI while protecting personal data.</p>

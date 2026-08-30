@@ -47,7 +47,7 @@ export function confirmModal(opts: ConfirmModalOptions): Promise<boolean> {
         <p class="modal__body">${escapeHtml(body)}</p>
         <div class="modal__actions">
           <button type="button" class="btn btn-secondary" data-modal-action="cancel">${escapeHtml(cancelLabel)}</button>
-          <button type="button" class="btn ${danger ? "btn-danger" : "btn-primary"}" data-modal-action="confirm">${escapeHtml(confirmLabel)}</button>
+          <button type="button" class="btn ${danger ? "btn-error" : "btn-primary"}" data-modal-action="confirm">${escapeHtml(confirmLabel)}</button>
         </div>
       </div>
     `;
