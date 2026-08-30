@@ -2745,8 +2745,9 @@ select:focus-visible {
 /* body[data-view="..."] below scopes against.                            */
 /* ---------------------------------------------------------------------- */
 
-/* Shared by both Club Review's and Member Review's action-buttons column. */
-.actions button {
+/* Club Review's / Member Review's desktop action-buttons table cell. The card
+   variants (.club-card__actions / .member-card .actions) use flex gap instead. */
+td.actions button {
   margin-right: 4px;
 }
 
