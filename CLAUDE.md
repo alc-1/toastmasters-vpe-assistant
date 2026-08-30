@@ -967,7 +967,9 @@ interstitials are tab-lifecycle-driven single-purpose confirmation pages.
   `shared/stepper-info.ts`'s `StepperInfo` — e.g. a bookmarked `#members` saved before Setup was ever
   finished) is redirected back to `"setup"`; the two hub features `#exporter` and `#report` are
   redirected to `"dashboard"` until `areFeaturesUnlocked(info)` (`shared/stepper-info.ts` — a
-  profile is chosen and both sources imported). `dashboard` and `globalSettings` are never gated.
+  profile is chosen and Basecamp data is imported; EasySpeak is optional, since `buildReport()`
+  tolerates a one-sided scrape — this is `syncData.partialDone`, distinct from the wizard step's
+  own `done`, which still needs both). `dashboard` and `globalSettings` are never gated.
 - **`shared/view.ts`** — the `ViewModule` contract every `entrypoints/app/views/*.ts` module
   implements: `mount(root): Promise<() => void>`. All DOM binding, event-listener registration, and
   per-visit state must happen inside `mount()`, not at module top level (unlike the old one-page-per-

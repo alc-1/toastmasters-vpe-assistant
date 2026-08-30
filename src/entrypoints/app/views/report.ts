@@ -163,17 +163,18 @@ export const reportView: ViewModule = {
       const cached = await local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]);
       if (disposed) return;
 
-      if (!cached.basecampData || !cached.easyspeakData) {
+      if (!cached.basecampData) {
         getRoot("anonymizeIndicator").textContent = "";
         getRoot("conflictWarning").innerHTML = "";
         getRoot("kpiRoot").innerHTML = "";
         getRoot("clubTabs").innerHTML = "";
         getRoot("summaryTableRoot").innerHTML =
-          '<p class="empty-state">Both Basecamp and EasySpeak data are needed to build this report. ' +
-          "Click the extension's toolbar icon and run both extractions first.</p>";
+          '<p class="empty-state">Basecamp data is needed to build this report. ' +
+          "Click the extension's toolbar icon and run the Basecamp extraction first.</p>";
         (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "none";
         return;
       }
+      (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "";
 
       getRoot("reportMeta").textContent = formatReportMeta(cached.basecampScrapedAt, cached.easyspeakScrapedAt);
 
@@ -181,7 +182,7 @@ export const reportView: ViewModule = {
       if (disposed) return;
       let report = buildReport(
         cached.basecampData,
-        cached.easyspeakData,
+        cached.easyspeakData ?? {},
         { basecampScrapedAt: cached.basecampScrapedAt, easyspeakScrapedAt: cached.easyspeakScrapedAt },
         { ...resolution, allowFuzzyMemberMatches: false },
         cached.basecampCompletedPaths ?? {}
@@ -253,7 +254,9 @@ export const reportView: ViewModule = {
       warningRoot.innerHTML = `
         <div role="alert" class="alert alert-warning alert-soft mb-4 text-base">
           ${warningIconHtml("Conflicts found")}
-          ${messages.join(" · ")}
+          <div class="flex flex-col gap-1">
+            ${messages.map((m) => `<div>${m}</div>`).join("")}
+          </div>
         </div>
       `;
     }
@@ -691,9 +694,11 @@ export const reportView: ViewModule = {
     }
 
     function formatReportMeta(basecampScrapedAt: number | undefined, easyspeakScrapedAt: number | undefined): string {
-      if (!basecampScrapedAt || !easyspeakScrapedAt) return "Report generated with incomplete data — both sources need to be extracted first.";
+      if (!basecampScrapedAt) return "Report generated with incomplete data — extract Basecamp data first.";
 
       const basecampDate = new Date(basecampScrapedAt).toLocaleDateString();
+      if (!easyspeakScrapedAt) return `Report generated with data extracted from Basecamp the ${basecampDate} — EasySpeak not imported`;
+
       const easyspeakDate = new Date(easyspeakScrapedAt).toLocaleDateString();
 
       return basecampDate === easyspeakDate

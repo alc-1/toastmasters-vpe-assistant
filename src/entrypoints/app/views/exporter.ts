@@ -7,9 +7,11 @@
 // ExportType label/description maps in shared/export/rows.ts).
 //
 // Gated: entrypoints/app/router.ts redirects #exporter → #dashboard until a
-// profile is chosen and both sources are imported (areFeaturesUnlocked), and
-// main.ts's storage.onChanged re-navigation re-applies that if data is
-// cleared while this view is open — so this view can assume data is present.
+// profile is chosen and Basecamp data is imported (areFeaturesUnlocked;
+// EasySpeak is optional — an EasySpeak-only export just comes out empty,
+// which buildReport()/the row builders already tolerate), and main.ts's
+// storage.onChanged re-navigation re-applies that if data is cleared while
+// this view is open — so this view can assume Basecamp data is present.
 
 import { exportToExcel } from "../../../shared/export/export-to-excel";
 import { EXPORT_OPTION_DESC, EXPORT_TYPE_LABEL, type ExportType } from "../../../shared/export/rows";

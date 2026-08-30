@@ -82,6 +82,18 @@ describe("areFeaturesUnlocked", () => {
     expect(areFeaturesUnlocked({ setup: { done: true }, syncData: { done: true } })).toBe(true);
     expect(areFeaturesUnlocked(ALL_DONE)).toBe(true);
   });
+
+  it("is true with only Basecamp imported (syncData partialDone, not done)", () => {
+    expect(
+      areFeaturesUnlocked({ setup: { done: true }, syncData: { done: false, partialDone: true } })
+    ).toBe(true);
+  });
+
+  it("is still false when Basecamp isn't imported either", () => {
+    expect(
+      areFeaturesUnlocked({ setup: { done: true }, syncData: { done: false, partialDone: false } })
+    ).toBe(false);
+  });
 });
 
 describe("evaluateSetupPipeline", () => {

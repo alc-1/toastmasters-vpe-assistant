@@ -89,6 +89,13 @@ export interface StepMeta {
   warning?: boolean;
   warningCount?: number;
   locked?: boolean;
+  /** Partial completion that isn't enough to mark the step `done` but still
+   *  unlocks downstream work. Currently only set on `syncData`: true once
+   *  Basecamp data is imported, even if EasySpeak isn't — which is enough to
+   *  open the Club Progress / Excel export features (see
+   *  shared/stepper-info.ts's areFeaturesUnlocked()). Not rendered by the
+   *  stepper itself. */
+  partialDone?: boolean;
 }
 export type StepperInfo = Partial<Record<AppShellPage, StepMeta>>;
 

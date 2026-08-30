@@ -1432,6 +1432,12 @@
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: var(--space-4);
     margin-bottom: var(--space-5);
+    /* Each card takes its natural height — don't stretch the shorter card to
+       match its sibling. Once one source is imported (adding a result line +
+       an expandable "View details" block below its button) the two cards are
+       legitimately different heights, and stretching the other one just
+       stranded its Import button at the bottom of a tall empty column. */
+    align-items: start;
   }
 
   @media (max-width: 1024px) {
@@ -1458,11 +1464,9 @@
   }
 
   /* daisyUI's card component sets `.card-body p { flex-grow: 1 }` (see
-     node_modules/daisyui/components/card). The two sync cards sit in a
-     stretch grid row, so opening "View details" on one card makes the other
-     card taller — and that extra height was being absorbed entirely by its
-     first status <p>, shoving the member count / Import button / details to
-     the bottom. These paragraphs must keep their natural height. */
+     node_modules/daisyui/components/card) — left as-is, a status <p> would
+     absorb any spare column height and shove the member count / Import
+     button / details down. These paragraphs must keep their natural height. */
   .sync-card__body > p {
     flex-grow: 0;
   }
@@ -1482,15 +1486,16 @@
 
   /* daisyUI's .btn is an inline-flex row with a fixed height — left alone,
      the two label spans sit side by side and get clipped. Force a centered
-     vertical stack and let the button grow to fit both lines. `margin-top:
-     auto` pins the button to the bottom of the (flex-column, equal-height —
-     the two cards sit in a stretch grid row) card body, so the Basecamp and
-     EasySpeak buttons stay aligned regardless of how much status/progress/
-     result text sits above each one. */
+     vertical stack and let the button grow to fit both lines. The button
+     follows its card's content directly (no `margin-top: auto`): the cards
+     no longer stretch to equal height (see .sync-cards), so pinning it to
+     the bottom would just open a gap above it on the shorter card. In the
+     pristine state both cards hold identical content, so the buttons still
+     line up. */
   .sync-card__action {
     width: 100%;
     height: auto;
-    margin-top: auto;
+    margin-top: var(--space-2);
     flex-direction: column;
     align-items: center;
     padding-block: var(--space-2);

@@ -80,12 +80,15 @@ export function countCompletedSetupSteps(info: StepperInfo): number {
 }
 
 /** Whether the Home dashboard's feature CTAs (Club Progress, Excel export,
- *  Approval Helper) should be enabled: a profile is chosen and both sources
- *  are imported. Club/member matching refine quality but every downstream
- *  tool still produces useful output from imported data alone — this matches
- *  the "Requires imported data" badge wording. Pure, same as above. */
+ *  Approval Helper) should be enabled: a profile is chosen and Basecamp data
+ *  is imported. EasySpeak is *not* required — buildReport() tolerates a
+ *  one-sided scrape, and a VPE with only Basecamp connected should still get
+ *  the progress report and the spreadsheet. Club/member matching refine
+ *  quality but every downstream tool still produces useful output from
+ *  Basecamp alone — this matches the "Requires imported data" badge wording.
+ *  Pure, same as above. */
 export function areFeaturesUnlocked(info: StepperInfo): boolean {
-  return !!info.setup?.done && !!info.syncData?.done;
+  return !!info.setup?.done && (!!info.syncData?.done || !!info.syncData?.partialDone);
 }
 
 /** The Home dashboard's "Club Data Status" banner state — see
@@ -219,6 +222,10 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
       info: syncDisabled ? undefined : formatOldestSync(cached.basecampScrapedAt, cached.easyspeakScrapedAt),
       disabled: syncDisabled,
       done: hasBothData,
+      // Basecamp alone is enough to unlock Club Progress / Excel export
+      // (see areFeaturesUnlocked) even though the wizard step isn't `done`
+      // until EasySpeak is imported too.
+      partialDone: !!basecampData,
       locked: isLocked("syncData"),
     },
     clubReview: {
