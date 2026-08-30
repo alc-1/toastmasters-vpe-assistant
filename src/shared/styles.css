@@ -290,16 +290,6 @@
     color: inherit;
   }
 
-  /* Reserves the vertical stepper's footprint before computeStepperInfo() (an
-     async storage read) resolves and fills this root — without it the popup
-     opens header-only then grows in one jump, which Chromium's native popup
-     auto-resize visibly reacts to. 360px ≈ the measured height of the fixed
-     5-item NAV_ITEMS list with typical info text; re-measure if a step is
-     added/removed. */
-  #popupStepperRoot {
-    min-height: 360px;
-  }
-
   .popup-home {
     padding: var(--space-3) 0 0;
   }
@@ -1492,10 +1482,15 @@
 
   /* daisyUI's .btn is an inline-flex row with a fixed height — left alone,
      the two label spans sit side by side and get clipped. Force a centered
-     vertical stack and let the button grow to fit both lines. */
+     vertical stack and let the button grow to fit both lines. `margin-top:
+     auto` pins the button to the bottom of the (flex-column, equal-height —
+     the two cards sit in a stretch grid row) card body, so the Basecamp and
+     EasySpeak buttons stay aligned regardless of how much status/progress/
+     result text sits above each one. */
   .sync-card__action {
     width: 100%;
     height: auto;
+    margin-top: auto;
     flex-direction: column;
     align-items: center;
     padding-block: var(--space-2);
@@ -1516,6 +1511,10 @@
     font-size: 12px;
     font-weight: 400;
     margin-top: 2px;
+    /* Reserve two lines so a source whose explanation wraps (Basecamp) and
+       one whose doesn't (EasySpeak) still produce the same button height,
+       keeping the two buttons' top edges aligned as well as their bottoms. */
+    min-height: 2.8em;
     opacity: 0.75; /* inherits the button's own text color (white on
                        .btn-primary, navy on .btn-secondary once re-import
                        swaps the button's tone) rather than a fixed gray
@@ -1800,6 +1799,201 @@
     }
 
     .dashboard-status__cta {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  /* "Setup Complete" panel — replaces the in-progress status banner above
+     once all four setup steps are done (entrypoints/app/views/dashboard.ts's
+     renderSetupCompletePanel). A calm one-line confirmation bar (check +
+     "SETUP COMPLETE (4/4 Steps)" + last-sync + the toggle and Refresh Data
+     buttons) that expands to a per-step recap. The expand/collapse is
+     animated with the grid-template-rows 0fr->1fr technique (needs the inner
+     wrapper's overflow:hidden + min-height:0 to clip) — fine on the Firefox
+     128 floor. `.is-open` is toggled by dashboard.ts's delegated bannerRoot
+     click handler; the freshly re-rendered markup reads the same flag for
+     its initial state. */
+  .setup-complete {
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    margin-bottom: var(--space-5);
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .setup-complete__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-4);
+  }
+
+  .setup-complete__check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: var(--radius-pill);
+    background: var(--success-bg);
+    color: var(--success);
+    font-weight: 700;
+  }
+
+  .setup-complete__headline {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  .setup-complete__title {
+    @apply text-sm text-tm-gray-900;
+    margin: 0;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .setup-complete__sub {
+    @apply text-xs text-tm-gray-600;
+    margin: 2px 0 0;
+  }
+
+  .setup-complete__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+  }
+
+  .setup-complete__chevron {
+    display: inline-block;
+    margin-left: var(--space-1);
+    font-size: 10px;
+    transition: transform 0.2s ease;
+  }
+
+  .setup-complete.is-open .setup-complete__chevron {
+    transform: rotate(180deg);
+  }
+
+  .setup-complete__details {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s ease;
+  }
+
+  .setup-complete.is-open .setup-complete__details {
+    grid-template-rows: 1fr;
+  }
+
+  .setup-complete__details-inner {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .setup-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-4) 0 0;
+    padding: var(--space-4) 0 0;
+    list-style: none;
+    border-top: 1px solid var(--color-base-300);
+  }
+
+  .setup-steps__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+
+  .setup-steps__marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: var(--radius-pill);
+    background: var(--success-bg);
+    color: var(--success);
+    font-size: var(--text-xs);
+    font-weight: 700;
+  }
+
+  .setup-steps__text {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+
+  .setup-steps__name {
+    @apply text-sm text-tm-gray-900;
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .setup-steps__detail {
+    @apply text-xs text-tm-gray-700;
+    margin: 2px 0 0;
+  }
+
+  .setup-steps__meta {
+    @apply text-tm-gray-600;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .setup-steps__action {
+    flex-shrink: 0;
+  }
+
+  /* Setup is "complete" but Member Review still has unresolved matches — the
+     panel header marker, its sub-line, and Step 4's row all switch to the
+     same amber "!" treatment the in-progress tracker uses for that step
+     (.dashboard-tracker__step.is-warning above). */
+  .setup-complete.has-review .setup-complete__check {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+  }
+
+  .setup-complete.has-review .setup-complete__sub {
+    color: var(--warning-text);
+    font-weight: 600;
+  }
+
+  .setup-steps__row.is-warning {
+    border-color: var(--warning);
+  }
+
+  .setup-steps__row.is-warning .setup-steps__marker {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+  }
+
+  .setup-steps__row.is-warning .setup-steps__name {
+    color: var(--warning-text);
+  }
+
+  @media (max-width: 1024px) {
+    .setup-complete__actions {
+      width: 100%;
+    }
+
+    .setup-complete__toggle,
+    .setup-complete__refresh {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+
+    .setup-steps__action {
       width: 100%;
       justify-content: center;
     }

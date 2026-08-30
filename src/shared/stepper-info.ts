@@ -231,10 +231,13 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
       info: membersDisabled ? undefined : reportInfo?.members,
       disabled: membersDisabled,
       done: membersDone,
-      // Suppressed once the user has explicitly finished the wizard — the
-      // "N to review" info line still shows the real count, but the alarm
-      // icon would contradict the "Club Data Ready" state they chose.
-      warning: membersPending && !setupComplete,
+      // Shown whenever matches are still pending — even after the user hit
+      // "Complete Setup". Finishing the wizard flips `done` true (the step no
+      // longer blocks anything) but the pending-review count is still real
+      // work, so every stepper — the popup's vertical one, the wizard's
+      // horizontal one — and the Home dashboard's "Setup Complete" panel keep
+      // flagging it consistently rather than the icon vanishing on finish.
+      warning: membersPending,
       // The unresolved-match count behind that warning — same number the
       // "To do" filter shows in Member Review (see computeReportInfo's
       // toReview / shared/sync/delta.ts's needsAction). The Home dashboard

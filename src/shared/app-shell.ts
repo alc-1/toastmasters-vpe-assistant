@@ -66,9 +66,11 @@ const GOAL_SUBTITLE = "Bring EasySpeak and Basecamp data together in one place."
  *  queue is empty) — its circle shows a checkmark instead of the step number.
  *  `warning` marks a step with something needing attention (currently only
  *  Member Review's pending-match count) — its circle shows a warning icon
- *  instead of the step number; takes precedence over `done` (the two are
- *  never true together in practice, since a pending count is what keeps
- *  `done` false in the first place). `warningCount` is how many items that
+ *  instead of the step number; takes precedence over `done` in circleGlyph()/
+ *  circleClass() below, since the two *can* be true together: finishing the
+ *  wizard ("Complete Setup") flips Member Review `done` while a non-zero
+ *  pending-review count keeps `warning` set (see shared/stepper-info.ts).
+ *  `warningCount` is how many items that
  *  `warning` covers (Member Review's unresolved-match count) — the wizard
  *  stepper only shows the icon, but the Home dashboard banner
  *  (entrypoints/app/views/dashboard.ts) uses it for its "Review Needed (N

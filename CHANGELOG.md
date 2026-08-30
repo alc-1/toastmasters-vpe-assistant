@@ -16,11 +16,10 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ### Changed
 
-- Refreshed the interface to have consistent buttons, toggles, and controls throughout. Firefox 128 or newer is now required.
 - Installing an update no longer opens the What's New page in a new tab; the footer "What's New" link flags new release notes instead.
+- Refreshed the interface to have consistent buttons, toggles, and controls throughout. Firefox 128 or newer is now required.
 - Privacy Mode and the active profile are now shown in the top bar on every screen.
 - The setup wizard is now four steps, ending at Member Review; Club Progress is reached from a Home screen tile.
-- Home screen polish: the data-status readout now sits with the Refresh button, the setup progress bar reads clearly as a status indicator, feature cards share one height and spacing, and the Approval Helper card shows a single "Coming soon" tag.
 
 ## [1.2.0] - 2026-08-28
 
