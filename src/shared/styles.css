@@ -172,6 +172,19 @@
 }
 
 @layer app {
+  /* daisyUI 5.7.22's dropdown show rule is
+     `.dropdown:not(.dropdown-close):is(.dropdown-open, :focus, :focus-within) .dropdown-content`
+     — Tailwind v4's bundled Lightning CSS mangles the nested `:is()` into an
+     invalid `:focus-within)` selector, so the panel never actually fades in
+     (it stays opacity:0). Restore the intended behavior here. daisyUI's hide
+     rule (a plain `:not(…, :focus-within)`) is unaffected, so blur/Esc still
+     dismiss it. */
+  .dropdown:focus-within > .dropdown-content,
+  .dropdown:focus > .dropdown-content {
+    opacity: 1;
+    scale: 1;
+  }
+
   /* ---------------------------------------------------------------------- */
   /* Page containers                                                        */
   /* ---------------------------------------------------------------------- */
@@ -531,10 +544,9 @@
      with a click-to-open popover summarising the latest release. Two states
      ("Option B"): a high-contrast white pill with a gold sparkle + pulsing
      red dot while a newer changelog entry hasn't been seen, reverting to a
-     quiet transparent pill once it has. Anchoring mirrors
-     .export-popover-wrapper / .export-popover further down. */
+     quiet transparent pill once it has. The wrapper is a daisyUI `dropdown
+     dropdown-end`; only the pill + popover *contents* are styled here. */
   .version-badge-wrap {
-    position: relative;
     flex-shrink: 0;
   }
 
@@ -631,25 +643,14 @@
     }
   }
 
+  /* Positioned by daisyUI `.dropdown-content`; this styles its box + width. */
   .version-popover {
     @apply bg-surface border border-border rounded-md;
-    position: absolute;
-    right: 0;
-    top: calc(100% + var(--space-2));
     z-index: 30;
-    width: 288px;
+    margin-top: var(--space-2);
+    width: min(288px, calc(100vw - 32px));
     padding: var(--space-4);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
-  }
-
-  .version-popover[hidden] {
-    display: none;
-  }
-
-  @media (max-width: 1024px) {
-    .version-popover {
-      width: min(288px, calc(100vw - 32px));
-    }
   }
 
   .version-popover__head {
@@ -1294,7 +1295,8 @@
     @apply border-navy-700;
   }
 
-  .option-card.selected {
+  .option-card.selected,
+  .option-card:has(input:checked) {
     @apply border-navy-700 bg-info-bg;
   }
 
@@ -1470,38 +1472,8 @@
     gap: var(--space-4);
   }
 
-  .export-popover-wrapper {
-    position: relative;
-    flex-shrink: 0;
-  }
-
-  .export-menu-btn__caret {
-    font-size: 10px;
-    margin-left: 2px;
-  }
-
-  .export-popover {
-    @apply bg-surface border border-border rounded-md;
-    position: absolute;
-    right: 0;
-    top: calc(100% + var(--space-2));
-    z-index: 20;
-    width: 300px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
-    padding: var(--space-4);
-  }
-
-  @media (max-width: 1024px) {
-    .export-popover {
-      width: min(300px, calc(100vw - 32px));
-    }
-  }
-
-  .export-popover__title {
-    @apply text-sm text-tm-gray-900;
-    font-weight: 600;
-    margin-bottom: var(--space-2);
-  }
+  /* The Sync Data "Export" menu is a daisyUI `dropdown dropdown-end`; its
+     trigger + panel are styled with utilities in the markup. */
 
   .sync-cards {
     display: grid;

@@ -6,11 +6,10 @@
 // for the actual scrape trigger + response handling (unchanged) — this file
 // only owns the card/badge/summary presentation layered on top of it.
 //
-// Highest-risk view in the SPA merge: it's the only one with a listener
-// bound to `document` rather than a node inside its own root (the popover
-// outside-click handler) — that listener does NOT die for free when
-// #viewRoot is cleared on navigation, so it's captured as a named handler
-// here and explicitly removed in the disposer. See shared/view.ts.
+// The Export menu is a daisyUI `dropdown` (open-on-focus, native blur to
+// dismiss) — no JS, no document-level listener. This view therefore only
+// registers the standard storage.onChanged listener inside its own root,
+// like every other view. See shared/view.ts.
 
 import { local, session } from "../../../shared/storage";
 import { sendMessage } from "../../../shared/send-message";
@@ -35,18 +34,18 @@ const SHELL_HTML = `
       <h1 class="page-title">Sync Data</h1>
       <p class="page-intro__desc">Import your club data from Basecamp and EasySpeak before continuing to the review steps.</p>
     </div>
-    <div class="export-popover-wrapper">
-      <button id="exportMenuBtn" class="btn btn-secondary export-menu-btn" type="button"
-              aria-haspopup="true" aria-expanded="false" aria-controls="exportPopover">
-        Export <span class="export-menu-btn__caret" aria-hidden="true">▾</span>
+    <div class="dropdown dropdown-end shrink-0">
+      <button id="exportMenuBtn" tabindex="0" class="btn btn-secondary btn-sm" type="button">
+        Export <span class="text-[10px]" aria-hidden="true">▾</span>
       </button>
-      <div id="exportPopover" class="export-popover" role="menu" hidden>
-        <div class="export-popover__title">Download Workbook</div>
+      <div id="exportPopover" tabindex="0"
+           class="dropdown-content z-20 mt-2 w-[300px] max-w-[calc(100vw-2rem)] rounded-md border border-base-300 bg-base-100 p-4 shadow-lg">
+        <div class="text-sm font-semibold mb-2">Download Workbook</div>
         <p class="help-text">Download your data as an Excel workbook.</p>
         <div id="exportOptionsRoot" class="export-options"></div>
         <p id="anonymizeExportNotice" class="help-text" aria-live="polite"></p>
-        <button id="exportExcelBtn" class="btn btn-primary sync-card__action" disabled>Export to Excel</button>
-        <p id="statusExport" class="sync-card__status-text help-text" aria-live="polite"></p>
+        <button id="exportExcelBtn" class="btn btn-primary btn-sm w-full" disabled>Export to Excel</button>
+        <p id="statusExport" class="help-text" aria-live="polite"></p>
       </div>
     </div>
   </div>
@@ -197,27 +196,8 @@ export const syncDataView: ViewModule = {
     const statusExport = document.getElementById("statusExport")!;
     const exportIdleLabel = exportBtn.textContent ?? "";
 
-    const exportMenuBtn = document.getElementById("exportMenuBtn") as HTMLButtonElement;
-    const exportPopover = document.getElementById("exportPopover")!;
-
-    exportMenuBtn.addEventListener("click", () => {
-      const isOpen = !exportPopover.hidden;
-      exportPopover.hidden = isOpen;
-      exportMenuBtn.setAttribute("aria-expanded", String(!isOpen));
-    });
-
-    // The one listener in this whole SPA bound to `document` instead of a
-    // node inside `root` — closes the popover on a click anywhere outside
-    // it. Must be explicitly removed in the disposer below, since clearing
-    // #viewRoot's innerHTML does nothing for a document-level listener.
-    const onDocumentMousedown = (e: MouseEvent) => {
-      if (exportPopover.hidden) return;
-      const target = e.target as Node;
-      if (exportPopover.contains(target) || exportMenuBtn.contains(target)) return;
-      exportPopover.hidden = true;
-      exportMenuBtn.setAttribute("aria-expanded", "false");
-    };
-    document.addEventListener("mousedown", onDocumentMousedown);
+    // The Export menu is a daisyUI `dropdown` — open on focus, native
+    // click-outside (blur) close, no JS and no document-level listener.
 
     // Which export type is currently selected in the Export card's
     // radio-style selector. null only while neither Basecamp nor EasySpeak
@@ -258,16 +238,27 @@ export const syncDataView: ViewModule = {
         input.addEventListener("change", () => {
           selectedExportType = input.value as ExportType;
           exportTypeUserPicked = true;
-          renderExportOptions(availability);
+          // Toggle the .selected class in place rather than re-rendering the
+          // whole list — a full innerHTML rebuild would blow away the focused
+          // radio and collapse the daisyUI (focus-based) dropdown.
+          optionsRoot.querySelectorAll<HTMLElement>(".option-card").forEach((card) => {
+            card.classList.toggle("selected", card.querySelector<HTMLInputElement>("input")?.value === input.value);
+          });
+          updateExportButtonState();
         });
       });
 
       updateExportButtonState();
     }
 
+    let exporting = false;
     exportBtn.addEventListener("click", async () => {
-      if (!selectedExportType) return;
-      exportBtn.disabled = true;
+      if (!selectedExportType || exporting) return;
+      // Don't toggle `disabled` — that would blur the button and collapse the
+      // daisyUI dropdown mid-export, hiding the status line below. A re-entrancy
+      // flag + label change is enough.
+      exporting = true;
+      exportBtn.setAttribute("aria-busy", "true");
       exportBtn.textContent = "Generating…";
       statusExport.textContent = "";
       try {
@@ -276,6 +267,8 @@ export const syncDataView: ViewModule = {
       } catch (err) {
         statusExport.textContent = `Export failed: ${err instanceof Error ? err.message : String(err)}`;
       } finally {
+        exporting = false;
+        exportBtn.removeAttribute("aria-busy");
         exportBtn.textContent = exportIdleLabel;
         updateExportButtonState();
       }
@@ -434,7 +427,6 @@ export const syncDataView: ViewModule = {
     return () => {
       disposed = true;
       browser.storage.onChanged.removeListener(onStorageChanged);
-      document.removeEventListener("mousedown", onDocumentMousedown);
     };
   },
 };

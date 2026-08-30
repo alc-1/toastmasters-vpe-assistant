@@ -45,6 +45,7 @@ export default {
     "at-rule-empty-line-before": null, // @plugin/@theme blocks sit grouped in the preamble
     "value-keyword-case": ["lower", { ignoreProperties: ["font-family", "--font-sans"] }], // BlinkMacSystemFont etc. keep their case
     "selector-class-pattern": null, // BEM (__/--) naming throughout, not stylelint's default kebab-case-only
+    "selector-id-pattern": null, // element ids are camelCase throughout this codebase (#popupStepperRoot, etc.)
     "declaration-empty-line-before": null, // this file groups declarations with no blank line within a rule
     "comment-empty-line-before": null, // comments sit directly above the rule/declaration they describe
     "custom-property-empty-line-before": null,

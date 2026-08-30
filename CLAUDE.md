@@ -1462,9 +1462,17 @@ A few decisions worth knowing before changing the config:
     `btn-sm`), toggles (`toggle`), `confirmModal` (native `<dialog>` + `modal` / `modal-box`),
     badges (`badge badge-soft badge-{success|info|warning|error}` — see `presenceBadgeClass()` /
     `BADGE_TONE_CLASS` for the dynamic cases), club tabs (`tabs tabs-border` + `tab` /
-    `tab-active`), form controls (`input` / `select`, `-xs` / `-sm`, sized with utilities), and
-    banners (`alert alert-{warning|info} alert-soft`). The `.badge` / `.tabs` / `.alert` rules in
+    `tab-active`), form controls (`input` / `select`, `-xs` / `-sm`, sized with utilities),
+    banners (`alert alert-{warning|info} alert-soft`), and the Sync Data "Export" menu + header
+    version badge (`dropdown` — focus-based, so no open/close JS and no `document` listener; the
+    Export radios update the `.selected` class in place rather than re-rendering, or the focused
+    radio would blur and collapse the dropdown). The `.badge` / `.tabs` / `.alert` rules in
     `@layer app` are now thin app-specific tweaks on top of daisyUI's base, not full components.
+  - **Known toolchain bug + workaround:** Tailwind v4's bundled Lightning CSS mangles daisyUI
+    5.7.22's dropdown show selector (`.dropdown:not(.dropdown-close):is(…, :focus-within)
+    .dropdown-content`) into an invalid `:focus-within)` — the panel never fades in. `styles.css`'s
+    `@layer app` has an explicit `.dropdown:focus-within > .dropdown-content { opacity: 1; scale: 1 }`
+    rule to restore it. Revisit if daisyUI or the Lightning CSS in `@tailwindcss/vite` is bumped.
   - **The three dense tables** (Club Review, Club Progress "Next Level Summary", Member Review) are
     **dual-rendered** — `renderXxxCard()` / a `.member-cards` etc. list marked `lg:hidden`,
     alongside the `hidden lg:table` `<table>`, both from the same view-model and carrying the same

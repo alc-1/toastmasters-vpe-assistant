@@ -93,50 +93,20 @@ stepFooterRoot.addEventListener("click", (e) => {
 
 // The header version badge (shared/app-shell.ts's renderVersionBadge) — a
 // toolbar-style pill that toggles a release-notes popover. Delegated on the
-// persistent #appShell root, same rationale as the listeners above. Opening
-// the popover clears the unread dot: removed from the DOM immediately, then
-// persisted via markVersionViewed(). That storage write is deliberately NOT
-// allowed to trigger a chrome re-render (see the storage.onChanged guard
-// below) — a full renderChrome() would rebuild the header and tear the
-// just-opened popover back down.
-function closeVersionPopover(): void {
-  const popover = document.getElementById("versionPopover");
-  if (!popover || popover.hidden) return;
-  popover.hidden = true;
-  document.getElementById("versionBadgeBtn")?.setAttribute("aria-expanded", "false");
-}
-
-appShellRoot.addEventListener("click", (e) => {
+// persistent #appShell root. The version badge is a daisyUI `dropdown`
+// (open on focus, native blur/Esc to dismiss) — no open/close JS. This
+// only reacts to the badge *gaining focus* (= the user opening it): clear
+// the unread state from the DOM immediately, then persist "viewed". That
+// storage write is deliberately NOT allowed to trigger a chrome re-render
+// (see the storage.onChanged guard below) — a full renderChrome() would
+// rebuild the header and tear the just-opened popover back down.
+appShellRoot.addEventListener("focusin", (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLElement>("#versionBadgeBtn");
-  if (!btn) return;
-  const popover = document.getElementById("versionPopover");
-  if (!popover) return;
-  const willOpen = popover.hidden;
-  popover.hidden = !willOpen;
-  btn.setAttribute("aria-expanded", String(willOpen));
-  if (willOpen) {
-    // Settle the badge into its read/default state immediately — drop the
-    // white "unread" pill styling along with the sparkle + pulsing dot — then
-    // persist it. (The storage write is barred from re-rendering the chrome,
-    // see the storage.onChanged guard below, so this DOM cleanup is what the
-    // user actually sees until the next navigation.)
-    btn.classList.remove("version-badge--unread");
-    btn.querySelector(".version-badge__sparkle")?.remove();
-    btn.querySelector(".version-badge__dot")?.remove();
-    void markVersionViewed(browser.runtime.getManifest().version);
-  }
-});
-
-// Close the popover on an outside click or Esc. Bound to `document` (the
-// popover lives inside the header, outside any view's #viewRoot) and never
-// removed — main.ts owns the page for its whole lifetime, same as the
-// hashchange listener at the bottom of this file.
-document.addEventListener("mousedown", (e) => {
-  if ((e.target as HTMLElement).closest(".version-badge-wrap")) return;
-  closeVersionPopover();
-});
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeVersionPopover();
+  if (!btn || !btn.classList.contains("version-badge--unread")) return;
+  btn.classList.remove("version-badge--unread");
+  btn.querySelector(".version-badge__sparkle")?.remove();
+  btn.querySelector(".version-badge__dot")?.remove();
+  void markVersionViewed(browser.runtime.getManifest().version);
 });
 
 let currentDispose: (() => void) | null = null;

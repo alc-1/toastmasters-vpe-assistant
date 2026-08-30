@@ -234,14 +234,17 @@ function renderVersionBadge(badge: VersionBadgeState | undefined): string {
         </ul>`
     : `<p class="version-popover__empty">No release notes available.</p>`;
 
+  // daisyUI `dropdown` (open on focus, native blur to dismiss) — no
+  // open/close JS. entrypoints/app/main.ts only listens for the badge
+  // gaining focus, to clear the unread state + persist "viewed".
   return `
-      <div class="version-badge-wrap">
-        <button type="button" class="version-badge${badge.hasUnread ? " version-badge--unread" : ""}" id="versionBadgeBtn" aria-expanded="false" aria-controls="versionPopover" aria-label="${ariaLabel}">
+      <div class="dropdown dropdown-end version-badge-wrap">
+        <button type="button" tabindex="0" class="version-badge${badge.hasUnread ? " version-badge--unread" : ""}" id="versionBadgeBtn" aria-label="${ariaLabel}">
           ${sparkleHtml}
           <span class="version-badge__text">v${escapeHtml(badge.version)}</span>
           ${dotHtml}
         </button>
-        <div class="version-popover" id="versionPopover" role="group" aria-label="Release notes" hidden>
+        <div tabindex="0" class="version-popover dropdown-content" id="versionPopover" role="group" aria-label="Release notes">
           ${popoverBody}
           <a class="version-popover__footer" href="#whatsNew">View full release history &rarr;</a>
         </div>
