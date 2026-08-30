@@ -2277,10 +2277,10 @@
     }
   }
 
-  /* Sync Data's "why is Continue disabled" hint — right-aligned so it sits
-     directly below the Continue button, which is itself right-aligned by
-     .step-footer's justify-content: space-between. */
-  .sync-continue-helper {
+  /* A wizard step's "why is Continue disabled" hint (Sync Data, Club Review)
+     — right-aligned so it sits directly above the Continue button, which is
+     itself right-aligned by .step-footer's justify-content: space-between. */
+  .step-continue-helper {
     text-align: right;
     margin: var(--space-2) 0 0;
   }

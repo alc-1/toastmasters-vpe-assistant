@@ -36,6 +36,8 @@ const SHELL_HTML = `
       <div id="clubLookupRoot"></div>
     </div>
   </div>
+
+  <p id="continueHelper" class="help-text step-continue-helper"></p>
 `;
 
 type ClubPair = ClubMatchPair<ClubGroup<unknown>, ClubGroup<unknown>>;
@@ -246,6 +248,25 @@ export const clubReviewView: ViewModule = {
       if (disposed) return;
       root.querySelector("#clubLookupRoot")!.innerHTML = renderClubLookupSection(matches);
       attachClubLookupHandlers();
+      updateContinueHelper(matches);
+    }
+
+    // Explains why the step footer's "Continue to Member Review" button is
+    // disabled — that button reads shared/stepper-info.ts's `members.disabled`,
+    // which stays true while any club still lacks a confirmed counterpart
+    // (a fuzzy suggestion counts as unresolved until confirmed or rejected;
+    // an acknowledged one-sided club does not). Rendered here rather than in
+    // the shared footer, same pattern as syncData.ts's own continue helper.
+    function updateContinueHelper(matches: ClubPair[]) {
+      const helper = root.querySelector<HTMLElement>("#continueHelper");
+      if (!helper) return;
+      if (!basecampData || !easyspeakData) {
+        helper.textContent = "Import Basecamp and EasySpeak data to continue.";
+        return;
+      }
+      const pending = matches.filter((m) => m.source !== "orphan" && needsClubAction(m)).length;
+      helper.textContent =
+        pending === 0 ? "" : `Resolve ${pending} unmatched club${pending === 1 ? "" : "s"} to continue`;
     }
 
     function attachClubLookupHandlers() {

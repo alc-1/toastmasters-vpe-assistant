@@ -115,7 +115,7 @@ const SHELL_HTML = `
 
   <div id="completionSummary" class="setup-summary" hidden></div>
 
-  <p id="continueHelper" class="help-text sync-continue-helper"></p>
+  <p id="continueHelper" class="help-text step-continue-helper"></p>
 `;
 
 type BadgeTone = "danger" | "pending" | "success";

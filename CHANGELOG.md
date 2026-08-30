@@ -22,6 +22,7 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 - Refreshed the interface to have consistent buttons, toggles, and controls throughout. Firefox 128 or newer is now required.
 - Privacy Mode and the active profile are now shown in the top bar on every screen.
 - The setup wizard is now four steps, ending at Member Review; Club Progress is reached from a Home screen tile.
+- Club Review now shows why the "Continue to Member Review" button is disabled (e.g. "Resolve 2 unmatched clubs to continue").
 
 ## [1.2.0] - 2026-08-28
 
