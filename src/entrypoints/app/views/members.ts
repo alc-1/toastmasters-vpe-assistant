@@ -580,8 +580,8 @@ export const membersView: ViewModule = {
             .map((p) => {
               const statusLabel = p.overridden ? "Bound manually" : "Matched automatically";
               const action = p.overridden
-                ? `<button class="secondary" data-action="unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName ?? "")}" data-es-path="${escapeAttr(p.easyspeakPathLabel ?? "")}">Unbind</button>`
-                : `<button class="secondary" data-action="force-unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName ?? "")}" data-es-path="${escapeAttr(p.easyspeakPathLabel ?? "")}" title="Splits this pair back into two unmatched paths so you can bind it differently or leave it as an orphan.">Force unbind</button>`;
+                ? `<button class="btn btn-secondary btn-sm" data-action="unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName ?? "")}" data-es-path="${escapeAttr(p.easyspeakPathLabel ?? "")}">Unbind</button>`
+                : `<button class="btn btn-secondary btn-sm" data-action="force-unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName ?? "")}" data-es-path="${escapeAttr(p.easyspeakPathLabel ?? "")}" title="Splits this pair back into two unmatched paths so you can bind it differently or leave it as an orphan.">Force unbind</button>`;
               return `
                 <div class="path-pair-row">
                   <span><strong>${escapeHtml(p.basecampPathName ?? "")}</strong> &harr; ${escapeHtml(p.easyspeakPathLabel ?? "")}</span>
@@ -605,7 +605,7 @@ export const membersView: ViewModule = {
                 <div class="path-pair-row">
                   <span><strong>${sideLabel}:</strong> ${escapeHtml(pathName)}</span>
                   <span class="muted-text">Resolved as orphan</span>
-                  <button class="secondary" data-action="unmark-path-orphan" data-member-key="${key}" data-side="${side}" data-path="${escapeAttr(pathName)}">Unmark orphan</button>
+                  <button class="btn btn-secondary btn-sm" data-action="unmark-path-orphan" data-member-key="${key}" data-side="${side}" data-path="${escapeAttr(pathName)}">Unmark orphan</button>
                 </div>
               `;
             })
@@ -624,7 +624,7 @@ export const membersView: ViewModule = {
                 <div class="path-pair-row">
                   <span><strong>${sideLabel}:</strong> ${escapeHtml(pathName)}</span>
                   <span class="muted-text">Flagged for later review</span>
-                  <button class="secondary" data-action="unflag-path" data-member-key="${key}" data-side="${side}" data-path="${escapeAttr(pathName)}">Unflag</button>
+                  <button class="btn btn-secondary btn-sm" data-action="unflag-path" data-member-key="${key}" data-side="${side}" data-path="${escapeAttr(pathName)}">Unflag</button>
                 </div>
               `;
             })
@@ -647,7 +647,7 @@ export const membersView: ViewModule = {
                   candidates.length > 0
                     ? `<span>&harr;</span>
                      <input type="text" class="input input-xs link-search" list="${pathDatalistId}" data-role="path-bind-input" data-member-key="${key}" placeholder="Search Basecamp paths…" aria-label="Choose a path to bind this member's orphaned path to" autocomplete="off">
-                     <button data-action="bind-path" data-member-key="${key}" data-es-index="${esIndex}" disabled>Bind</button>`
+                     <button class="btn btn-primary btn-sm" data-action="bind-path" data-member-key="${key}" data-es-index="${esIndex}" disabled>Bind</button>`
                     : "";
                 const done = pathSpeechesDone(esPath);
                 return `
@@ -655,9 +655,9 @@ export const membersView: ViewModule = {
                   <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
                   <span class="muted-text">${done} speech${done === 1 ? "" : "es"} done</span>
                   ${bindControls}
-                  <button class="secondary" data-action="mark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as completed</button>
-                  <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
-                  <button class="secondary" data-action="flag-path" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Flag for later</button>
+                  <button class="btn btn-secondary btn-sm" data-action="mark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as completed</button>
+                  <button class="btn btn-secondary btn-sm" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
+                  <button class="btn btn-secondary btn-sm" data-action="flag-path" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Flag for later</button>
                 </div>
               `;
               })
@@ -688,7 +688,7 @@ export const membersView: ViewModule = {
                 <div class="path-pair-row">
                   <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
                   <span class="muted-text">Completed</span>
-                  <button class="secondary" data-action="unmark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Unmark completed</button>
+                  <button class="btn btn-secondary btn-sm" data-action="unmark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Unmark completed</button>
                 </div>
               `
             )

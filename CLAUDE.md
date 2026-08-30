@@ -1462,7 +1462,11 @@ A few decisions worth knowing before changing the config:
     `btn-sm`), toggles (`toggle`), `confirmModal` (native `<dialog>` + `modal` / `modal-box`),
     badges (`badge badge-soft badge-{success|info|warning|error}` — see `presenceBadgeClass()` /
     `BADGE_TONE_CLASS` for the dynamic cases), club tabs (`tabs tabs-border` + `tab` /
-    `tab-active`), form controls (`input` / `select`, `-xs` / `-sm`, sized with utilities),
+    `tab-active`), form controls (`input` / `select`, `-xs` / `-sm`, sized with utilities — every
+    `<select>` also carries `appearance-none`, daisyUI's documented opt-out of its
+    `appearance: base-select` picker styling, so the options list stays the OS-native popup while
+    the trigger keeps daisyUI's border/arrow/focus ring; the `appearance-none` utility lands in the
+    `utilities` layer, after `daisyui`, so it wins with no `!important`),
     banners (`alert alert-{warning|info} alert-soft`), and the Sync Data "Export" menu + header
     version badge (`dropdown` — focus-based, so no open/close JS and no `document` listener; the
     Export radios update the `.selected` class in place rather than re-rendering, or the focused

@@ -328,7 +328,7 @@ export function renderAppShell({
     anonymize !== undefined
       ? `<label class="app-header__privacy">
         <input type="checkbox" class="toggle toggle-sm" id="appPrivacyToggle" aria-label="Privacy Mode (hide member names)"${anonymize ? " checked" : ""}>
-        <span class="app-header__privacy-lock" aria-hidden="true">🔒</span>
+        <span class="app-header__privacy-lock" aria-hidden="true">${anonymize ? "🔒" : "🔓"}</span>
         <span class="app-header__privacy-text">Privacy Mode</span>
       </label>`
       : "";

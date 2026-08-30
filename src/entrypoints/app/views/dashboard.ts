@@ -108,6 +108,21 @@ export const dashboardView: ViewModule = {
     const bannerRoot = root.querySelector("#dashboardBannerRoot")!;
     const featuresRoot = root.querySelector("#dashboardFeaturesRoot")!;
 
+    // Whole-card navigation: a click anywhere on a `.dashboard-tile--link`
+    // tile follows its CTA link. Delegated and bound once here — featuresRoot
+    // is a stable node reused across every renderFeatures() re-render, so
+    // binding inside renderFeatures() would stack duplicate listeners. Clicks
+    // that land on a genuine interactive element (the CTA anchor itself, or a
+    // future button) fall through to that element's own handling.
+    function onFeatureCardClick(e: Event) {
+      const target = e.target as HTMLElement;
+      if (target.closest("a, button, input, label")) return;
+      const tile = target.closest(".dashboard-tile--link");
+      const href = tile?.querySelector(".dashboard-tile__cta")?.getAttribute("href");
+      if (href?.startsWith("#")) location.hash = href.slice(1);
+    }
+    featuresRoot.addEventListener("click", onFeatureCardClick);
+
     // Persisted across render() calls so a "Restored" / error message
     // survives the storage.onChanged-triggered re-render that a successful
     // restore itself causes.
@@ -265,10 +280,11 @@ export const dashboardView: ViewModule = {
     function renderFeatureCard(card: FeatureCard): string {
       const badge = card.badgeNew ? '<span class="badge badge-soft badge-info dashboard-tile__badge">NEW</span>' : "";
       const inert = card.comingSoon || card.locked;
-      // A single-CTA active card becomes one big click target: the article is
-      // position:relative and its CTA link stretches over it via ::after
-      // (the "stretched link" pattern). The link stays a real
-      // <a href="#route">, so hashchange routing is unchanged — no JS added.
+      // A single-CTA active card becomes one big click target (see
+      // onFeatureCardClick() in mount()): the whole `.dashboard-tile--link`
+      // article follows its CTA link on click. The CTA stays a real
+      // <a href="#route"> so keyboard activation and hashchange routing are
+      // unchanged.
       const interactive = !inert && !card.backup;
 
       let footer: string;
@@ -370,6 +386,7 @@ export const dashboardView: ViewModule = {
     return () => {
       disposed = true;
       restoreAbort.abort();
+      featuresRoot.removeEventListener("click", onFeatureCardClick);
       browser.storage.onChanged.removeListener(onStorageChanged);
     };
   },

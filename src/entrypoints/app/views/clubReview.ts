@@ -232,10 +232,10 @@ export const clubReviewView: ViewModule = {
 
       return `
         <div class="add-form">
-          <select id="newClubPinBc" class="select select-sm" aria-label="Basecamp club">${bcOptions}</select>
+          <select id="newClubPinBc" class="select select-sm appearance-none" aria-label="Basecamp club">${bcOptions}</select>
           <span class="add-form-arrow add-form-arrow--wide">&harr;</span>
           <span class="add-form-arrow add-form-arrow--narrow">&darr;</span>
-          <select id="newClubPinEs" class="select select-sm" aria-label="EasySpeak club">${esOptions}</select>
+          <select id="newClubPinEs" class="select select-sm appearance-none" aria-label="EasySpeak club">${esOptions}</select>
           <button class="btn btn-primary" data-action="add-club-pin">Add mapping</button>
         </div>
       `;

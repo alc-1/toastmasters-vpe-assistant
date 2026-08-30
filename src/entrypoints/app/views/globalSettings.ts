@@ -39,7 +39,7 @@ export const globalSettingsView: ViewModule = {
       const sectionRoot = root.querySelector("#anonymizeSectionRoot")!;
       sectionRoot.innerHTML = `
         <div class="card">
-          <div class="card-header"><span class="card-header__title"><span class="settings-lock-icon" aria-hidden="true">🔒</span>Privacy Mode</span></div>
+          <div class="card-header"><span class="card-header__title"><span class="settings-lock-icon" aria-hidden="true">${anonymize ? "🔒" : "🔓"}</span>Privacy Mode</span></div>
           <div class="card-body">
             <label class="flex items-center gap-3 mb-2 font-semibold cursor-pointer">
               <input type="checkbox" class="toggle toggle-primary" id="anonymizeModeToggle"${anonymize ? " checked" : ""}>

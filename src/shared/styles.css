@@ -189,6 +189,20 @@
   /* Page containers                                                        */
   /* ---------------------------------------------------------------------- */
 
+  /* daisyUI 5's rootcolor.css sets `background-color` on `:root`, which takes
+     over the CSS "propagate the <body> background to the canvas" rule — so
+     <body>'s own background (centered here, with a max-width) only painted its
+     own box, leaving the root's base-100 colour showing in the side gutters on
+     a wide viewport and below short content. Mirror the page background onto
+     the root so it covers the whole page; the popup keeps its white surface. */
+  html {
+    @apply bg-surface-alt;
+  }
+
+  html:has(.page--popup) {
+    @apply bg-surface;
+  }
+
   body {
     @apply font-sans mx-auto text-tm-gray-900 bg-surface-alt;
     padding: 16px 20px 60px;
@@ -1505,6 +1519,16 @@
     margin: 0;
   }
 
+  /* daisyUI's card component sets `.card-body p { flex-grow: 1 }` (see
+     node_modules/daisyui/components/card). The two sync cards sit in a
+     stretch grid row, so opening "View details" on one card makes the other
+     card taller — and that extra height was being absorbed entirely by its
+     first status <p>, shoving the member count / Import button / details to
+     the bottom. These paragraphs must keep their natural height. */
+  .sync-card__body > p {
+    flex-grow: 0;
+  }
+
   /* Imported-state result (see entrypoints/app/views/syncData.ts's
      renderSourceCard): member count + imported-at time on one line — the
      "imported" fact itself is already shown by the badge above, so it's
@@ -1518,21 +1542,29 @@
     margin-bottom: 2px;
   }
 
+  /* daisyUI's .btn is an inline-flex row with a fixed height — left alone,
+     the two label spans sit side by side and get clipped. Force a centered
+     vertical stack and let the button grow to fit both lines. */
   .sync-card__action {
     width: 100%;
+    height: auto;
+    flex-direction: column;
+    align-items: center;
+    padding-block: var(--space-2);
   }
 
   /* Each source's Import/Re-import button carries its "opens a new tab"
-     explanation as a permanent second line rather than a separate <p>
-     below it — display:block stacks the two spans without needing flex
-     on the button itself. */
+     explanation as a permanent second line below the button name, both
+     centered. */
   .sync-card__action-label {
     display: block;
+    text-align: center;
     font-weight: 600;
   }
 
   .sync-card__action-sublabel {
     display: block;
+    text-align: center;
     font-size: 12px;
     font-weight: 400;
     margin-top: 2px;
@@ -1838,15 +1870,10 @@
     box-shadow: 0 0 0 3px var(--info-bg);
   }
 
-  /* Stretched-link pattern: the CTA anchor's ::after covers the whole
-     (position:relative) card, so a click anywhere navigates — while the
-     anchor stays a real <a href="#route"> the hash router already handles. */
-  .dashboard-tile--link .dashboard-tile__cta::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-  }
+  /* Whole-card click navigation is handled in JS (dashboard.ts's
+     onFeatureCardClick) rather than a stretched-link ::after overlay, so the
+     card's description text stays selectable and the hit area covers the
+     card's padding too. */
 
   /* Hovering anywhere on the card drives the CTA's own hover state too, so
      the button doesn't look inert while the rest of the card responds. */
@@ -2151,7 +2178,9 @@
 
   /* Club Review / Global Settings lookup tables + their "add new" form use
      daisyUI `input` / `select` (input-xs / input-sm) in markup; .add-form just
-     lays the controls out. */
+     lays the controls out. Every `.select` also carries `appearance-none` so
+     the options list stays the OS-native popup (see the "Migrated to daisyUI"
+     note in CLAUDE.md) rather than daisyUI's `appearance: base-select` one. */
   .add-form {
     display: flex;
     gap: 6px;
@@ -2558,6 +2587,19 @@ select:focus-visible {
    variants (.club-card__actions / .member-card .actions) use flex gap instead. */
 td.actions button {
   margin-right: 4px;
+}
+
+/* Club Review / Member Review: the action cell's daisyUI buttons are taller
+   than a line of text, so with the shared .data-table's `vertical-align: top`
+   the name / status / badge cells sat pinned to the top of the row while the
+   buttons hung lower. Center every cell in these two tables so a row's
+   contents line up on one axis. (Club Progress's "Next Level Summary" keeps
+   top alignment — its cells hold multi-line diff content.) */
+body[data-view="clubReview"] .data-table th,
+body[data-view="clubReview"] .data-table td,
+body[data-view="members"] .data-table th,
+body[data-view="members"] .data-table td {
+  vertical-align: middle;
 }
 
 /* Club Review's mobile card: demote "Unlink"/"Unmark" on a linked pair to a
