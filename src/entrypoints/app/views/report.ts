@@ -33,7 +33,7 @@ const SHELL_HTML = `
   <p class="help-text summary-help-text--narrow">
     One card is displayed per member per path. Click a card to reveal its level-by-level detail.
   </p>
-  <div id="summaryTableRoot" class="table-scroll"></div>
+  <div id="summaryTableRoot"></div>
 
   <div id="pendingReviewSection">
     <h2 class="section-header">Pending review</h2>
@@ -42,7 +42,7 @@ const SHELL_HTML = `
       <a href="#members">Member Review</a> — numbers here may be incomplete
       until that's resolved, so they're kept separate from Next Level Summary.
     </p>
-    <div id="pendingReviewTableRoot" class="table-scroll"></div>
+    <div id="pendingReviewTableRoot"></div>
   </div>
 `;
 

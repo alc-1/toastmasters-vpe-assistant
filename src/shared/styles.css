@@ -471,49 +471,9 @@
     color: var(--primary);
   }
 
-  @media (max-width: 1024px) {
-    /* The narrow header can't fit the brand + a text chip + the toggle. The
-       active profile is still one tap away (the stepper's Setup step, or the
-       Setup page itself), so the chip drops out here; the Privacy toggle —
-       the control the user asked to have always at hand — stays, shrunk to
-       just its switch + lock glyph. */
-    .app-header__profile {
-      display: none;
-    }
-
-    /* Keep the switch + lock glyph; drop just the "Privacy Mode" words. */
-    .app-header__privacy-text {
-      display: none;
-    }
-
-    /* Narrow header: shrink the brand so "Toastmasters VPE Assistant" wraps to
-       at most two lines instead of three, and tighten the whole bar. */
-    .app-header__brand {
-      gap: var(--space-2);
-      padding: var(--space-3);
-    }
-
-    .app-header__logo {
-      width: 36px;
-      height: 36px;
-    }
-
-    .app-header__title {
-      font-size: var(--text-md);
-    }
-
-    .app-header__actions {
-      gap: var(--space-2);
-      margin-right: var(--space-3);
-    }
-
-    /* The version badge is a low-priority update hint — drop it on a narrow
-       header so the brand title has room for two lines instead of three
-       (release notes are still reachable from the What's New page / popup). */
-    .version-badge-wrap {
-      display: none;
-    }
-  }
+  /* The narrow-header overrides live further down, right after the base
+     .app-header__* rules (so they actually win) — see the @media blocks below
+     .app-header__subtitle. */
 
   /* Header gear icon linking to the Global Settings page (shared/pages.ts's
      PAGES.globalSettings) — reached from every wizard page + the popup, not
@@ -766,14 +726,57 @@
     color: rgba(255, 255, 255, 0.85);
   }
 
-  /* Clamp the full-sentence subtitle to one line on phones — full height would
-     otherwise push the stepper/content further below the fold than needed. */
+  /* Narrow-header overrides. Placed here — after every base .app-header__*
+     rule — so they win on source order (equal specificity). The narrow header
+     can't fit the brand + profile chip + toggle + version badge, so: the chip
+     and the "Privacy Mode" words drop, the version badge drops (release notes
+     stay reachable from What's New / the popup), the logo + title + spacing
+     shrink, and the full-sentence subtitle clamps to one line so it doesn't
+     push content below the fold. */
   @media (max-width: 1024px) {
+    .app-header__profile,
+    .app-header__privacy-text,
+    .version-badge-wrap {
+      display: none;
+    }
+
+    .app-header__brand {
+      gap: var(--space-2);
+      padding: var(--space-3);
+    }
+
+    .app-header__logo {
+      width: 36px;
+      height: 36px;
+    }
+
+    .app-header__title {
+      font-size: var(--text-md);
+    }
+
+    .app-header__actions {
+      gap: var(--space-2);
+      margin-right: var(--space-3);
+    }
+
     .app-header__subtitle {
       display: -webkit-box;
       -webkit-line-clamp: 1;
       -webkit-box-orient: vertical;
       overflow: hidden;
+    }
+  }
+
+  /* Very narrow (≤360px — rare, sub-iPhone-SE): drop the title another step +
+     tighten its leading so "Toastmasters VPE Assistant" still fits two lines. */
+  @media (max-width: 360px) {
+    .app-header__title {
+      font-size: var(--text-sm);
+      line-height: 1.2;
+    }
+
+    .app-header__subtitle {
+      font-size: var(--text-xs);
     }
   }
 
@@ -2594,6 +2597,14 @@
     @apply bg-surface border border-border rounded-md;
     padding: var(--space-6) var(--space-5);
     margin-top: var(--space-5);
+  }
+
+  /* Hero heading — needs an explicit rule now that Preflight zeroes the
+     browser's default <h1> size/margin. */
+  .welcome-card h1 {
+    @apply text-xl text-tm-gray-900;
+    margin: 0 0 var(--space-4);
+    font-weight: 700;
   }
 
   .welcome-intro {
