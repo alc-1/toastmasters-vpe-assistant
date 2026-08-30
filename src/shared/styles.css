@@ -222,6 +222,82 @@
     min-width: 360px;
   }
 
+  /* ---------------------------------------------------------------------- */
+  /* Popup-only layout — moved here from popup/index.html's inline <style>  */
+  /* (the extension's last one) so lint:css covers it. All popup-scoped.    */
+  /* ---------------------------------------------------------------------- */
+
+  .page--popup .app-header__title {
+    font-size: var(--text-md);
+  }
+
+  /* shared/styles.css only clamps the subtitle inside @media (max-width:
+     1024px), meant for a real narrow browser window — this unconditional
+     override keeps the popup's own clamping independent of that media query
+     (measurement-pass vs. final-layout viewport differences were a real,
+     measured source of Chromium popup auto-resize instability). 2 lines, not
+     1: at min-width 400px the full sentence still doesn't always fit on one. */
+  .page--popup .app-header__subtitle {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  #popupStepperRoot .app-stepper--vertical {
+    margin-bottom: 0;
+  }
+
+  /* The popup stepper is a read-only progress indicator — strip the clickable
+     affordances (hover bg/label tint, pointer cursor) the shared
+     .app-stepper--vertical rules add for the in-app nav. */
+  #popupStepperRoot .app-stepper__step {
+    cursor: default;
+  }
+
+  #popupStepperRoot .app-stepper__step:hover {
+    background: transparent;
+  }
+
+  #popupStepperRoot .app-stepper__step:hover .app-stepper__label {
+    color: inherit;
+  }
+
+  /* Reserves the vertical stepper's footprint before computeStepperInfo() (an
+     async storage read) resolves and fills this root — without it the popup
+     opens header-only then grows in one jump, which Chromium's native popup
+     auto-resize visibly reacts to. 360px ≈ the measured height of the fixed
+     5-item NAV_ITEMS list with typical info text; re-measure if a step is
+     added/removed. */
+  #popupStepperRoot {
+    min-height: 360px;
+  }
+
+  .popup-home {
+    padding: var(--space-3) 0 0;
+  }
+
+  .popup-home__btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .popup-footer {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-3) 0 var(--space-2);
+  }
+
+  .popup-footer__link {
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+    text-decoration: none;
+  }
+
+  .popup-footer__link:hover {
+    text-decoration: underline;
+  }
+
   /* Page title — was copy-pasted identically (bare `h1` selector) across
      club-review/members/report/sync-data/settings' own markup; consolidated
      into this one explicit class, applied via class="page-title" on every
