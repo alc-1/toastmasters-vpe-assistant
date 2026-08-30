@@ -1913,30 +1913,10 @@
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Modal — the one blocking dialog in the extension (shared/modal.ts),    */
-  /* used only for the Home dashboard's destructive "Load Backup File"      */
-  /* confirm. See that file's header for why this is an intentional         */
-  /* exception to the inline-status-line convention.                        */
+  /* Modal — the one blocking dialog in the extension (shared/modal.ts): a  */
+  /* native <dialog class="modal"> using daisyUI's modal / modal-box, only  */
+  /* for the Home dashboard's destructive "Load Backup File" confirm.       */
   /* ---------------------------------------------------------------------- */
-
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-4);
-    background: rgba(0, 0, 0, 0.4);
-  }
-
-  .modal {
-    @apply bg-surface border border-border rounded-md;
-    max-width: 420px;
-    width: 100%;
-    padding: var(--space-5);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  }
 
   .modal__title {
     @apply text-md text-tm-gray-900;
