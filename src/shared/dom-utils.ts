@@ -87,15 +87,15 @@ export function chevronIconHtml(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>`;
 }
 
-// The gold sparkle that rides on the left of the header version badge while
-// it has unread release notes (shared/app-shell.ts's renderVersionBadge).
-// Fixed fill — it's always the same "something new" accent regardless of
-// context, same reasoning as warningIconHtml/approvedCheckIconHtml above; the
-// wrapping span is aria-hidden since the badge's own aria-label already says
-// "unread changes".
+// The gold sparkle that rides on the left of the footer "What's New" link
+// while there are unread release notes (shared/app-shell.ts's
+// renderAppFooter). Fixed fill — it's always the same "something new" accent
+// regardless of context, same reasoning as warningIconHtml/
+// approvedCheckIconHtml above; the wrapping span is aria-hidden since the
+// link's own aria-label already says "unread changes".
 export function sparkleIconHtml(): string {
   return `
-    <span class="version-badge__sparkle" aria-hidden="true">
+    <span class="sparkle-icon" aria-hidden="true">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.6a2 2 0 0 0 1.3 1.3L21 12l-5.8 3.1a2 2 0 0 0-1.3 1.3L12 22l-1.9-5.6a2 2 0 0 0-1.3-1.3L3 12l5.8-3.1a2 2 0 0 0 1.3-1.3L12 2z"/></svg>
     </span>
   `;

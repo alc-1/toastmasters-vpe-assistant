@@ -333,7 +333,7 @@ src/
 │   │   │                             # ONE entrypoint, client-side hash-routed (#dashboard is the
 │   │   │                             # default; #setup, #syncData, ...), no full page reload
 │   │   │                             # between routes — see "The merged app/ SPA" below
-│   │   ├── index.html + main.ts     # the shell: #appShell/#viewRoot/#stepFooter roots + the router
+│   │   ├── index.html + main.ts     # the shell: #appShell/#viewRoot/#stepFooter/#appFooter roots + router
 │   │   ├── router.ts                # resolveRoute() — pure hash -> AppRoute resolution
 │   │   └── views/                   # plain TS modules, NOT entrypoints themselves (no index.html)
 │   │       ├── dashboard.ts         # the Home hub: setup-status banner + Global Settings card
@@ -376,7 +376,8 @@ src/
     ├── browser-action.ts    # actionApi = browser.action ?? browser.browserAction — see
     │                        # background/icon-state.ts below for why this fallback is required
     ├── countdown.ts         # shared auto-close-in-5s behavior for the two status pages above
-    ├── app-shell.ts         # shared header/nav bar (renderAppShell), rendered into #appShell once
+    ├── app-shell.ts         # shared header/nav bar (renderAppShell) + version/What's-New footer
+    │                        #   (renderAppFooter), rendered into #appShell / #appFooter once
     │                        # by entrypoints/app/main.ts (not per-view — see below)
     ├── app-tab.ts           # focusOrOpenAppTab() — finds-or-opens the merged app's tab on a given
     │                        # route, used by the popup instead of always opening a new tab
@@ -966,7 +967,9 @@ interstitials are tab-lifecycle-driven single-purpose confirmation pages.
   `shared/stepper-info.ts`'s `StepperInfo` — e.g. a bookmarked `#members` saved before Setup was ever
   finished) is redirected back to `"setup"`; the two hub features `#exporter` and `#report` are
   redirected to `"dashboard"` until `areFeaturesUnlocked(info)` (`shared/stepper-info.ts` — a
-  profile is chosen and both sources imported). `dashboard` and `globalSettings` are never gated.
+  profile is chosen and Basecamp data is imported; EasySpeak is optional, since `buildReport()`
+  tolerates a one-sided scrape — this is `syncData.partialDone`, distinct from the wizard step's
+  own `done`, which still needs both). `dashboard` and `globalSettings` are never gated.
 - **`shared/view.ts`** — the `ViewModule` contract every `entrypoints/app/views/*.ts` module
   implements: `mount(root): Promise<() => void>`. All DOM binding, event-listener registration, and
   per-visit state must happen inside `mount()`, not at module top level (unlike the old one-page-per-
@@ -1013,9 +1016,16 @@ entrypoint itself (no `index.html`, no separate build output):
   `getAnonymizeMode()`/`setAnonymizeMode()` as Global Settings — the two views deliberately both
   expose it and both re-render on `storage.onChanged`) and the **Save/Load Backup File** unit
   (`shared/backup.ts`, with `shared/modal.ts`'s `confirmModal()` gating the destructive restore); and
-  a **feature-card grid** linking to `#report`, `#exporter`, and a permanently-disabled "Coming soon"
-  Pathways Approval Helper placeholder (`[NEW]` badge). The two live cards render inert with a
-  "🔒 Requires Data Sync" badge until `areFeaturesUnlocked()`. A closure-scoped `restoreStatus`
+  a **feature-card grid** linking to `#report`, `#exporter`, and a permanently-disabled Pathways
+  Approval Helper placeholder (footer is a single `badge badge-soft` "Coming soon" tag — no
+  disabled CTA). All cards share one height (`.dashboard-features` `align-items: stretch` +
+  `.dashboard-tile` `height: 100%`) and `--space-5` padding; the two live feature cards render
+  inert with a "🔒 Requires imported data" badge + a disabled CTA preview until
+  `areFeaturesUnlocked()`. The status banner groups the headline + timestamp with the CTA on the
+  right (`.dashboard-status__action`) and the captioned step tracker on the left
+  (`.dashboard-status__progress`) — the tracker's current-step marker is an outlined-navy "you are
+  here" cue, deliberately *not* the filled/haloed look the interactive wizard stepper uses. A
+  closure-scoped `restoreStatus`
   survives the `storage.onChanged`-triggered re-render a successful restore itself causes, so the
   "Backup restored." line stays visible.
 - **`entrypoints/app/views/exporter.ts`** — the standalone "Download Excel Spreadsheet" view
@@ -1253,7 +1263,17 @@ entrypoint itself (no `index.html`, no separate build output):
   Previous/Next between steps, and on the last step (Member Review) a "Complete Setup" button
   instead of Next. The header brand (logo + title) is itself an `<a href="#dashboard">` — clicking
   it returns to the Home hub; `showStepper: false` (dashboard/exporter/report) drops the whole
-  stepper `<nav>` but keeps this header.
+  stepper `<nav>` but keeps this header. The header's right-side actions cluster holds only the
+  active-profile chip, the Privacy Mode toggle (its `<label>` wraps switch + text in one pill), and
+  the gear. `renderAppFooter(versionBadge)` is a separate export rendered by `main.ts` into
+  `#appFooter` (below `#viewRoot`/`#stepFooter`): a slim centred bar with the running version
+  string + a `<a href="#whatsNew">` "What's New" link. This replaced the old top-right version
+  badge + release-notes popover — version metadata is non-critical, so it left the toolbar. When
+  `versionBadge.hasUnread` (a changelog entry newer than `lastViewedVersion`) the link gains a gold
+  sparkle + a pulsing dot; `main.ts`'s delegated `#appFooter` click handler clears that state
+  optimistically and calls `markVersionViewed()` as the `#whatsNew` navigation proceeds. The
+  `lastViewedVersion`-only `storage.onChanged` guard in `main.ts` still applies (that write must
+  not trigger a chrome re-render).
 - **`shared/dom-utils.ts`** — `escapeHtml()` and `escapeAttr()`, shared by all extension pages. **Use
   `escapeAttr`, not `escapeHtml`, for any untrusted text (scraped member/path names) written into an
   HTML attribute value** (e.g. an `<option value="...">`, a `data-*` attribute) — `escapeHtml`'s
@@ -1426,20 +1446,68 @@ A few decisions worth knowing before changing the config:
   pre-WXT strictness level rather than surfacing a wave of unrelated "possibly undefined" errors
   project-wide; don't remove that override without fixing the resulting errors throughout
   `shared/sync/*`/`shared/parsers/*`/`tests/*` first.
-- **Tailwind (`tailwind.config.ts`/`postcss.config.js`/`tailwind-tokens.js`) is a design-token
-  source, not a utility-class framework used across markup.** `src/shared/styles.css` is still the
-  actual stylesheet every page links; Tailwind's role is that its `:root` custom-property block
-  resolves each value via Tailwind's `theme()` CSS function (`theme("colors.navy.700")`, etc.)
-  instead of restating hex/px literals, so `tailwind.config.ts`'s `theme.extend` is the single
-  source of truth those custom properties (and therefore every `var(--*)` consumer, including
-  per-page inline `<style>` blocks) resolve from. `content: ["./src/**/*.html", "./src/**/*.ts"]`
-  and Preflight is deliberately **off** (see the config file's own comments) — this app does not use
-  Tailwind utility classes in markup, only the `theme()` function inside `styles.css`. The brand
-  color palette itself lives in `tailwind-tokens.js`, imported by both this config and
-  `landing/tailwind.config.js` (see below) so the extension and the marketing site never hand-copy
-  the same hex values independently — but this app's own `tailwind.config.ts` layers extra
-  tokens (`--info`/`--disabled-bg`/`--border`, the `tm-gray`/`space-*` scales) on top that
-  `tailwind-tokens.js` doesn't cover and `landing/` has no use for.
+- **Tailwind CSS v4 (CSS-first) + daisyUI 5, utilities used directly in markup.** There is **no
+  `tailwind.config.ts` / `postcss.config.js`** — v4 is wired in as a Vite plugin
+  (`@tailwindcss/vite`) through `wxt.config.ts`'s `vite()` hook, and the theme lives entirely in
+  `src/shared/styles.css`:
+  - `@import "tailwindcss";` then an explicit `@layer theme, base, components, daisyui, app,
+    utilities;` — the app's own component classes sit in **`@layer app`**, after daisyUI, so a
+    semantic class (`.badge-exact`, `.card`, `.app-stepper`, `.tabs`) reliably wins over a
+    same-named daisyUI primitive, while plain utility classes in markup still win over component
+    defaults (utilities layer is last). Add new shared/reused components to `@layer app`; use
+    plain utilities in view markup for one-off layout/spacing (this reverses the old "no utilities
+    in markup" rule).
+  - `@plugin "daisyui" { themes: false }` + `@plugin "daisyui/theme"` define a single custom
+    `toastmasters` theme (Loyal Blue = `--color-primary`; `--color-secondary` is repurposed as the
+    app's light-grey neutral button, not a second brand accent; `--color-error` = the danger red).
+    daisyUI supplies the primitives — `btn` / `btn-primary` / `btn-secondary` / `btn-error` /
+    `btn-sm`, `toggle`, and (as they migrate) `badge` / `card` / `tabs` / `table` / `alert` /
+    `input` / `select` / `stats` / `modal`.
+  - An `@theme` block holds the notch-smaller type scale (`--text-xs`…`--text-xl` = 11–20px) and a
+    set of **legacy color tokens** (`--color-navy-700`, `--color-tm-gray-*`, `--color-surface*`,
+    `--color-*-bg`, …) kept only so the not-yet-migrated `@apply` rules in `@layer app` keep
+    compiling; a `:root` block holds the legacy `--space-*` / `--radius-*` / `--primary` / `--gray-*`
+    vars for the same reason. Both shrink as components migrate to daisyUI + utilities.
+  - **Watch for token-name collisions with daisyUI:** daisyUI owns `--border` (a border *width*),
+    `--radius-selector/field/box`, `--size-*`, `--depth`, `--noise`. The legacy border *color* is
+    `var(--color-base-300)`, never `var(--border)`.
+  - Preflight is **on** now (ships with `@import "tailwindcss"`); the old hand-rolled border reset
+    is gone.
+  - Firefox floor is **128** (`strict_min_version` in `wxt.config.ts`) — v4's generated CSS uses
+    `@property` / `color-mix()`.
+  - **`tailwind-tokens.js` is now only `landing/`'s** (a separate Tailwind 3 project). The
+    extension's brand hexes are mirrored into `styles.css`'s theme block with a cross-reference
+    comment; keep the two in sync when a brand color changes.
+  - **Migrated to daisyUI:** buttons (`btn` / `btn-primary` / `btn-secondary` / `btn-error` /
+    `btn-sm`), toggles (`toggle`), `confirmModal` (native `<dialog>` + `modal` / `modal-box`),
+    badges (`badge badge-soft badge-{success|info|warning|error}` — see `presenceBadgeClass()` /
+    `BADGE_TONE_CLASS` for the dynamic cases), club tabs (`tabs tabs-border` + `tab` /
+    `tab-active`), form controls (`input` / `select`, `-xs` / `-sm`, sized with utilities — every
+    `<select>` also carries `appearance-none`, daisyUI's documented opt-out of its
+    `appearance: base-select` picker styling, so the options list stays the OS-native popup while
+    the trigger keeps daisyUI's border/arrow/focus ring; the `appearance-none` utility lands in the
+    `utilities` layer, after `daisyui`, so it wins with no `!important`),
+    banners (`alert alert-{warning|info} alert-soft`), and the Sync Data "Export" menu (`dropdown`
+    — focus-based, so no open/close JS and no `document` listener; the Export radios update the
+    `.selected` class in place rather than re-rendering, or the focused radio would blur and
+    collapse the dropdown). The `.badge` / `.tabs` / `.alert` rules in `@layer app` are now thin
+    app-specific tweaks on top of daisyUI's base, not full components.
+  - **Known toolchain bug + workaround:** Tailwind v4's bundled Lightning CSS mangles daisyUI
+    5.7.22's dropdown show selector (`.dropdown:not(.dropdown-close):is(…, :focus-within)
+    .dropdown-content`) into an invalid `:focus-within)` — the panel never fades in. `styles.css`'s
+    `@layer app` has an explicit `.dropdown:focus-within > .dropdown-content { opacity: 1; scale: 1 }`
+    rule to restore it. Revisit if daisyUI or the Lightning CSS in `@tailwindcss/vite` is bumped.
+  - **The three dense tables** (Club Review, Club Progress "Next Level Summary", Member Review) are
+    **dual-rendered** — `renderXxxCard()` / a `.member-cards` etc. list marked `lg:hidden`,
+    alongside the `hidden lg:table` `<table>`, both from the same view-model and carrying the same
+    `data-*` attributes so the existing `querySelectorAll` handler binding covers whichever is on
+    screen (the ~600 lines of `grid-template-areas` + `:has()` transposition CSS are gone).
+  - **Still bespoke `@layer app` components** (kept deliberately — app-specific, no daisyUI
+    equivalent that improves them): the stepper (`.app-stepper*`), `.card` / `.card-header` /
+    `.card-body`, `.kpi-card`, the `.toolbar` / `.chip` filter row, `.dashboard-*`, `.app-header*`,
+    `.app-footer*` (the version + "What's New" bar), the option/region selectable cards,
+    welcome-page mockups.
+    `styles.css` is ~2,990 lines (was 3,595). Don't churn these for daisyUI's sake.
 
 ## Landing page (marketing site)
 

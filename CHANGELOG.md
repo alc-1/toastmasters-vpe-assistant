@@ -12,18 +12,14 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 - New Home screen: an overview of your club-data status and quick-access tiles for every tool.
 - Save a backup file of all your data and settings, and load it back later.
-- Current version now appears in the top bar. Clicking on it displays the latest changes with a link to the full history.
+- A footer on every screen shows the current version and a "What's New" link, with a dot when there are release notes you haven't read.
 
 ### Changed
 
-- Installing an update no longer opens the What's New page in a new tab; the top-bar version badge flags new release notes instead.
+- Installing an update no longer opens the What's New page in a new tab; the footer "What's New" link flags new release notes instead.
+- Refreshed the interface to have consistent buttons, toggles, and controls throughout. Firefox 128 or newer is now required.
 - Privacy Mode and the active profile are now shown in the top bar on every screen.
 - The setup wizard is now four steps, ending at Member Review; Club Progress is reached from a Home screen tile.
-- The popup's progress steps are now a read-only indicator; use "Open Home" or "What's New" to navigate. The Global Settings icon was removed from the popup header.
-
-### Fixed
-
-- The What's New page now shows the latest version's changes right after an update.
 
 ## [1.2.0] - 2026-08-28
 

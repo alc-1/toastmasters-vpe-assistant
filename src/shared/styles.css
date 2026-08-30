@@ -1,142 +1,207 @@
 /* src/shared/styles.css
  *
- * Tailwind entry point + shared design tokens/component classes for every
- * extension page (popup, options/*, status/*). Referenced via
- * <link rel="stylesheet" href="../shared/styles.css"> from each HTML entry —
- * Vite dedupes it into one hashed dist/assets/*.css chunk shared across all
- * pages, the same way shared JS modules already are.
+ * Tailwind CSS v4 entry point + daisyUI plugin + the extension's custom
+ * component layer, shared by every extension page (popup, app/*, welcome,
+ * status pages). Referenced via <link rel="stylesheet"> from each HTML entry;
+ * Vite dedupes it into one hashed /assets/*.css chunk.
  *
- * The :root custom properties below are resolved from tailwind.config.ts's
- * theme.extend (colors/fontSize/spacing/borderRadius) via Tailwind's theme()
- * CSS function, rather than a second set of hand-written literals — that
- * config is the single source of truth for every value; this block only
- * exists so each page's own residual \3c style> block for genuinely page-unique
- * layout (popup's fixed width, report's <col> widths, status pages' centered
- * layout) can keep referencing plain var(--*) instead of needing @apply
- * itself. Component rules in @layer components below use Tailwind's @apply
- * directly against the same underlying config.
+ * v4 is CSS-first: there is no tailwind.config.ts / postcss.config.js. The
+ * theme is defined below via daisyUI's custom "toastmasters" theme + a small
+ * @theme block. daisyUI supplies the primitives (btn / badge / card / modal /
+ * tabs / toggle / table / alert / input / select / stats / dropdown …) used
+ * directly in view markup; @layer components below holds only the components
+ * daisyUI has no equivalent for (the stepper, selectable option/region cards,
+ * the branded app header, dashboard feature tiles, the version popover).
  *
- * Toastmasters brand system: Loyal Blue is the primary brand color and also
- * doubles as the "info" accent (badges/hovers that used to be True Maroon
- * were switched to Loyal Blue — it clashed with the rest of the page), Cool
- * Gray is reserved for subtle brand-tinted borders, Happy Yellow is used
- * only for the app title text. Font stays the existing system sans-serif
- * stack — Inter isn't bundled anywhere in this project and adding it would
- * mean either a new npm dependency or a remote font request (blocked by
+ * Toastmasters brand: Loyal Blue (#004165) is --color-primary and also the
+ * "info" accent; Happy Yellow (#f2df74) is --color-accent, used only for the
+ * app-header title; Cool Gray for subtle brand-tinted borders. System
+ * sans-serif stack (no bundled web font — a remote font request is blocked by
  * MV3's default CSP anyway).
+ *
+ * Brand hex values are mirrored from ./tailwind-tokens.js (still the source of
+ * truth for landing/, which stays on Tailwind 3). Keep the two in sync when a
+ * brand color changes.
  */
+
+@import "tailwindcss";
+
+/* Cascade order: our app component layer sits *after* daisyUI so a semantic
+ * class (.badge-exact, .card, .app-stepper…) reliably wins over a same-named
+ * daisyUI primitive, while plain utility classes in markup still win over our
+ * component defaults (utilities layer is last). */
+@layer theme, base, components, daisyui, app, utilities;
+
+@plugin "daisyui" {
+  themes: false;
+}
+@plugin "daisyui/theme" {
+  name: "toastmasters";
+  default: true;
+  color-scheme: light;
+
+  --color-base-100: #ffffff; /* --surface */
+  --color-base-200: #f7f8fa; /* --surface-alt */
+  --color-base-300: #e2e8f0; /* --border */
+  --color-base-content: #222222; /* body text (--gray-900) */
+
+  --color-primary: #004165; /* Loyal Blue */
+  --color-primary-content: #ffffff;
+  /* "secondary" is the app's light-grey neutral button (btn-secondary) — not a
+     second brand accent. Kept muted so it reads as secondary to the navy CTA. */
+  --color-secondary: #e8ecf1;
+  --color-secondary-content: #3a4654;
+  --color-accent: #f2df74; /* Happy Yellow — header title only */
+  --color-accent-content: #002e47;
+  --color-neutral: #444444; /* --gray-700 */
+  --color-neutral-content: #ffffff;
+
+  --color-info: #004165;
+  --color-info-content: #ffffff;
+  --color-success: #2e7d32;
+  --color-success-content: #ffffff;
+  --color-warning: #d97706;
+  --color-warning-content: #ffffff;
+  --color-error: #c62828;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 999px; /* toggles, badges */
+  --radius-field: 4px; /* buttons, inputs, tabs */
+  --radius-box: 8px; /* cards, modals, alerts */
+
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* @theme: a notch-smaller type scale than Tailwind's default, the system font
+ * stack, plus legacy color/spacing/radius tokens still referenced by name in
+ * this file's @layer components (`@apply bg-navy-700`, `text-tm-gray-600`, …)
+ * and by a handful of var(--*) call sites in view markup. These shrink as
+ * views migrate to daisyUI primitives + plain utilities. */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-pill: 999px;
+
+  --color-navy-700: #004165;
+  --color-navy-800: #003654;
+  --color-navy-900: #002e47;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f7f8fa;
+  --color-border: #e2e8f0;
+  --color-silver: #a9b2b1;
+  --color-yellow-accent: #f2df74;
+  --color-tm-gray-900: #222222;
+  --color-tm-gray-700: #444444;
+  --color-tm-gray-600: #666666;
+  --color-success-bg: #e6f4ea;
+  --color-warning-text: #92400e;
+  --color-warning-bg: #fef3e2;
+  --color-danger: #c62828;
+  --color-danger-bg: #fdecea;
+  --color-info-bg: #e3ecf3;
+  --color-disabled: #aaaaaa;
+}
 
 :root {
-  /* Toastmasters brand — resolved from tailwind.config.ts's navy/yellow/
-     silver color scales via theme(), not restated as literals. */
-  --tm-navy: theme("colors.navy.700"); /* Loyal Blue */
-  --tm-navy-hover: theme("colors.navy.800");
-  --tm-navy-active: theme("colors.navy.900");
-  --tm-silver: theme("colors.silver.DEFAULT"); /* Cool Gray */
-  --tm-yellow: theme("colors.yellow.accent"); /* Happy Yellow — app-header__title only, nowhere else */
+  --primary: #004165;
+  --primary-hover: #003654;
+  --primary-active: #002e47;
+  --tm-navy: #004165;
+  --tm-silver: #a9b2b1;
+  --tm-yellow: #f2df74;
 
-  /* Semantic roles — component rules reference these, not the physical
-     --tm-* variables directly, so a future re-theme only touches these. */
-  --primary: var(--tm-navy);
-  --primary-hover: var(--tm-navy-hover);
-  --primary-active: var(--tm-navy-active);
+  --success: #2e7d32;
+  --success-bg: #e6f4ea;
+  --warning: #d97706;
+  --warning-text: #92400e;
+  --warning-bg: #fef3e2;
+  --danger: #c62828;
+  --danger-bg: #fdecea;
+  --info: #004165;
+  --info-bg: #e3ecf3;
+  --disabled-bg: #aaaaaa;
 
-  /* Semantic status colors — one solid + one pale-bg tint each. --warning's
-     solid value (theme("colors.warning.DEFAULT")) is too light for AA-safe
-     small bold text on its own tint, so --warning-text is a darkened variant
-     used specifically for badge/label text; --warning itself stays available
-     for larger accents/icons where that headroom doesn't matter. --success
-     and --danger are dark enough to double as their own text color. */
-  --success: theme("colors.success.DEFAULT");
-  --success-bg: theme("colors.success.bg");
-  --warning: theme("colors.warning.DEFAULT");
-  --warning-text: theme("colors.warning.text");
-  --warning-bg: theme("colors.warning.bg");
-  --danger: theme("colors.danger.DEFAULT");
-  --danger-bg: theme("colors.danger.bg");
-  --info: var(--tm-navy);
-  --info-bg: theme("colors.info.bg");
-  --disabled-bg: theme("colors.disabled.DEFAULT");
+  --surface: #ffffff;
+  --surface-alt: #f7f8fa;
+  /* NB: no legacy --border here — that name is daisyUI's border-WIDTH token.
+     Border color is var(--color-base-300); see the sed in the v4 migration. */
 
-  /* Surfaces (cards, page background, dividers) */
-  --surface: theme("colors.surface.DEFAULT");
-  --surface-alt: theme("colors.surface.alt");
-  --border: theme("colors.border.DEFAULT");
+  --gray-900: #222222;
+  --gray-700: #444444;
+  --gray-600: #666666;
 
-  /* Text grays — not part of the brand palette above, still needed for
-     body copy / muted text and kept separate from --border on purpose
-     (a border color and a text color drifting apart independently is
-     fine; collapsing them would just be coincidental). */
-  --gray-900: theme("colors.tm-gray.900"); /* body text */
-  --gray-700: theme("colors.tm-gray.700"); /* secondary-btn text, inactive tabs */
-  --gray-600: theme("colors.tm-gray.600"); /* the one "muted but AA-readable" text color */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 20px;
 
-  --text-xs: theme("fontSize.xs");
-  --text-sm: theme("fontSize.sm");
-  --text-base: theme("fontSize.base");
-  --text-md: theme("fontSize.md");
-  --text-lg: theme("fontSize.lg");
-  --text-xl: theme("fontSize.xl");
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
 
-  --space-1: theme("spacing.space-1");
-  --space-2: theme("spacing.space-2");
-  --space-3: theme("spacing.space-3");
-  --space-4: theme("spacing.space-4");
-  --space-5: theme("spacing.space-5");
-  --space-6: theme("spacing.space-6");
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-pill: 999px;
 
-  --radius-sm: theme("borderRadius.sm"); /* inputs */
-  --radius-md: theme("borderRadius.md"); /* buttons, boxes, banners, cards — the brand target */
-  --radius-pill: theme("borderRadius.pill"); /* badges, chips, count badges */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
-  --font-sans: theme("fontFamily.sans");
-
-  /* Home dashboard feature-tile icon badges only (one accent per tile) —
-     resolved from tailwind.config.ts's namespaced tile-* color scales. */
-  --tile-indigo: theme("colors.tile-indigo.DEFAULT");
-  --tile-indigo-bg: theme("colors.tile-indigo.bg");
-  --tile-emerald: theme("colors.tile-emerald.DEFAULT");
-  --tile-emerald-bg: theme("colors.tile-emerald.bg");
-  --tile-amber: theme("colors.tile-amber.DEFAULT");
-  --tile-amber-bg: theme("colors.tile-amber.bg");
-  --tile-slate: theme("colors.tile-slate.DEFAULT");
-  --tile-slate-bg: theme("colors.tile-slate.bg");
+  --tile-indigo: #4f46e5;
+  --tile-indigo-bg: #eef2ff;
+  --tile-emerald: #047857;
+  --tile-emerald-bg: #ecfdf5;
+  --tile-amber: #b45309;
+  --tile-amber-bg: #fffbeb;
+  --tile-slate: #475569;
+  --tile-slate-bg: #f1f5f9;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Preflight is off (see tailwind.config.ts), but Tailwind's border-width/
- * border-color utilities (used all over @layer components below via
- * `border`/`border-t`/`border-b`/`border-border` etc.) only ever set
- * border-width and border-color — never border-style. Preflight normally
- * supplies that piece globally so those utilities render at all. The reset
- * is two properties together, not one: `border-width: 0` AND
- * `border-style: solid` on every element. Setting style alone (a bug in an
- * earlier version of this rule) is actively worse than setting neither —
- * the browser's own initial border-width is `medium` (~3-4px), which
- * `border-style: none` had been suppressing entirely; making style solid
- * without also zeroing the width makes that ~3-4px default border render,
- * in the current text color, on every single element on the page that
- * doesn't have an explicit border-width utility. With both properties reset
- * together, an element stays borderless until something explicitly gives it
- * a border-width (at which point Tailwind's/this file's border-color
- * utilities can style it), which is the actual Preflight behavior.
- */
-@layer base {
-  *,
-  ::before,
-  ::after {
-    border-width: 0;
-    border-style: solid;
+@layer app {
+  /* daisyUI 5.7.22's dropdown show rule is
+     `.dropdown:not(.dropdown-close):is(.dropdown-open, :focus, :focus-within) .dropdown-content`
+     — Tailwind v4's bundled Lightning CSS mangles the nested `:is()` into an
+     invalid `:focus-within)` selector, so the panel never actually fades in
+     (it stays opacity:0). Restore the intended behavior here. daisyUI's hide
+     rule (a plain `:not(…, :focus-within)`) is unaffected, so blur/Esc still
+     dismiss it. */
+  .dropdown:focus-within > .dropdown-content,
+  .dropdown:focus > .dropdown-content {
+    opacity: 1;
+    scale: 1;
   }
-}
 
-@layer components {
   /* ---------------------------------------------------------------------- */
   /* Page containers                                                        */
   /* ---------------------------------------------------------------------- */
+
+  /* daisyUI 5's rootcolor.css sets `background-color` on `:root`, which takes
+     over the CSS "propagate the <body> background to the canvas" rule — so
+     <body>'s own background (centered here, with a max-width) only painted its
+     own box, leaving the root's base-100 colour showing in the side gutters on
+     a wide viewport and below short content. Mirror the page background onto
+     the root so it covers the whole page; the popup keeps its white surface. */
+  html {
+    @apply bg-surface-alt;
+  }
+
+  html:has(.page--popup) {
+    @apply bg-surface;
+  }
 
   body {
     @apply font-sans mx-auto text-tm-gray-900 bg-surface-alt;
@@ -182,6 +247,72 @@
   .page--popup {
     @apply m-0 p-3 bg-surface;
     min-width: 360px;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Popup-only layout — moved here from popup/index.html's inline <style>  */
+  /* (the extension's last one) so lint:css covers it. All popup-scoped.    */
+  /* ---------------------------------------------------------------------- */
+
+  .page--popup .app-header__title {
+    font-size: var(--text-md);
+  }
+
+  /* shared/styles.css only clamps the subtitle inside @media (max-width:
+     1024px), meant for a real narrow browser window — this unconditional
+     override keeps the popup's own clamping independent of that media query
+     (measurement-pass vs. final-layout viewport differences were a real,
+     measured source of Chromium popup auto-resize instability). 2 lines, not
+     1: at min-width 400px the full sentence still doesn't always fit on one. */
+  .page--popup .app-header__subtitle {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  #popupStepperRoot .app-stepper--vertical {
+    margin-bottom: 0;
+  }
+
+  /* The popup stepper is a read-only progress indicator — strip the clickable
+     affordances (hover bg/label tint, pointer cursor) the shared
+     .app-stepper--vertical rules add for the in-app nav. */
+  #popupStepperRoot .app-stepper__step {
+    cursor: default;
+  }
+
+  #popupStepperRoot .app-stepper__step:hover {
+    background: transparent;
+  }
+
+  #popupStepperRoot .app-stepper__step:hover .app-stepper__label {
+    color: inherit;
+  }
+
+  .popup-home {
+    padding: var(--space-3) 0 0;
+  }
+
+  .popup-home__btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .popup-footer {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-3) 0 var(--space-2);
+  }
+
+  .popup-footer__link {
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+    text-decoration: none;
+  }
+
+  .popup-footer__link:hover {
+    text-decoration: underline;
   }
 
   /* Page title — was copy-pasted identically (bare `h1` selector) across
@@ -333,55 +464,47 @@
     flex-shrink: 0;
   }
 
+  /* The switch + its "Privacy Mode" label sit in one pill (mirroring the
+     profile chip beside it) so the control reads as a single labelled unit
+     rather than a loose toggle next to loose text. */
   .app-header__privacy {
-    @apply text-sm;
+    @apply text-sm rounded-pill;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    color: rgba(255, 255, 255, 0.9);
+    padding: var(--space-1) var(--space-3);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
     font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.15s ease;
   }
 
-  /* Recolor the shared .toggle-switch (defined near .toggle-row below) for
-     the navy header bar: a translucent-white track that fills solid white
-     when on, with the thumb inverting to navy so the "on" state still reads
-     at a glance against the dark bar. */
-  .app-header__privacy .toggle-switch {
-    background: rgba(255, 255, 255, 0.3);
+  .app-header__privacy:hover {
+    background: rgba(255, 255, 255, 0.2);
   }
 
-  .app-header__privacy .toggle-switch::after {
-    background: white;
+  .app-header__privacy-lock {
+    line-height: 1;
   }
 
-  .app-header__privacy .toggle-switch__input:checked + .toggle-switch {
-    background: white;
+  /* Recolor daisyUI's <input class="toggle"> for the navy header bar: a
+     translucent-white track/border that fills solid white (navy knob) when on,
+     so the "on" state still reads against the dark bar. */
+  .app-header__privacy .toggle {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.6);
+    --input-color: rgba(255, 255, 255, 0.9);
   }
 
-  .app-header__privacy .toggle-switch__input:checked + .toggle-switch::after {
-    background: var(--primary);
+  .app-header__privacy .toggle:checked {
+    background-color: #ffffff;
+    color: var(--primary);
   }
 
-  .app-header__privacy .toggle-switch__input:focus-visible + .toggle-switch {
-    outline-color: white;
-  }
-
-  @media (max-width: 1024px) {
-    /* The narrow header can't fit the brand + a text chip + the toggle. The
-       active profile is still one tap away (the stepper's Setup step, or the
-       Setup page itself), so the chip drops out here; the Privacy toggle —
-       the control the user asked to have always at hand — stays, shrunk to
-       just its switch + lock glyph. */
-    .app-header__profile {
-      display: none;
-    }
-
-    /* Keep the switch + lock glyph; drop just the "Privacy Mode" words. */
-    .app-header__privacy-text {
-      display: none;
-    }
-  }
+  /* The narrow-header overrides live further down, right after the base
+     .app-header__* rules (so they actually win) — see the @media blocks below
+     .app-header__subtitle. */
 
   /* Header gear icon linking to the Global Settings page (shared/pages.ts's
      PAGES.globalSettings) — reached from every wizard page + the popup, not
@@ -433,178 +556,100 @@
     display: block;
   }
 
-  /* Header version badge + release-notes popover (shared/app-shell.ts's
-     renderVersionBadge; toggle/dismiss handlers in entrypoints/app/main.ts).
-     Update surface in the header actions cluster showing the running version,
-     with a click-to-open popover summarising the latest release. Two states
-     ("Option B"): a high-contrast white pill with a gold sparkle + pulsing
-     red dot while a newer changelog entry hasn't been seen, reverting to a
-     quiet transparent pill once it has. Anchoring mirrors
-     .export-popover-wrapper / .export-popover further down. */
-  .version-badge-wrap {
-    position: relative;
-    flex-shrink: 0;
+  /* App footer (shared/app-shell.ts's renderAppFooter; click handler in
+     entrypoints/app/main.ts) — a slim, centred bar under the view content on
+     every merged-app route, carrying the running version string + a "What's
+     New" link into the #whatsNew view. This replaced the old header version
+     badge: version metadata is non-critical, so it no longer competes for
+     space in the top-right actions cluster. When there are unread release
+     notes the link carries a gold sparkle + a pulsing dot. */
+  .app-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-top: var(--space-6);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--color-base-300);
   }
 
-  /* Read/default state: a quiet, transparent pill that recedes into the
-     navy header once the user has seen the latest notes. */
-  .version-badge {
-    @apply text-xs rounded-pill;
+  .app-footer__version,
+  .app-footer__sep {
+    @apply text-xs text-tm-gray-600;
+  }
+
+  .app-footer__link {
+    @apply text-xs text-navy-700 rounded-sm;
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.75);
-    background: rgba(255, 255, 255, 0.1);
-    font-family: inherit;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    font-weight: 600;
+    text-decoration: none;
   }
 
-  .version-badge:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
+  .app-footer__link:hover {
+    text-decoration: underline;
   }
 
-  .version-badge:focus-visible {
-    outline: 2px solid #ffffff;
+  .app-footer__link--unread {
+    font-weight: 700;
+  }
+
+  .app-footer__link:focus-visible {
+    @apply outline-navy-700;
+    outline-style: solid;
+    outline-width: 2px;
     outline-offset: 2px;
   }
 
-  /* Unread state ("Option B"): a high-contrast white pill that stands out
-     against the navy header, carrying a gold sparkle + a pulsing red dot.
-     entrypoints/app/main.ts strips this modifier the moment the popover
-     opens; the next chrome render then drops it from the markup for good. */
-  .version-badge--unread {
-    @apply text-tm-gray-900;
-    padding: var(--space-1) var(--space-3);
-    border-color: transparent;
-    background: #ffffff;
-    font-weight: 600;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-  }
-
-  .version-badge--unread:hover {
-    @apply text-tm-gray-900;
-    background: #f1f5f9;
-  }
-
-  .version-badge__sparkle {
+  .sparkle-icon {
     display: inline-flex;
     flex-shrink: 0;
     color: var(--warning);
   }
 
-  .version-badge__sparkle svg {
+  .sparkle-icon svg {
     display: block;
   }
 
-  /* Pulsing red notification dot on the right of the unread badge: a solid
-     core with a second span scaling up + fading out behind it (the standard
-     "ping" effect), suppressed under prefers-reduced-motion. */
-  .version-badge__dot {
+  /* Pulsing notification dot after the "What's New" text while release notes
+     are unread: a solid core with a second span scaling up + fading out
+     behind it (the standard "ping" effect), suppressed under
+     prefers-reduced-motion. */
+  .app-footer__dot {
     position: relative;
     display: inline-flex;
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     margin-left: 2px;
     flex-shrink: 0;
   }
 
-  .version-badge__dot-ping,
-  .version-badge__dot-core {
+  .app-footer__dot-ping,
+  .app-footer__dot-core {
     position: absolute;
     inset: 0;
     border-radius: 50%;
     background: var(--danger);
   }
 
-  .version-badge__dot-ping {
-    animation: version-badge-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+  .app-footer__dot-ping {
+    animation: app-footer-dot-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
   }
 
-  @keyframes version-badge-ping {
+  @keyframes app-footer-dot-ping {
     75%,
     100% {
-      transform: scale(2.2);
+      transform: scale(2.4);
       opacity: 0;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .version-badge__dot-ping {
+    .app-footer__dot-ping {
       animation: none;
     }
-  }
-
-  .version-popover {
-    @apply bg-surface border border-border rounded-md;
-    position: absolute;
-    right: 0;
-    top: calc(100% + var(--space-2));
-    z-index: 30;
-    width: 288px;
-    padding: var(--space-4);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
-  }
-
-  .version-popover[hidden] {
-    display: none;
-  }
-
-  @media (max-width: 1024px) {
-    .version-popover {
-      width: min(288px, calc(100vw - 32px));
-    }
-  }
-
-  .version-popover__head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-2);
-    margin-bottom: var(--space-2);
-  }
-
-  .version-popover__version {
-    @apply text-sm text-tm-gray-900;
-    font-weight: 600;
-  }
-
-  .version-popover__date {
-    @apply text-xs text-tm-gray-600;
-    flex-shrink: 0;
-  }
-
-  .version-popover__list {
-    margin: 0 0 var(--space-3);
-    padding-left: var(--space-4);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-
-  .version-popover__list li {
-    @apply text-sm text-tm-gray-700;
-    line-height: 1.4;
-  }
-
-  .version-popover__empty {
-    @apply text-sm text-tm-gray-600;
-    margin: 0 0 var(--space-3);
-  }
-
-  .version-popover__footer {
-    @apply text-xs text-navy-700;
-    display: inline-block;
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .version-popover__footer:hover {
-    text-decoration: underline;
   }
 
   .app-header__logo {
@@ -631,17 +676,60 @@
     @apply text-sm;
     font-weight: 400;
     line-height: 1.4;
-    color: rgba(255, 255, 255, 0.85);
+    /* Near-opaque white on navy-700 (~10:1) — comfortably past WCAG AA for
+       this small body text; the previous 0.85 sat lower. */
+    color: rgba(255, 255, 255, 0.95);
   }
 
-  /* Clamp the full-sentence subtitle to one line on phones — full height would
-     otherwise push the stepper/content further below the fold than needed. */
+  /* Narrow-header overrides. Placed here — after every base .app-header__*
+     rule — so they win on source order (equal specificity). The narrow header
+     can't fit the brand + profile chip + full toggle label, so: the chip and
+     the "Privacy Mode" words drop (the toggle + lock glyph stay), the logo +
+     title + spacing shrink, and the full-sentence subtitle clamps to one line
+     so it doesn't push content below the fold. */
   @media (max-width: 1024px) {
+    .app-header__profile,
+    .app-header__privacy-text {
+      display: none;
+    }
+
+    .app-header__brand {
+      gap: var(--space-2);
+      padding: var(--space-3);
+    }
+
+    .app-header__logo {
+      width: 36px;
+      height: 36px;
+    }
+
+    .app-header__title {
+      font-size: var(--text-md);
+    }
+
+    .app-header__actions {
+      gap: var(--space-2);
+      margin-right: var(--space-3);
+    }
+
     .app-header__subtitle {
       display: -webkit-box;
       -webkit-line-clamp: 1;
       -webkit-box-orient: vertical;
       overflow: hidden;
+    }
+  }
+
+  /* Very narrow (≤360px — rare, sub-iPhone-SE): drop the title another step +
+     tighten its leading so "Toastmasters VPE Assistant" still fits two lines. */
+  @media (max-width: 360px) {
+    .app-header__title {
+      font-size: var(--text-sm);
+      line-height: 1.2;
+    }
+
+    .app-header__subtitle {
+      font-size: var(--text-xs);
     }
   }
 
@@ -824,7 +912,7 @@
       flex-direction: column;
       margin-top: var(--space-2);
       padding-top: var(--space-2);
-      border-top: 1px solid var(--border);
+      border-top: 1px solid var(--color-base-300);
     }
 
     .app-stepper.expanded .app-stepper__list {
@@ -1127,76 +1215,11 @@
     color: var(--gray-700);
   }
 
-  .whats-new__from-select {
-    @apply text-sm;
-    padding: 4px 6px;
-  }
 
   /* Lock glyph before the "Privacy Mode" card title on Global Settings,
      mirroring the header's own .app-header__privacy-lock. */
   .settings-lock-icon {
     margin-right: var(--space-2);
-  }
-
-  /* Global Settings' Privacy Mode row + the header's Privacy Mode control
-     both use .toggle-switch below for the control itself. */
-  .toggle-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    font-weight: 600;
-    cursor: pointer;
-    margin-bottom: var(--space-2);
-  }
-
-  /* Toggle switch — a visually-hidden real checkbox (.toggle-switch__input,
-     kept as the actual control so <label> wrapping and delegated change
-     handlers keyed on its id keep working) followed by a CSS track/thumb
-     span. Track/thumb colors are overridden per context — see
-     .app-header__privacy above for the navy-bar variant. */
-  .toggle-switch__input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .toggle-switch {
-    position: relative;
-    flex-shrink: 0;
-    width: 36px;
-    height: 20px;
-    border-radius: var(--radius-pill);
-    background: var(--disabled-bg);
-    transition: background-color 0.15s ease;
-  }
-
-  .toggle-switch::after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    border-radius: var(--radius-pill);
-    background: var(--surface);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-    transition: transform 0.15s ease;
-  }
-
-  .toggle-switch__input:checked + .toggle-switch {
-    background: var(--primary);
-  }
-
-  .toggle-switch__input:checked + .toggle-switch::after {
-    transform: translateX(16px);
-  }
-
-  .toggle-switch__input:focus-visible + .toggle-switch {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -1224,7 +1247,8 @@
     @apply border-navy-700;
   }
 
-  .option-card.selected {
+  .option-card.selected,
+  .option-card:has(input:checked) {
     @apply border-navy-700 bg-info-bg;
   }
 
@@ -1400,44 +1424,20 @@
     gap: var(--space-4);
   }
 
-  .export-popover-wrapper {
-    position: relative;
-    flex-shrink: 0;
-  }
-
-  .export-menu-btn__caret {
-    font-size: 10px;
-    margin-left: 2px;
-  }
-
-  .export-popover {
-    @apply bg-surface border border-border rounded-md;
-    position: absolute;
-    right: 0;
-    top: calc(100% + var(--space-2));
-    z-index: 20;
-    width: 300px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.18);
-    padding: var(--space-4);
-  }
-
-  @media (max-width: 1024px) {
-    .export-popover {
-      width: min(300px, calc(100vw - 32px));
-    }
-  }
-
-  .export-popover__title {
-    @apply text-sm text-tm-gray-900;
-    font-weight: 600;
-    margin-bottom: var(--space-2);
-  }
+  /* The Sync Data "Export" menu is a daisyUI `dropdown dropdown-end`; its
+     trigger + panel are styled with utilities in the markup. */
 
   .sync-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: var(--space-4);
     margin-bottom: var(--space-5);
+    /* Each card takes its natural height — don't stretch the shorter card to
+       match its sibling. Once one source is imported (adding a result line +
+       an expandable "View details" block below its button) the two cards are
+       legitimately different heights, and stretching the other one just
+       stranded its Import button at the bottom of a tall empty column. */
+    align-items: start;
   }
 
   @media (max-width: 1024px) {
@@ -1463,6 +1463,14 @@
     margin: 0;
   }
 
+  /* daisyUI's card component sets `.card-body p { flex-grow: 1 }` (see
+     node_modules/daisyui/components/card) — left as-is, a status <p> would
+     absorb any spare column height and shove the member count / Import
+     button / details down. These paragraphs must keep their natural height. */
+  .sync-card__body > p {
+    flex-grow: 0;
+  }
+
   /* Imported-state result (see entrypoints/app/views/syncData.ts's
      renderSourceCard): member count + imported-at time on one line — the
      "imported" fact itself is already shown by the badge above, so it's
@@ -1476,24 +1484,42 @@
     margin-bottom: 2px;
   }
 
+  /* daisyUI's .btn is an inline-flex row with a fixed height — left alone,
+     the two label spans sit side by side and get clipped. Force a centered
+     vertical stack and let the button grow to fit both lines. The button
+     follows its card's content directly (no `margin-top: auto`): the cards
+     no longer stretch to equal height (see .sync-cards), so pinning it to
+     the bottom would just open a gap above it on the shorter card. In the
+     pristine state both cards hold identical content, so the buttons still
+     line up. */
   .sync-card__action {
     width: 100%;
+    height: auto;
+    margin-top: var(--space-2);
+    flex-direction: column;
+    align-items: center;
+    padding-block: var(--space-2);
   }
 
   /* Each source's Import/Re-import button carries its "opens a new tab"
-     explanation as a permanent second line rather than a separate <p>
-     below it — display:block stacks the two spans without needing flex
-     on the button itself. */
+     explanation as a permanent second line below the button name, both
+     centered. */
   .sync-card__action-label {
     display: block;
+    text-align: center;
     font-weight: 600;
   }
 
   .sync-card__action-sublabel {
     display: block;
+    text-align: center;
     font-size: 12px;
     font-weight: 400;
     margin-top: 2px;
+    /* Reserve two lines so a source whose explanation wraps (Basecamp) and
+       one whose doesn't (EasySpeak) still produce the same button height,
+       keeping the two buttons' top edges aligned as well as their bottoms. */
+    min-height: 2.8em;
     opacity: 0.75; /* inherits the button's own text color (white on
                        .btn-primary, navy on .btn-secondary once re-import
                        swaps the button's tone) rather than a fixed gray
@@ -1565,94 +1591,57 @@
     margin-top: 2px;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Buttons                                                                 */
-  /* ---------------------------------------------------------------------- */
-
-  .btn {
-    @apply text-base rounded-sm;
-    padding: var(--space-2) var(--space-3);
-    cursor: pointer;
-    border: none;
-  }
-
-  .btn-primary {
-    @apply bg-navy-700;
-    color: white;
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    @apply bg-navy-800;
-  }
-
-  .btn-primary:active:not(:disabled) {
-    @apply bg-navy-900;
-  }
-
-  .btn-secondary {
-    @apply bg-surface-alt text-tm-gray-700 border border-border;
-  }
-
-  /* Destructive confirm — currently only the Home dashboard's "Load Backup
-     File" modal (shared/modal.ts). */
-  .btn-danger {
-    @apply bg-danger;
-    color: white;
-  }
-
-  /* Smaller variant, same colors as .btn-primary/.btn-secondary — used
-     where a bare .btn's default size is too large (e.g. Member Review's
-     inline row actions). Additive: pair with .btn/.btn-primary or
-     .btn/.btn-secondary rather than standing alone. */
-  .btn-sm {
-    @apply text-xs;
-    padding: 4px 8px;
-  }
-
-  .btn:disabled {
-    @apply bg-disabled;
-    color: white;
-    border-color: transparent;
-    cursor: not-allowed;
-  }
-
-  /* Mirrors .btn:disabled for the non-button <span> case used by a locked
-     step-footer Next button (see shared/app-shell.ts's renderStepFooter()) —
-     a <span> can't be a real disabled form control. */
-  .btn[aria-disabled="true"] {
-    @apply bg-disabled;
-    color: white;
-    border-color: transparent;
-    cursor: not-allowed;
-    pointer-events: none;
-  }
+  /* Buttons are daisyUI's `btn` / `btn-primary` (navy CTA) / `btn-secondary`
+     (light-grey neutral) / `btn-error` (destructive) / `btn-sm`. Only the
+     app-specific extras live here. */
 
   /* ---------------------------------------------------------------------- */
   /* Home dashboard (entrypoints/app/views/dashboard.ts)                     */
   /* ---------------------------------------------------------------------- */
 
   /* Club-data status hero banner — a soft-tinted box (not a .card) sitting
-     directly below the app header, the status headline + step tracker on the
-     left, the Start/Continue Setup / Refresh action on the right. */
+     directly below the app header. The read-only step tracker is on the left
+     (.dashboard-status__progress); the status headline + timestamp + the
+     Start/Continue Setup / Refresh action are grouped on the right
+     (.dashboard-status__action) so the data-status readout and the action
+     that changes it read as one unit. */
   .dashboard-status {
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-radius: var(--radius-md);
     background: var(--surface-alt);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-4);
+    gap: var(--space-4) var(--space-5);
     margin-bottom: var(--space-5);
     padding: var(--space-4) var(--space-5);
   }
 
-  .dashboard-status__main {
+  .dashboard-status__progress {
     display: flex;
     flex: 1 1 320px;
     min-width: 0;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .dashboard-status__caption {
+    @apply text-xs text-tm-gray-600;
+    margin: 0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* The status readout + timestamp + CTA, stacked and right-aligned so they
+     bind together visually against the CTA button below them. */
+  .dashboard-status__action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-1);
+    flex-shrink: 0;
   }
 
   .dashboard-status__headline {
@@ -1697,6 +1686,7 @@
 
   .dashboard-status__cta {
     min-height: 44px;
+    margin-top: var(--space-1);
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
@@ -1725,7 +1715,7 @@
     @apply text-xs;
     width: 20px;
     height: 20px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--color-base-300);
     border-radius: var(--radius-pill);
     background: var(--surface);
     color: var(--gray-600);
@@ -1766,25 +1756,26 @@
   }
 
   /* The current step — the furthest one reached, which the banner's CTA
-     links to. Filled navy marker + halo + bold navy label, mirroring the
-     navy "Continue Setup →" button so the two read as one unit. */
+     links to. A quiet "you are here" emphasis only: an outlined navy marker
+     + navy label, deliberately NOT the filled/haloed treatment the
+     interactive wizard stepper uses for its active step, so this tracker
+     stays legible as a read-only progress indicator. */
   .dashboard-tracker__step.is-current .dashboard-tracker__marker {
-    border-color: transparent;
-    background: var(--primary);
-    color: white;
-    box-shadow: 0 0 0 3px var(--info-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--surface);
   }
 
   .dashboard-tracker__step.is-current .dashboard-tracker__name {
     @apply text-navy-700;
-    font-weight: 700;
+    font-weight: 600;
   }
 
   .dashboard-tracker__connector {
     flex: 1 1 12px;
     min-width: 12px;
     height: 1px;
-    background: var(--border);
+    background: var(--color-base-300);
   }
 
   .dashboard-tracker--narrow {
@@ -1807,18 +1798,221 @@
       padding: var(--space-4);
     }
 
+    .dashboard-status__action {
+      align-items: stretch;
+      width: 100%;
+    }
+
     .dashboard-status__cta {
       width: 100%;
       justify-content: center;
     }
   }
 
-  /* Feature-tile grid — real two columns above the breakpoint, stacked below. */
+  /* "Setup Complete" panel — replaces the in-progress status banner above
+     once all four setup steps are done (entrypoints/app/views/dashboard.ts's
+     renderSetupCompletePanel). A calm one-line confirmation bar (check +
+     "SETUP COMPLETE (4/4 Steps)" + last-sync + the toggle and Refresh Data
+     buttons) that expands to a per-step recap. The expand/collapse is
+     animated with the grid-template-rows 0fr->1fr technique (needs the inner
+     wrapper's overflow:hidden + min-height:0 to clip) — fine on the Firefox
+     128 floor. `.is-open` is toggled by dashboard.ts's delegated bannerRoot
+     click handler; the freshly re-rendered markup reads the same flag for
+     its initial state. */
+  .setup-complete {
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    margin-bottom: var(--space-5);
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .setup-complete__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-4);
+  }
+
+  .setup-complete__check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: var(--radius-pill);
+    background: var(--success-bg);
+    color: var(--success);
+    font-weight: 700;
+  }
+
+  .setup-complete__headline {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  .setup-complete__title {
+    @apply text-sm text-tm-gray-900;
+    margin: 0;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .setup-complete__sub {
+    @apply text-xs text-tm-gray-600;
+    margin: 2px 0 0;
+  }
+
+  .setup-complete__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+  }
+
+  .setup-complete__chevron {
+    display: inline-block;
+    margin-left: var(--space-1);
+    font-size: 10px;
+    transition: transform 0.2s ease;
+  }
+
+  .setup-complete.is-open .setup-complete__chevron {
+    transform: rotate(180deg);
+  }
+
+  .setup-complete__details {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s ease;
+  }
+
+  .setup-complete.is-open .setup-complete__details {
+    grid-template-rows: 1fr;
+  }
+
+  .setup-complete__details-inner {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .setup-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin: var(--space-4) 0 0;
+    padding: var(--space-4) 0 0;
+    list-style: none;
+    border-top: 1px solid var(--color-base-300);
+  }
+
+  .setup-steps__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+
+  .setup-steps__marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    border-radius: var(--radius-pill);
+    background: var(--success-bg);
+    color: var(--success);
+    font-size: var(--text-xs);
+    font-weight: 700;
+  }
+
+  .setup-steps__text {
+    flex: 1 1 200px;
+    min-width: 0;
+  }
+
+  .setup-steps__name {
+    @apply text-sm text-tm-gray-900;
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .setup-steps__detail {
+    @apply text-xs text-tm-gray-700;
+    margin: 2px 0 0;
+  }
+
+  .setup-steps__meta {
+    @apply text-tm-gray-600;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .setup-steps__action {
+    flex-shrink: 0;
+  }
+
+  /* Setup is "complete" but Member Review still has unresolved matches — the
+     panel header marker, its sub-line, and Step 4's row all switch to the
+     same amber "!" treatment the in-progress tracker uses for that step
+     (.dashboard-tracker__step.is-warning above). */
+  .setup-complete.has-review .setup-complete__check {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+  }
+
+  .setup-complete.has-review .setup-complete__sub {
+    color: var(--warning-text);
+    font-weight: 600;
+  }
+
+  .setup-steps__row.is-warning {
+    border-color: var(--warning);
+  }
+
+  .setup-steps__row.is-warning .setup-steps__marker {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+  }
+
+  .setup-steps__row.is-warning .setup-steps__name {
+    color: var(--warning-text);
+  }
+
+  @media (max-width: 1024px) {
+    .setup-complete__actions {
+      width: 100%;
+    }
+
+    .setup-complete__toggle,
+    .setup-complete__refresh {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+
+    .setup-steps__action {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  /* Feature-tile grid — real two columns above the breakpoint, stacked below.
+     `align-items: stretch` (the grid default, spelled out) keeps both cards in
+     a row the same height regardless of description length; each tile's footer
+     is pinned to the bottom via `margin-top: auto` so the CTAs line up. */
   .dashboard-features {
     display: grid;
     grid-template-columns: 1fr;
     gap: var(--space-4);
-    align-items: start;
+    align-items: stretch;
   }
 
   @media (min-width: 1025px) {
@@ -1832,7 +2026,8 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    padding: var(--space-4);
+    height: 100%;
+    padding: var(--space-5);
     transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -1854,15 +2049,10 @@
     box-shadow: 0 0 0 3px var(--info-bg);
   }
 
-  /* Stretched-link pattern: the CTA anchor's ::after covers the whole
-     (position:relative) card, so a click anywhere navigates — while the
-     anchor stays a real <a href="#route"> the hash router already handles. */
-  .dashboard-tile--link .dashboard-tile__cta::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-  }
+  /* Whole-card click navigation is handled in JS (dashboard.ts's
+     onFeatureCardClick) rather than a stretched-link ::after overlay, so the
+     card's description text stays selectable and the hit area covers the
+     card's padding too. */
 
   /* Hovering anywhere on the card drives the CTA's own hover state too, so
      the button doesn't look inert while the rest of the card responds. */
@@ -1923,12 +2113,6 @@
     font-weight: 600;
   }
 
-  /* NEW pill sits at the far end of the icon/title row. */
-  .dashboard-tile__badge {
-    flex-shrink: 0;
-    margin-left: auto;
-  }
-
   .dashboard-tile__desc {
     @apply text-sm text-tm-gray-700;
     margin: 0 0 var(--space-4);
@@ -1957,20 +2141,24 @@
     width: 100%;
   }
 
-  /* Save File / Load File — a cohesive filled-grey secondary pair
-     (slate-100 idle → slate-200 hover), sharing the row width evenly. */
+  /* Save File / Load File — utility actions, so clearly-bordered secondary
+     buttons (white fill, 1px neutral border, gray-700 label — 9:1 on white)
+     that sit visibly below the primary navy CTAs on the other cards. They
+     share the row width evenly. */
   .dashboard-tile__actions .btn-secondary {
-    @apply rounded-md;
+    @apply rounded-md bg-surface;
     flex: 1 1 auto;
     justify-content: center;
     padding: var(--space-2) var(--space-4);
-    background: var(--tile-slate-bg);
-    border-color: transparent;
+    border: 1px solid var(--color-base-300);
+    color: var(--gray-700);
     font-weight: 600;
   }
 
   .dashboard-tile__actions .btn-secondary:hover:not(:disabled) {
-    background: var(--border);
+    background: var(--surface-alt);
+    border-color: var(--primary);
+    color: var(--primary);
   }
 
   .dashboard-tile__status {
@@ -1982,9 +2170,10 @@
     @apply text-danger;
   }
 
+  /* "Coming soon" — a single status tag (daisyUI `badge badge-soft`), the
+     only thing in the Approval Helper card's footer (no disabled button). */
   .dashboard-tile__soon {
-    @apply text-xs text-tm-gray-600;
-    font-style: italic;
+    flex-shrink: 0;
   }
 
   @media (max-width: 1024px) {
@@ -2004,30 +2193,10 @@
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Modal — the one blocking dialog in the extension (shared/modal.ts),    */
-  /* used only for the Home dashboard's destructive "Load Backup File"      */
-  /* confirm. See that file's header for why this is an intentional         */
-  /* exception to the inline-status-line convention.                        */
+  /* Modal — the one blocking dialog in the extension (shared/modal.ts): a  */
+  /* native <dialog class="modal"> using daisyUI's modal / modal-box, only  */
+  /* for the Home dashboard's destructive "Load Backup File" confirm.       */
   /* ---------------------------------------------------------------------- */
-
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-4);
-    background: rgba(0, 0, 0, 0.4);
-  }
-
-  .modal {
-    @apply bg-surface border border-border rounded-md;
-    max-width: 420px;
-    width: 100%;
-    padding: var(--space-5);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  }
 
   .modal__title {
     @apply text-md text-tm-gray-900;
@@ -2050,38 +2219,9 @@
     min-height: 44px;
   }
 
-  /* ---------------------------------------------------------------------- */
-  /* Update banner — shared by the popup's preview-build GitHub-release      */
-  /* banner (shared/update-store.ts) and the self-update-ready banner        */
-  /* (shared/self-update-store.ts), used in both the popup and the merged    */
-  /* app SPA header — relocated here from popup/index.html's own inline      */
-  /* <style> so app/index.html can reuse the identical class.                */
-  /* ---------------------------------------------------------------------- */
-
-  .update-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    background: var(--info-bg);
-    border: 1px solid var(--info);
-    border-radius: var(--radius-md);
-    padding: var(--space-3);
-    margin-bottom: var(--space-3);
-    font-size: var(--text-sm);
-    color: var(--gray-900);
-  }
-
-  .update-banner__actions {
-    display: flex;
-    gap: var(--space-2);
-    flex-shrink: 0;
-  }
-
-  .update-banner .btn {
-    padding: var(--space-1) var(--space-2);
-    font-size: var(--text-xs);
-  }
+  /* The update banners (shared/update-store.ts / self-update-store.ts, in
+     both the popup and the app header) are daisyUI `alert alert-info
+     alert-soft` in markup — nothing extra needed here. */
 
   /* ---------------------------------------------------------------------- */
   /* Step footer — Next/Previous navigation between the five options pages  */
@@ -2214,29 +2354,17 @@
     font-weight: 700;
   }
 
-  /* Shared by Club Review's club-name lookup table and Global Settings'
-     path-name lookup table — both edit a small, low-cardinality mapping via
-     an inline text input per row plus an "add new" form below the table. */
-  table.lookup input[type="text"] {
-    width: 100%;
-    box-sizing: border-box;
-    font-size: var(--text-sm);
-    padding: 3px 6px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
-
+  /* Club Review / Global Settings lookup tables + their "add new" form use
+     daisyUI `input` / `select` (input-xs / input-sm) in markup; .add-form just
+     lays the controls out. Every `.select` also carries `appearance-none` so
+     the options list stays the OS-native popup (see the "Migrated to daisyUI"
+     note in CLAUDE.md) rather than daisyUI's `appearance: base-select` one. */
   .add-form {
     display: flex;
     gap: 6px;
     align-items: center;
     margin-bottom: 20px;
     flex-wrap: wrap;
-  }
-
-  .add-form select, .add-form input[type="text"] {
-    font-size: var(--text-sm);
-    padding: 4px 6px;
   }
 
   /* Club Review's arrow between the two club dropdowns: a left-right arrow
@@ -2259,8 +2387,8 @@
       align-items: stretch;
     }
 
-    .add-form select,
-    .add-form input[type="text"],
+    .add-form .select,
+    .add-form .input,
     .add-form > button {
       width: 100%;
       box-sizing: border-box;
@@ -2279,18 +2407,16 @@
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Badges — grouped into exactly the 4 statuses the Member Matching table  */
-  /* distinguishes (Exact/green, Resolved Manually/blue, Unmatched/red, Needs */
-  /* Review/orange, also reused by Flagged); Report's own presence badges    */
-  /* (basecamp-only/easyspeak-only) reuse the same 4 tokens rather than a    */
-  /* separate 5th color.                                                    */
+  /* Badges — daisyUI `badge` + `badge-soft badge-{success|info|warning|    */
+  /* error}` (or bare `badge-soft` for muted) in markup; this only tightens */
+  /* daisyUI's default badge into the app's compact uppercase pill.         */
   /* ---------------------------------------------------------------------- */
 
   .badge {
     @apply text-xs rounded-pill;
-    display: inline-flex;
-    align-items: center;
     gap: 3px;
+    height: auto;
+    border: 0;
     font-weight: 600;
     padding: 2px 6px;
     text-transform: uppercase;
@@ -2298,54 +2424,8 @@
     white-space: nowrap;
   }
 
-  /* Club Progress's Status badges (report/main.ts) — icon-less badges just
-     have no .status-icon child, so this doesn't affect them. */
   .badge .status-icon {
     flex-shrink: 0;
-  }
-
-  .badge-both,
-  .badge-exact {
-    @apply bg-success-bg text-success;
-  }
-
-  .badge-confirmed,
-  .badge-easyspeak-only {
-    @apply bg-info-bg text-info;
-  }
-
-  .badge-basecamp-only,
-  .badge-fuzzy,
-  .badge-flagged {
-    @apply bg-warning-bg text-warning-text;
-  }
-
-  .badge-unmatched,
-  .badge-path-issue {
-    @apply bg-danger-bg text-danger;
-  }
-
-  /* Generic status tones — additive to the 4 Member Review-specific pairs
-     above, for contexts (like Sync Data's status cards) that aren't part of
-     that specific vocabulary. */
-  .badge-success {
-    @apply bg-success-bg text-success;
-  }
-
-  .badge-pending {
-    @apply bg-warning-bg text-warning-text;
-  }
-
-  .badge-info {
-    @apply bg-info-bg text-info;
-  }
-
-  .badge-danger {
-    @apply bg-danger-bg text-danger;
-  }
-
-  .badge-muted {
-    @apply bg-surface-alt text-tm-gray-600;
   }
 
   /* Kept under their existing names (not renamed to something generic like
@@ -2388,27 +2468,26 @@
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Tabs + warning icon + conflict banner                                  */
+  /* Tabs + warning icon                                                    */
   /* ---------------------------------------------------------------------- */
 
+  /* Club tab strip — daisyUI `tabs tabs-border` + `tab` / `tab-active` in
+     markup (tab-active picks up --color-primary = navy automatically). These
+     rules only add the app's bottom margin, the smaller type, and let the row
+     scroll horizontally on a phone instead of overflowing the page. */
   .tabs {
-    @apply border-b border-border;
-    display: flex;
-    gap: 4px;
     margin-bottom: 12px;
   }
 
-  .tab-btn {
-    @apply text-base text-tm-gray-600;
-    padding: 8px 14px;
-    cursor: pointer;
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
+  .tabs .tab {
+    @apply text-base;
+    font-weight: 500;
   }
 
-  /* A club-tab row that doesn't fit at phone width becomes swipeable instead
-     of silently overflowing the page. */
+  .tabs .tab-active {
+    font-weight: 600;
+  }
+
   @media (max-width: 1024px) {
     .tabs {
       overflow-x: auto;
@@ -2416,20 +2495,9 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    .tab-btn {
+    .tabs .tab {
       flex-shrink: 0;
     }
-  }
-
-  .tab-btn:hover {
-    @apply text-tm-gray-900;
-  }
-
-  .tab-btn.active {
-    @apply text-navy-700 border-navy-700;
-    font-weight: 600;
-    border-bottom-width: 3px;
-    border-bottom-style: solid;
   }
 
   .warning-icon {
@@ -2445,28 +2513,11 @@
     display: block;
   }
 
-  .conflict-warning {
-    @apply bg-warning-bg text-warning-text rounded-md text-base;
-    border: 1px solid #f0d0a0;
-    padding: 10px 14px;
-    margin-bottom: 16px;
-  }
-
-  .conflict-warning .warning-icon {
-    margin-right: 6px;
-  }
-
-  .conflict-warning a {
-    @apply text-navy-700;
-    font-weight: 600;
-  }
-
-  /* Modifier for a conflict-warning slot that isn't actually flagging a
-     problem — e.g. explaining a club that was deliberately acknowledged as
-     one-sided. Same box, info tone instead of warning. */
-  .conflict-warning--info {
-    @apply bg-info-bg text-navy-700;
-    border-color: transparent;
+  /* The conflict / one-sided-club banners are daisyUI `alert alert-warning
+     alert-soft` (or `alert-info`) in markup — links inside get the app's
+     bold-underline treatment so they read as actions, not banner text. */
+  .alert a {
+    @apply font-semibold underline;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -2503,54 +2554,6 @@
 
   .chip.active .chip-count {
     @apply text-navy-700 bg-surface;
-  }
-
-  .search-input {
-    @apply text-sm border border-border rounded-sm;
-    display: block;
-    padding: 6px 10px;
-    width: 100%;
-    max-width: 280px;
-    box-sizing: border-box;
-    margin-bottom: var(--space-3);
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* Popup-only: compact status summary rows                                */
-  /* ---------------------------------------------------------------------- */
-
-  .status-summary {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    margin: var(--space-3) 0;
-  }
-
-  .status-summary__row {
-    @apply bg-surface-alt border border-border rounded-sm text-sm;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-2) var(--space-3);
-  }
-
-  .status-summary__label {
-    @apply text-tm-gray-900;
-    font-weight: 600;
-  }
-
-  .status-summary__value {
-    @apply text-tm-gray-600;
-  }
-
-  .status-summary__value.is-success {
-    @apply text-success;
-    font-weight: 600;
-  }
-
-  .status-summary__value.is-pending {
-    @apply text-warning-text;
-    font-weight: 600;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -2599,6 +2602,14 @@
     @apply bg-surface border border-border rounded-md;
     padding: var(--space-6) var(--space-5);
     margin-top: var(--space-5);
+  }
+
+  /* Hero heading — needs an explicit rule now that Preflight zeroes the
+     browser's default <h1> size/margin. */
+  .welcome-card h1 {
+    @apply text-xl text-tm-gray-900;
+    margin: 0 0 var(--space-4);
+    font-weight: 700;
   }
 
   .welcome-intro {
@@ -2750,109 +2761,44 @@ select:focus-visible {
 /* body[data-view="..."] below scopes against.                            */
 /* ---------------------------------------------------------------------- */
 
-/* Shared by both Club Review's and Member Review's action-buttons column. */
-.actions button {
+/* Club Review's / Member Review's desktop action-buttons table cell. The card
+   variants (.club-card__actions / .member-card .actions) use flex gap instead. */
+td.actions button {
   margin-right: 4px;
 }
 
-/* Club Review — phone-width companion to table.lookup's default (desktop)
-   rows: same per-club-pair data, transposed to one card per row (readable
-   at ~360-400px) instead of a cramped 4-column table. Scoped to this view
-   only, not table.lookup generally — Global Settings' own table.lookup
-   (path-name aliases) has a different 3-column shape and stays a plain
-   horizontally-scrollable table (table-scroll) at this width. */
+/* Club Review / Member Review: the action cell's daisyUI buttons are taller
+   than a line of text, so with the shared .data-table's `vertical-align: top`
+   the name / status / badge cells sat pinned to the top of the row while the
+   buttons hung lower. Center every cell in these two tables so a row's
+   contents line up on one axis. (Club Progress's "Next Level Summary" keeps
+   top alignment — its cells hold multi-line diff content.) */
+body[data-view="clubReview"] .data-table th,
+body[data-view="clubReview"] .data-table td,
+body[data-view="members"] .data-table th,
+body[data-view="members"] .data-table td {
+  vertical-align: middle;
+}
+
+/* Club Review's mobile card: demote "Unlink"/"Unmark" on a linked pair to a
+   subtle text link tucked in the corner, so an accidental tap doesn't casually
+   break a working match (Confirm / "Not this one" stay as real buttons). */
+.club-card__actions [data-action="unlink-club"],
+.club-card__actions [data-action="unorphan-club"] {
+  height: auto;
+  min-height: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--gray-600);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+}
+
+/* Club Review — the club-pair table is dual-rendered by clubReview.ts (a
+   `hidden lg:block` <table> + an `lg:hidden` card list), so there's no
+   table→card CSS transposition here any more. */
 @media (max-width: 1024px) {
-  body[data-view="clubReview"] table.lookup {
-    display: block;
-    background: none;
-  }
-
-  body[data-view="clubReview"] table.lookup > thead {
-    display: none;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody {
-    display: block;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "bc      status"
-      "es      status"
-      "actions actions";
-    gap: 6px 8px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-  }
-
-  /* Cards drop the table's own zebra striping — every card stays plain
-     white, odd or even. */
-  body[data-view="clubReview"] table.lookup > tbody > tr:nth-child(2n) {
-    background: var(--surface);
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td {
-    display: block;
-    border: none;
-    padding: 0;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td:nth-child(1) {
-    grid-area: bc;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td:nth-child(2) {
-    grid-area: es;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td:nth-child(3) {
-    grid-area: status;
-    justify-self: end;
-  }
-
-  /* Platform label ("Basecamp"/"EasySpeak") rendered above each club name —
-     with <thead> hidden there's nothing else on a card telling the two
-     names apart. clubReview.ts sets data-label on exactly these two cells. */
-  body[data-view="clubReview"] table.lookup td[data-label]::before {
-    content: attr(data-label);
-    display: block;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--gray-600);
-    margin-bottom: 2px;
-  }
-
-  /* Actions become a right-aligned footer row spanning the card's full
-     width. A Linked Clubs card only ever shows one action, Unlink — styled
-     here as a subtle ghost/text button tucked in the card's corner (not a
-     solid button) specifically so an accidental tap doesn't casually break
-     a working match; Unmatched Clubs' Confirm/"Not this one" pair are left
-     as regular buttons, since those are meant to invite a tap. */
-  body[data-view="clubReview"] table.lookup > tbody > tr > td.actions {
-    grid-area: actions;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 6px;
-    margin-top: 4px;
-  }
-
-  body[data-view="clubReview"] table.lookup > tbody > tr > td.actions [data-action="unlink-club"] {
-    background: transparent;
-    border: none;
-    color: var(--gray-600);
-    text-decoration: underline;
-    padding: 4px 2px;
-    font-size: var(--text-xs);
-  }
-
   /* Pins "Continue to Member Review →" to the bottom of the viewport so it's
      reachable without scrolling past the (now often long, card-based) club
      list above — .step-footer (rendered into #stepFooter, the last element
@@ -2871,7 +2817,7 @@ select:focus-visible {
     margin: 0 -20px;
     padding: var(--space-3) 20px calc(var(--space-3) + 20px);
     background: var(--surface-alt);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--color-base-300);
   }
 }
 
@@ -2979,7 +2925,7 @@ table.levels tfoot td {
   font-style: italic;
   color: var(--gray-600);
   background: var(--surface-alt);
-  border-top: 2px solid var(--border);
+  border-top: 2px solid var(--color-base-300);
 }
 
 table.levels td[title] {
@@ -3058,164 +3004,10 @@ table.summary col.col-level { width: 5%; }
 table.summary col.col-status { width: 15%; }
 table.summary col.col-detail { width: 25%; }
 
-/* Phone width: each summary row becomes a tap-to-expand card instead of a
-   cramped table row — column headers make no sense once a row looks like a
-   card, so the whole <thead> is hidden (sorting logic keeps running, it's
-   just not user-triggerable at this width). Direct-child combinators, not
-   bare descendant selectors — a plain `table.summary td:nth-child(2)` would
-   also match the Basecamp column (the 2nd <td> in each row) of the
-   unrelated nested table.levels-narrow that an expanded detail row renders
-   inside itself, since that's a descendant of table.summary too. Scoping to
-   table.summary's own direct thead/tbody rows keeps this from reaching into
-   that nested table (whose own rows have no data-row-key attribute anyway,
-   and whose own wide/narrow toggle above is untouched by this). */
-@media (max-width: 1024px) {
-  /* .data-table's own background (bg-surface, styles.css:1142) is removed
-     from the <table> element itself at this width — each card supplies its
-     own white fill directly (see tr[data-row-key] below) so the gaps
-     between cards show the page behind instead of one solid white sheet. */
-  table.summary {
-    display: block;
-    background: none;
-  }
-
-  table.summary > thead {
-    display: none;
-  }
-
-  table.summary > tbody {
-    display: block;
-  }
-
-  /* One row -> one card. 2-column grid: name/path on the left, the status
-     badge with the level underneath it (extra row-gap so the two don't feel
-     cramped) on the right; the detail sentence becomes a separated footer
-     spanning both columns, with room on its right for the expand chevron
-     (absolutely positioned — see .row-chevron below — since it needs to
-     visually leave the name and sit in the footer despite still being
-     nested inside td:nth-child(1) in the DOM). */
-  table.summary > tbody > tr[data-row-key] {
-    position: relative;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "member status"
-      "path   level"
-      "detail detail";
-    gap: 6px 8px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-  }
-
-  /* Cards drop the table's own zebra striping (bg-surface-alt on even rows,
-     styles.css:1168) — every card stays plain white above the footer, odd
-     or even. */
-  table.summary > tbody > tr:nth-child(2n) {
-    background: var(--surface);
-  }
-
-  table.summary > tbody > tr[data-row-key] > td {
-    display: block;
-    border: none;
-    padding: 0;
-  }
-
-  table.summary > tbody > tr[data-row-key] > td:nth-child(1) {
-    grid-area: member;
-    font-weight: 600;
-  }
-
-  /* .ready-row (below) bolds the whole <tr>, member name included — reset
-     every other cell back to normal weight so only the name stays bold. */
-  table.summary > tbody > tr[data-row-key] > td:nth-child(2),
-  table.summary > tbody > tr[data-row-key] > td:nth-child(3),
-  table.summary > tbody > tr[data-row-key] > td:nth-child(4),
-  table.summary > tbody > tr[data-row-key] > td:nth-child(5) {
-    font-weight: normal;
-  }
-
-  table.summary > tbody > tr[data-row-key] > td:nth-child(2) {
-    grid-area: path;
-  }
-
-  /* Path name + its "Basecamp only"/"EasySpeak only" badge share the same
-     narrow grid column as the level cell (grid-template-areas: "path level"
-     above) — force the badge onto its own line rather than letting it wrap
-     mid-word or crowd the name at this width. */
-  table.summary > tbody > tr[data-row-key] > td:nth-child(2) .badge {
-    display: block;
-    width: fit-content;
-    margin-top: 4px;
-  }
-
-  table.summary > tbody > tr[data-row-key] > td:nth-child(3) {
-    grid-area: level;
-    justify-self: end;
-  }
-
-  table.summary > tbody > tr[data-row-key] > td:nth-child(4) {
-    grid-area: status;
-    justify-self: end;
-  }
-
-  /* Footer: a distinct light band, separated from the header cluster above
-     by its own top border. Bleeds out to the card's own edges via negative
-     margins that cancel the card's 10px/12px padding (rather than just
-     tinting an inset cell), with matching bottom corner radii so it reads
-     as part of the card, not a box floating inside it — and right-side
-     padding cleared for the absolutely-positioned chevron. */
-  table.summary > tbody > tr[data-row-key] > td:nth-child(5) {
-    grid-area: detail;
-    font-size: var(--text-xs);
-    margin: 4px -12px -10px;
-    padding: 8px 32px 10px 12px;
-    border-top: 1px solid var(--border);
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
-    background-color: rgb(247 248 250 / var(--tw-bg-opacity, 1));
-  }
-
-  /* Moved out of the name (its DOM parent, td:nth-child(1)) to the card's
-     bottom-right corner — i.e. the right side of the footer row above —
-     via absolute positioning against the card itself. Rotation is
-     unchanged from the desktop rule (styles.css ~1710): the base SVG
-     already points right, and .expanded rotates it 90deg to point down,
-     which is exactly closed-right/open-down as requested. */
-  table.summary > tbody > tr[data-row-key] .row-chevron {
-    position: absolute;
-    right: 12px;
-    bottom: 11px;
-    margin-right: 0;
-  }
-
-  /* Expanded detail content sits directly under its card, visually attached
-     (no gap, squared-off shared top corners) instead of looking like a
-     separate table row. */
-  table.summary > tbody > tr.detail-row {
-    display: block;
-    margin: -8px 0 8px;
-    padding: 10px 12px;
-    background: var(--info-bg);
-    border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
-  }
-
-  table.summary > tbody > tr.detail-row > td {
-    display: block;
-    border-left: none;
-    padding: 0;
-  }
-
-  /* Full-width search input on mobile, scoped to Club Progress — Member
-     Review's own #memberSearch gets the identical override, next to its
-     own card layout further below. */
-  body[data-view="report"] .search-input {
-    max-width: none;
-  }
-}
+/* Club Progress's Next Level Summary is dual-rendered by report.ts (a
+   `hidden lg:table` <table> + an `lg:hidden` .summary-cards list), so there
+   is no table->card CSS transposition here any more. The search box is a
+   daisyUI `input` sized with utilities (w-full lg:max-w-[280px]). */
 
 table.summary th, table.summary td {
   overflow: hidden;
@@ -3228,7 +3020,7 @@ table.summary th {
 }
 
 table.summary th:hover {
-  background: var(--border);
+  background: var(--color-base-300);
 }
 
 table.summary th .sort-indicator {
@@ -3266,13 +3058,10 @@ table.members tr.detail-row td {
   white-space: nowrap;
 }
 
+/* The inline "search to link" fields are daisyUI `input input-xs`; in a table
+   cell they should fill the cell. */
 input.link-search {
-  font-size: var(--text-sm);
-  padding: 3px 6px;
   width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
 }
 
 .path-pair-row {
@@ -3293,268 +3082,25 @@ input.link-search {
   min-width: 160px;
 }
 
-/* Member Review — phone-width card layout. Reuses the exact grid/detail-row
-   spacing constants table.summary's own card conversion established above
-   (10px/12px padding, 8px margin-bottom, -8px negative-margin attached
-   detail row) rather than inventing new numbers. Relies on :has() (Chrome
-   105+ / Firefox 121+) to tell apart a row's three shapes — suggested match,
-   unmatched (one side is a search <input> instead of a name), and an
-   already-linked row with or without a path issue — from the data attributes
-   and markup members.ts already renders, with no extra DOM added for mobile
-   specifically. */
-@media (max-width: 1024px) {
-  body[data-view="members"] .search-input {
-    max-width: none;
-  }
+/* Member Review is dual-rendered by members.ts: a `hidden lg:table` <table>
+   plus an `lg:hidden` .member-cards list. These few rules adapt the shared
+   cell renderers (renderNameCell etc.) to the card context — there is no
+   table->card CSS transposition any more. */
+.member-cards .member-name-label,
+.member-cards .not-linked-label {
+  display: inline;
+}
 
-  table.members {
-    display: block;
-    background: none;
-  }
+.member-cards .cell-detail {
+  display: none;
+}
 
-  table.members > thead {
-    display: none;
-  }
+.member-cards .name-header {
+  display: block;
+}
 
-  table.members > tbody {
-    display: block;
-  }
-
-  table.members > tbody > tr:not(.detail-row) {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "bcname linkbadge"
-      "esname pathbadge"
-      "actions actions";
-    gap: 6px 10px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-  }
-
-  /* Cards drop the table's own zebra striping — every card stays plain
-     white, odd or even, same reasoning as table.summary's own cards. */
-  table.members > tbody > tr:nth-child(2n) {
-    background: var(--surface);
-  }
-
-  table.members > tbody > tr:not(.detail-row) > td {
-    display: block;
-    border: none;
-    padding: 0;
-  }
-
-  table.members td:nth-child(1) {
-    grid-area: bcname;
-  }
-
-  table.members td:nth-child(2) {
-    grid-area: esname;
-  }
-
-  table.members td:nth-child(3) {
-    grid-area: linkbadge;
-    justify-self: end;
-  }
-
-  table.members td:nth-child(4) {
-    grid-area: pathbadge;
-    justify-self: end;
-    margin-top: 2px;
-  }
-
-  table.members td:nth-child(5).actions {
-    grid-area: actions;
-    margin-top: 8px;
-    white-space: normal;
-  }
-
-  /* "Basecamp: "/"EasySpeak: " prefix — real markup (members.ts's
-     renderNameCell), not a ::before/attr(data-label) pseudo-element like
-     Club Review's own mobile cards use, since the search-input branch below
-     needs its wrapper split apart via display: contents, and a
-     pseudo-element on a display:contents box would become its own unplaced
-     grid item instead of just going along for the ride. Hidden outside this
-     media query (member-name-label's own bare rule, above the view-specific
-     block) — desktop already has "Basecamp name"/"EasySpeak name" column
-     headers doing this job. */
-  body[data-view="members"] .member-name-label {
-    display: inline;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--gray-600);
-  }
-
-  table.members td:nth-child(1) .name-header {
-    font-weight: 600;
-  }
-
-  table.members td:nth-child(2) .name-header {
-    color: var(--gray-600);
-  }
-
-  /* A missing name's fuller desktop-only wording ("No unmatched
-     candidates", "No counterpart (resolved)") collapses to a plain
-     "(Not linked)" here — swapped by the pair of rules below, not by
-     members.ts rendering different text per breakpoint. */
-  body[data-view="members"] .cell-detail {
-    display: none;
-  }
-
-  body[data-view="members"] .not-linked-label {
-    display: inline;
-  }
-
-  /* Unmatched-member shape: the one name cell holding the type-ahead
-     <input> (see members.ts's renderNameCell) gets one extra grid row of
-     its own — display: contents lets that cell's two children, the
-     ".name-header" ("(Not linked)") and the <input> itself, be placed
-     independently, the header staying put in its normal bcname/esname row
-     while the input drops into the new full-width "search" row below. The
-     path-bind badge (never meaningful for an unmatched member — it's always
-     the muted "—") is dropped entirely. */
-  table.members > tbody > tr:not(.detail-row):has(input.link-search) {
-    grid-template-areas:
-      "bcname linkbadge"
-      "esname pathbadge"
-      "search search"
-      "actions actions";
-  }
-
-  table.members > tbody > tr:not(.detail-row) > td:nth-child(1):has(input.link-search),
-  table.members > tbody > tr:not(.detail-row) > td:nth-child(2):has(input.link-search) {
-    display: contents;
-  }
-
-  table.members > tbody > tr:not(.detail-row) > td:nth-child(1):has(input.link-search) .name-header {
-    grid-area: bcname;
-    font-weight: 600;
-  }
-
-  table.members > tbody > tr:not(.detail-row) > td:nth-child(2):has(input.link-search) .name-header {
-    grid-area: esname;
-    color: var(--gray-600);
-  }
-
-  table.members > tbody > tr:not(.detail-row):has(input.link-search) input.link-search {
-    grid-area: search;
-  }
-
-  table.members > tbody > tr:not(.detail-row):has(input.link-search) > td:nth-child(4) {
-    display: none;
-  }
-
-  /* Action buttons: base shape is one full-width button per row (state 2,
-     Unmatched: Link then Mark as orphan); the two more specific shapes below
-     override this for state 1 (Suggested) and state 3 (Path issue).
-     Selector must match the ">td" reset rule's own ancestor chain
-     (table.members > tbody > tr:not(.detail-row) > td, above) — that rule's
-     descendant-combinator specificity otherwise beats a bare
-     "table.members td.actions", silently leaving this "display: flex" a
-     dead declaration (the td stays "display: block") and state 3's
-     "order: -1" below with nothing to reorder within. */
-  table.members > tbody > tr:not(.detail-row) > td.actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  table.members td.actions button {
-    margin: 0;
-    width: 100%;
-  }
-
-  table.members td.actions [data-action="link"] {
-    min-height: 44px;
-  }
-
-  table.members td.actions [data-action="mark-orphan"] {
-    background: transparent;
-    border: none;
-    color: var(--gray-600);
-    text-decoration: underline;
-    padding: 4px 2px;
-    font-size: var(--text-xs);
-  }
-
-  /* State 1, Suggested match: Confirm + Not this one as a paired, large
-     (44px) row; Review paths (if any) demoted to a plain text link below.
-     Same ancestor-chain-prefixed selector as the base rule above, plus
-     :has() itself — needed so this reliably outranks that base rule rather
-     than a coin-flip on declaration order. */
-  table.members > tbody > tr:not(.detail-row) > td.actions:has([data-action="confirm"]) {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-
-  table.members td.actions [data-action="confirm"],
-  table.members td.actions [data-action="reject"] {
-    min-height: 44px;
-  }
-
-  table.members td.actions:has([data-action="confirm"]) [data-action="toggle-paths"] {
-    grid-column: 1 / -1;
-    background: transparent;
-    border: none;
-    color: var(--tm-navy);
-    text-decoration: underline;
-    font-weight: 400;
-    padding: 4px 2px;
-    font-size: var(--text-xs);
-    justify-self: start;
-    width: auto;
-  }
-
-  /* State 3, Path issue (data-path-issue, set by members.ts's
-     renderActionsCell only when member.hasOrphanedPaths): Review path issue
-     promoted to the primary, full-width CTA — order: -1 moves it above
-     Unlink regardless of DOM order — and Unlink demoted to a small text
-     action tucked in the corner. A matched row with no path issue (plain
-     Unlink + "Review paths") is left at the flex-column default above: two
-     equally-weighted secondary buttons, nothing to highlight or demote. */
-  table.members td.actions [data-path-issue="true"] {
-    order: -1;
-    background: var(--primary);
-    color: #ffffff;
-    border: none;
-    min-height: 44px;
-    font-weight: 600;
-  }
-
-  table.members td.actions:has([data-path-issue="true"]) [data-action="unlink"] {
-    align-self: flex-end;
-    background: transparent;
-    border: none;
-    color: var(--gray-600);
-    text-decoration: underline;
-    padding: 4px 2px;
-    font-size: var(--text-xs);
-    width: auto;
-  }
-
-  /* Expanded path-review detail — visually attached under its card, same
-     treatment as table.summary's own detail-row above. */
-  table.members > tbody > tr.detail-row {
-    display: block;
-    margin: -8px 0 8px;
-    padding: 10px 12px;
-    background: var(--surface-alt);
-    border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
-  }
-
-  table.members > tbody > tr.detail-row > td {
-    display: block;
-    border-left: none;
-    padding: 0;
-  }
+.member-cards input.link-search {
+  margin-top: 4px;
 }
 
 /* Sync Data — scoped defensively: .summary is generic enough that a future
@@ -3590,5 +3136,5 @@ body[data-view="syncData"] .summary td,
 body[data-view="syncData"] .summary th {
   text-align: left;
   padding: 2px 4px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-base-300);
 }

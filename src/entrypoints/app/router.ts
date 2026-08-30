@@ -31,8 +31,9 @@ function isAppRoute(value: string): value is AppRoute {
  * hash defaults to "dashboard" (the Home screen); a recognized but
  * currently-disabled wizard step (e.g. a bookmarked #members saved before
  * setup was finished) is redirected back to "setup"; the hub features
- * #exporter and #report are redirected to "dashboard" until data is
- * imported. "dashboard", "globalSettings" and "whatsNew" are never gated.
+ * #exporter and #report are redirected to "dashboard" until Basecamp data
+ * is imported (EasySpeak optional — see areFeaturesUnlocked()).
+ * "dashboard", "globalSettings" and "whatsNew" are never gated.
  */
 export function resolveRoute(rawHash: string, info: StepperInfo | null): AppRoute {
   const key = rawHash.replace(/^#/, "");

@@ -20,10 +20,10 @@ const SHELL_HTML = `
   <div class="meta" id="reportMeta"></div>
   <div class="anonymize-indicator" id="anonymizeIndicator"></div>
 
-  <div id="clubTabs" class="tabs"></div>
+  <div id="clubTabs" class="tabs tabs-border" role="tablist"></div>
   <div id="conflictWarning" aria-live="polite"></div>
   <div id="kpiRoot" class="kpi-grid"></div>
-  <input type="text" id="summarySearch" class="search-input" placeholder="Search by member or path name…">
+  <input type="text" id="summarySearch" class="input input-sm w-full lg:max-w-[280px] mb-3 block" placeholder="Search by member or path name…">
 
   <h2 class="section-header section-header--first">Next Level Summary</h2>
   <p class="help-text summary-help-text--wide">
@@ -33,7 +33,7 @@ const SHELL_HTML = `
   <p class="help-text summary-help-text--narrow">
     One card is displayed per member per path. Click a card to reveal its level-by-level detail.
   </p>
-  <div id="summaryTableRoot" class="table-scroll"></div>
+  <div id="summaryTableRoot"></div>
 
   <div id="pendingReviewSection">
     <h2 class="section-header">Pending review</h2>
@@ -42,7 +42,7 @@ const SHELL_HTML = `
       <a href="#members">Member Review</a> — numbers here may be incomplete
       until that's resolved, so they're kept separate from Next Level Summary.
     </p>
-    <div id="pendingReviewTableRoot" class="table-scroll"></div>
+    <div id="pendingReviewTableRoot"></div>
   </div>
 `;
 
@@ -71,22 +71,22 @@ interface StatusBadgeInfo {
 }
 
 const STATUS_BADGE: Record<LevelUpStatus, StatusBadgeInfo> = {
-  ready: { label: "Ready", tone: "badge-success", icon: ICON_CHECKMARK, description: "All requirements reported, the level can be taken now." },
+  ready: { label: "Ready", tone: "badge-soft badge-success", icon: ICON_CHECKMARK, description: "All requirements reported, the level can be taken now." },
   "ready-if-reported": {
     label: "Ready if reported",
-    tone: "badge-pending",
+    tone: "badge-soft badge-warning",
     icon: ICON_LIGHTNING,
     description: "Done in EasySpeak, just needs reporting in Basecamp to be ready.",
   },
-  "in-progress": { label: "On track", tone: "badge-info", icon: "", description: "Still working through the level's speeches." },
+  "in-progress": { label: "On track", tone: "badge-soft badge-info", icon: "", description: "Still working through the level's speeches." },
   "needs-reporting": {
     label: "Needs reporting",
-    tone: "badge-pending",
+    tone: "badge-soft badge-warning",
     icon: "",
     description: "Some speeches done in EasySpeak aren't yet reported in Basecamp.",
   },
-  completed: { label: "Completed", tone: "badge-success", icon: "", description: "Path completed." },
-  "not-tracked": { label: "Not tracked", tone: "badge-muted", icon: "", description: "Only in EasySpeak, not yet in Basecamp." },
+  completed: { label: "Completed", tone: "badge-soft badge-success", icon: "", description: "Path completed." },
+  "not-tracked": { label: "Not tracked", tone: "badge-soft", icon: "", description: "Only in EasySpeak, not yet in Basecamp." },
 };
 
 interface ClubSection {
@@ -163,17 +163,18 @@ export const reportView: ViewModule = {
       const cached = await local.get(["basecampData", "basecampScrapedAt", "basecampCompletedPaths", "easyspeakData", "easyspeakScrapedAt"]);
       if (disposed) return;
 
-      if (!cached.basecampData || !cached.easyspeakData) {
+      if (!cached.basecampData) {
         getRoot("anonymizeIndicator").textContent = "";
         getRoot("conflictWarning").innerHTML = "";
         getRoot("kpiRoot").innerHTML = "";
         getRoot("clubTabs").innerHTML = "";
         getRoot("summaryTableRoot").innerHTML =
-          '<p class="empty-state">Both Basecamp and EasySpeak data are needed to build this report. ' +
-          "Click the extension's toolbar icon and run both extractions first.</p>";
+          '<p class="empty-state">Basecamp data is needed to build this report. ' +
+          "Click the extension's toolbar icon and run the Basecamp extraction first.</p>";
         (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "none";
         return;
       }
+      (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "";
 
       getRoot("reportMeta").textContent = formatReportMeta(cached.basecampScrapedAt, cached.easyspeakScrapedAt);
 
@@ -181,7 +182,7 @@ export const reportView: ViewModule = {
       if (disposed) return;
       let report = buildReport(
         cached.basecampData,
-        cached.easyspeakData,
+        cached.easyspeakData ?? {},
         { basecampScrapedAt: cached.basecampScrapedAt, easyspeakScrapedAt: cached.easyspeakScrapedAt },
         { ...resolution, allowFuzzyMemberMatches: false },
         cached.basecampCompletedPaths ?? {}
@@ -191,7 +192,7 @@ export const reportView: ViewModule = {
       if (disposed) return;
       if (anonymize) report = anonymizeReport(report, buildAnonymizationMaps(report));
       getRoot("anonymizeIndicator").innerHTML = anonymize
-        ? '<span class="badge badge-pending" title="Turn off in Global Settings to see real names">Anonymized</span>'
+        ? '<span class="badge badge-soft badge-warning" title="Turn off in Global Settings to see real names">Anonymized</span>'
         : "";
 
       const summaryGroups = buildLevelSummary(report);
@@ -221,7 +222,7 @@ export const reportView: ViewModule = {
       if (clubPair.clubOrphaned) {
         const side = clubPair.basecampClubId ? "Basecamp" : "EasySpeak";
         warningRoot.innerHTML = `
-          <div class="conflict-warning conflict-warning--info">
+          <div role="alert" class="alert alert-info alert-soft mb-4 text-base">
             ${approvedCheckIconHtml("Acknowledged one-sided club")}
             This club only exists in ${side} — it was acknowledged as one-sided in Club Review, so it has no
             counterpart to match members against. <a href="#clubReview">Change in Club Review</a>
@@ -251,9 +252,11 @@ export const reportView: ViewModule = {
       }
 
       warningRoot.innerHTML = `
-        <div class="conflict-warning">
+        <div role="alert" class="alert alert-warning alert-soft mb-4 text-base">
           ${warningIconHtml("Conflicts found")}
-          ${messages.join(" · ")}
+          <div class="flex flex-col gap-1">
+            ${messages.map((m) => `<div>${m}</div>`).join("")}
+          </div>
         </div>
       `;
     }
@@ -324,11 +327,11 @@ export const reportView: ViewModule = {
               ? `<span class="tab-count">${missingCount}</span>`
               : "";
           const fullName = s.clubName ?? "(unnamed club)";
-          return `<button class="tab-btn" data-club-key="${s.clubKey}" title="${escapeAttr(fullName)}">${warningIcon}${escapeHtml(shortenClubName(fullName))}${countBadge}</button>`;
+          return `<button class="tab" data-club-key="${s.clubKey}" title="${escapeAttr(fullName)}">${warningIcon}${escapeHtml(shortenClubName(fullName))}${countBadge}</button>`;
         })
         .join("");
 
-      tabsRoot.querySelectorAll<HTMLButtonElement>(".tab-btn").forEach((btn) => {
+      tabsRoot.querySelectorAll<HTMLButtonElement>(".tab").forEach((btn) => {
         btn.addEventListener("click", () => {
           activeClubKey = btn.dataset.clubKey ?? null;
           mainTable.expandedRowKey = null;
@@ -343,8 +346,8 @@ export const reportView: ViewModule = {
     }
 
     function updateActiveTab() {
-      root.querySelectorAll<HTMLButtonElement>("#clubTabs .tab-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.clubKey === activeClubKey);
+      root.querySelectorAll<HTMLButtonElement>("#clubTabs .tab").forEach((btn) => {
+        btn.classList.toggle("tab-active", btn.dataset.clubKey === activeClubKey);
       });
     }
 
@@ -375,9 +378,17 @@ export const reportView: ViewModule = {
         return;
       }
 
+      // Dual render: a sortable <table> on desktop (≥lg), a tap-to-expand card
+      // list on narrower widths. renderSummaryBody() fills both; the expand
+      // toggle is bound to each container (both recreated on this call, so no
+      // listener leak). Sorting is desktop-only — the card list just follows
+      // whatever sort the table is in.
       const colgroupHtml = SUMMARY_COLUMNS.map((col) => `<col class="${col.colClass}">`).join("");
       const theadHtml = SUMMARY_COLUMNS.map((col) => `<th data-key="${col.key}">${escapeHtml(col.label)}</th>`).join("");
-      tableRoot.innerHTML = `<table class="data-table summary"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>`;
+      tableRoot.innerHTML = `
+        <table class="data-table summary hidden lg:table"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>
+        <div class="summary-cards flex flex-col gap-2 lg:hidden"></div>
+      `;
 
       tableRoot.querySelectorAll<HTMLTableCellElement>("th").forEach((th) => {
         th.addEventListener("click", () => {
@@ -388,13 +399,18 @@ export const reportView: ViewModule = {
         });
       });
 
-      tableRoot.querySelector("tbody")!.addEventListener("click", (event) => {
-        const row = (event.target as HTMLElement).closest<HTMLElement>("tr[data-row-key]");
-        if (!row) return;
-        const key = row.dataset.rowKey!;
+      const toggleExpand = (event: Event) => {
+        const target = event.target as HTMLElement;
+        // A click inside an already-expanded card's detail must not collapse it.
+        if (target.closest("[data-row-detail]")) return;
+        const el = target.closest<HTMLElement>("[data-row-key]");
+        if (!el) return;
+        const key = el.dataset.rowKey!;
         state.expandedRowKey = state.expandedRowKey === key ? null : key;
         renderSummaryBody(state);
-      });
+      };
+      tableRoot.querySelector("tbody")!.addEventListener("click", toggleExpand);
+      tableRoot.querySelector(".summary-cards")!.addEventListener("click", toggleExpand);
 
       updateSummaryHeaders(state);
       renderSummaryBody(state);
@@ -412,15 +428,49 @@ export const reportView: ViewModule = {
 
     function renderSummaryBody(state: SummaryTableState) {
       const tableRoot = getRoot(state.rootId);
-      const tbody = tableRoot.querySelector("table.summary tbody")!;
       const sorted = [...state.rows].sort((a, b) => compareLevelSummaryRows(a, b, state.sort.key, state.sort.direction));
-      tbody.innerHTML = sorted
-        .map((row) => {
-          const key = rowKey(row);
-          const isExpanded = key === state.expandedRowKey;
-          return isExpanded ? renderSummaryRow(row, key, isExpanded) + renderDetailRow(row) : renderSummaryRow(row, key, isExpanded);
-        })
-        .join("");
+
+      const tbody = tableRoot.querySelector("table.summary tbody");
+      if (tbody) {
+        tbody.innerHTML = sorted
+          .map((row) => {
+            const key = rowKey(row);
+            const isExpanded = key === state.expandedRowKey;
+            return isExpanded ? renderSummaryRow(row, key, isExpanded) + renderDetailRow(row) : renderSummaryRow(row, key, isExpanded);
+          })
+          .join("");
+      }
+
+      const cardsRoot = tableRoot.querySelector(".summary-cards");
+      if (cardsRoot) {
+        cardsRoot.innerHTML = sorted.map((row) => renderSummaryCard(row, rowKey(row), rowKey(row) === state.expandedRowKey)).join("");
+      }
+    }
+
+    function renderSummaryCard(row: LevelSummaryRow, key: string, isExpanded: boolean): string {
+      const muted = row.status === "completed" || row.status === "not-tracked";
+      const ready = row.status === "ready" || row.status === "ready-if-reported";
+      const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge ${presenceBadgeClass(row.pathPresence)}">${presenceLabel(row.pathPresence)}</span>`;
+      const levelLabel = row.currentLevelLabel === "Not in Basecamp" ? "—" : row.currentLevelLabel;
+      const statusInfo = STATUS_BADGE[row.status];
+      return `
+        <div class="summary-card rounded-md border border-base-300 bg-base-100 p-3${muted ? " opacity-70 italic" : ""}${ready ? " font-bold" : ""}" data-row-key="${escapeAttr(key)}">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <div class="font-semibold">${escapeHtml(row.memberName)}</div>
+              <div class="text-sm text-tm-gray-600 font-normal">${escapeHtml(row.pathName)}${pathBadge} · ${escapeHtml(String(levelLabel))}</div>
+            </div>
+            <div class="shrink-0 flex flex-col items-end gap-1">
+              <span class="badge ${statusInfo.tone}" title="${escapeAttr(statusInfo.description)}">${statusInfo.icon}${escapeHtml(statusInfo.label)}</span>
+              <span class="row-chevron${isExpanded ? " expanded" : ""}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="mt-2 pt-2 border-t border-base-300 text-xs font-normal not-italic">${renderStatusDetail(row.statusDetail)}</div>
+          ${isExpanded ? `<div class="mt-2 font-normal not-italic" data-row-detail>${renderRowDetail(row)}</div>` : ""}
+        </div>
+      `;
     }
 
     function rowKey(row: LevelSummaryRow): string {
@@ -431,7 +481,7 @@ export const reportView: ViewModule = {
       const muted = row.status === "completed" || row.status === "not-tracked";
       const ready = row.status === "ready" || row.status === "ready-if-reported";
       const rowClass = [muted && "muted-row", ready && "ready-row"].filter(Boolean).join(" ");
-      const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge badge-${row.pathPresence}">${presenceLabel(row.pathPresence)}</span>`;
+      const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge ${presenceBadgeClass(row.pathPresence)}">${presenceLabel(row.pathPresence)}</span>`;
       const chevron = `
         <span class="row-chevron${isExpanded ? " expanded" : ""}">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
@@ -498,6 +548,10 @@ export const reportView: ViewModule = {
       if (presence === "both") return "In both";
       if (presence === "basecamp-only") return "Basecamp only";
       return "EasySpeak only";
+    }
+
+    function presenceBadgeClass(presence: string): string {
+      return presence === "basecamp-only" ? "badge-soft badge-warning" : "badge-soft badge-info";
     }
 
     function getLevel(path: PathReport, levelNumber: number): LevelDiff {
@@ -640,9 +694,11 @@ export const reportView: ViewModule = {
     }
 
     function formatReportMeta(basecampScrapedAt: number | undefined, easyspeakScrapedAt: number | undefined): string {
-      if (!basecampScrapedAt || !easyspeakScrapedAt) return "Report generated with incomplete data — both sources need to be extracted first.";
+      if (!basecampScrapedAt) return "Report generated with incomplete data — extract Basecamp data first.";
 
       const basecampDate = new Date(basecampScrapedAt).toLocaleDateString();
+      if (!easyspeakScrapedAt) return `Report generated with data extracted from Basecamp the ${basecampDate} — EasySpeak not imported`;
+
       const easyspeakDate = new Date(easyspeakScrapedAt).toLocaleDateString();
 
       return basecampDate === easyspeakDate

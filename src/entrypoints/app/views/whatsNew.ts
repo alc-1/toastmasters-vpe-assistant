@@ -74,7 +74,7 @@ function renderFromSelect(fromRoot: Element, changelog: ChangelogEntry[], select
 
   fromRoot.innerHTML = `
     <label class="whats-new__from-label" for="whatsNewFromSelect">Show changes</label>
-    <select id="whatsNewFromSelect" class="whats-new__from-select">${options}</select>
+    <select id="whatsNewFromSelect" class="select select-sm appearance-none">${options}</select>
   `;
 
   const select = fromRoot.querySelector("#whatsNewFromSelect") as HTMLSelectElement;

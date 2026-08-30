@@ -22,10 +22,15 @@ import {
   isSetupStepComplete,
   SETUP_STEPS,
   type SetupBannerState,
+  type SetupPipelineState,
 } from "../../../shared/stepper-info";
 import { downloadBackup, parseBackup, restoreBackup } from "../../../shared/backup";
 import { confirmModal } from "../../../shared/modal";
 import { escapeHtml } from "../../../shared/dom-utils";
+import { formatProfileLabel, getActiveProfile } from "../../../shared/settings-store";
+import { loadResolutionData } from "../../../shared/resolution-store";
+import { local } from "../../../shared/storage";
+import { buildReport, computeMatchSummary, countBasecampMembers, countEasySpeakMembers } from "../../../shared/sync/delta";
 import type { AppShellPage, StepperInfo } from "../../../shared/app-shell";
 import type { ViewModule } from "../../../shared/view";
 
@@ -82,16 +87,73 @@ interface FeatureCard {
   /** The single-CTA label. Omitted for the `backup` tile (two buttons). */
   ctaLabel?: string;
   href?: string;
-  badgeNew?: boolean;
-  /** Rendered but inert with a "Requires imported data" badge. */
+  /** Rendered but inert with a "Requires imported data" badge + a disabled
+   *  preview of the CTA (so the card still says what unlocking it gives). */
   locked?: boolean;
-  /** Rendered but inert with a "Coming soon" note (Approval Helper). */
+  /** Rendered but inert with just a "Coming soon" badge — no CTA at all
+   *  (Approval Helper). */
   comingSoon?: boolean;
   /** The Save/Restore tile: two buttons + a status line instead of one CTA. */
   backup?: boolean;
 }
 
 type RestoreStatus = { kind: "ok" | "error"; text: string } | null;
+
+// Per-step figures shown inside the "Setup Complete" accordion's expanded
+// panel (see renderSetupCompletePanel). Only computed — and the accordion
+// only rendered — once setup is complete (bannerState === "ready"), so both
+// data sources are guaranteed present by the time this runs.
+interface SetupDetails {
+  profileLabel: string;
+  basecampMembers: number;
+  easyspeakMembers: number;
+  clubCount: number;
+  matchedMembers: number;
+  toReview: number;
+  /** Locale date+time of the oldest of the two source syncs. */
+  syncAbsolute: string;
+  /** "4 minutes ago" — reused from syncData.info's "Updated …" phrasing. */
+  syncRelative: string | null;
+}
+
+async function computeSetupDetails(info: StepperInfo): Promise<SetupDetails | null> {
+  const cached = await local.get([
+    "basecampData",
+    "basecampScrapedAt",
+    "basecampCompletedPaths",
+    "easyspeakData",
+    "easyspeakScrapedAt",
+  ]);
+  const { basecampData, easyspeakData } = cached;
+  if (!basecampData || !easyspeakData) return null;
+
+  const [profile, resolution] = await Promise.all([getActiveProfile(), loadResolutionData()]);
+  const report = buildReport(basecampData, easyspeakData, {}, resolution, cached.basecampCompletedPaths ?? {});
+  const { matched } = computeMatchSummary(report);
+
+  const stamps = [cached.basecampScrapedAt, cached.easyspeakScrapedAt].filter(
+    (t): t is number => typeof t === "number"
+  );
+  const oldest = stamps.length ? Math.min(...stamps) : undefined;
+
+  const syncInfo = info.syncData?.info;
+  const syncRelative = syncInfo?.startsWith("Updated ") ? syncInfo.slice("Updated ".length) : null;
+
+  return {
+    profileLabel: formatProfileLabel(profile),
+    basecampMembers: countBasecampMembers(basecampData),
+    easyspeakMembers: countEasySpeakMembers(easyspeakData),
+    clubCount: report.clubPairs.length,
+    matchedMembers: matched,
+    toReview: info.members?.warningCount ?? 0,
+    syncAbsolute: oldest ? new Date(oldest).toLocaleString() : "just now",
+    syncRelative,
+  };
+}
+
+function countLabel(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
 
 export const dashboardView: ViewModule = {
   async mount(root) {
@@ -108,6 +170,38 @@ export const dashboardView: ViewModule = {
     const bannerRoot = root.querySelector("#dashboardBannerRoot")!;
     const featuresRoot = root.querySelector("#dashboardFeaturesRoot")!;
 
+    // Whether the "Setup Complete" accordion is expanded. Held here (not in
+    // storage) so it survives the storage.onChanged-triggered re-renders that
+    // are frequent on this view, while still defaulting back to collapsed
+    // whenever the view is re-mounted. bannerRoot is a stable node reused
+    // across every renderBanner() call, so this delegated listener is bound
+    // once and the freshly-rendered markup just reads `setupDetailsOpen` for
+    // its initial state.
+    let setupDetailsOpen = false;
+    function onBannerClick(e: Event) {
+      const toggle = (e.target as HTMLElement).closest<HTMLElement>("#setupDetailsToggle");
+      if (!toggle) return;
+      setupDetailsOpen = !setupDetailsOpen;
+      bannerRoot.querySelector(".setup-complete")?.classList.toggle("is-open", setupDetailsOpen);
+      toggle.setAttribute("aria-expanded", String(setupDetailsOpen));
+    }
+    bannerRoot.addEventListener("click", onBannerClick);
+
+    // Whole-card navigation: a click anywhere on a `.dashboard-tile--link`
+    // tile follows its CTA link. Delegated and bound once here — featuresRoot
+    // is a stable node reused across every renderFeatures() re-render, so
+    // binding inside renderFeatures() would stack duplicate listeners. Clicks
+    // that land on a genuine interactive element (the CTA anchor itself, or a
+    // future button) fall through to that element's own handling.
+    function onFeatureCardClick(e: Event) {
+      const target = e.target as HTMLElement;
+      if (target.closest("a, button, input, label")) return;
+      const tile = target.closest(".dashboard-tile--link");
+      const href = tile?.querySelector(".dashboard-tile__cta")?.getAttribute("href");
+      if (href?.startsWith("#")) location.hash = href.slice(1);
+    }
+    featuresRoot.addEventListener("click", onFeatureCardClick);
+
     // Persisted across render() calls so a "Restored" / error message
     // survives the storage.onChanged-triggered re-render that a successful
     // restore itself causes.
@@ -121,7 +215,18 @@ export const dashboardView: ViewModule = {
     root.appendChild(fileInput);
     fileInput.addEventListener("change", onBackupFileChosen);
 
-    function renderBanner(info: StepperInfo) {
+    function renderBanner(info: StepperInfo, details: SetupDetails | null) {
+      const pipeline = evaluateSetupPipeline(info);
+
+      // Once all four steps are done the guiding progress banner is replaced
+      // by the collapsible "Setup Complete" panel — a calm one-line
+      // confirmation that expands to a per-step recap. The in-progress banner
+      // below still handles every earlier state unchanged.
+      if (pipeline.bannerState === "ready" && details) {
+        renderSetupCompletePanel(pipeline, details);
+        return;
+      }
+
       // A step's box is checked using the same rule the wizard stepper uses —
       // `done` but not still `locked` (never visited by this profile). So a
       // step whose requirement is already satisfied but which the user hasn't
@@ -138,7 +243,7 @@ export const dashboardView: ViewModule = {
         totalSteps: total,
         pendingReviewCount: pendingCount,
         resumeStep,
-      } = evaluateSetupPipeline(info);
+      } = pipeline;
 
       const { dot: dotClass, cta } = BANNER_COPY[state];
       const statusLabel =
@@ -200,18 +305,122 @@ export const dashboardView: ViewModule = {
             ? "All 4 setup steps complete"
             : `Step ${completed + 1} of ${total}`;
 
+      // The status headline + timestamp are grouped with the CTA on the right
+      // (data status and the action that changes it read as one unit); the
+      // step tracker on the left is a read-only progress indicator, captioned
+      // and styled distinctly from the interactive wizard stepper.
       bannerRoot.innerHTML = `
         <div class="dashboard-status">
-          <div class="dashboard-status__main">
-            <div class="dashboard-status__headline">
-              <span class="dashboard-status__dot ${dotClass}" aria-hidden="true"></span>
-              <span class="dashboard-status__label">${statusLabel}</span>
-              ${timestampHtml}
-            </div>
+          <div class="dashboard-status__progress">
+            <p class="dashboard-status__caption">Setup progress</p>
             <ol class="dashboard-tracker dashboard-tracker--wide">${wideSteps}</ol>
             <p class="dashboard-tracker dashboard-tracker--narrow">${narrowText}</p>
           </div>
-          <a href="${ctaHref}" class="btn btn-primary dashboard-status__cta">${escapeHtml(cta)}</a>
+          <div class="dashboard-status__action">
+            <span class="dashboard-status__headline">
+              <span class="dashboard-status__dot ${dotClass}" aria-hidden="true"></span>
+              <span class="dashboard-status__label">${statusLabel}</span>
+            </span>
+            ${timestampHtml}
+            <a href="${ctaHref}" class="btn btn-primary dashboard-status__cta">${escapeHtml(cta)}</a>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSetupCompletePanel(pipeline: SetupPipelineState, d: SetupDetails) {
+      const syncLine = d.syncRelative
+        ? `${escapeHtml(d.syncAbsolute)} (${escapeHtml(d.syncRelative)})`
+        : escapeHtml(d.syncAbsolute);
+
+      // Setup can be "complete" (the user hit "Complete Setup") while
+      // Member Review still has unresolved matches. When it does, Step 4 —
+      // and the panel's own header — swap the green check for the same amber
+      // "!" marker + "(N)" suffix the in-progress tracker above uses for its
+      // Member Review step (see renderBanner's wideSteps).
+      const needsReview = d.toReview > 0;
+      const reviewLabel = `${countLabel(d.toReview, "member")} still to review`;
+
+      // name / detail (may hold trusted markup) / where the step's secondary
+      // button goes / that button's label / whether it renders as a warning.
+      // Friendly, non-technical wording.
+      const steps: { name: string; detail: string; href: string; action: string; warn?: boolean }[] = [
+        {
+          name: "Setup",
+          detail: `Selected: <strong>${escapeHtml(d.profileLabel)}</strong>`,
+          href: "#setup",
+          action: "Change Profile",
+        },
+        {
+          name: "Sync Data",
+          detail:
+            `EasySpeak: ${escapeHtml(countLabel(d.easyspeakMembers, "member"))} &nbsp;|&nbsp; ` +
+            `Basecamp: ${escapeHtml(countLabel(d.basecampMembers, "member"))}` +
+            `<span class="setup-steps__meta">Last sync: ${syncLine}</span>`,
+          href: "#syncData",
+          action: "Refresh Data",
+        },
+        {
+          name: "Club Review",
+          detail: `${escapeHtml(countLabel(d.clubCount, "club"))} connected across both platforms`,
+          href: "#clubReview",
+          action: "Check Clubs",
+        },
+        {
+          name: "Member Review",
+          detail: needsReview
+            ? `${escapeHtml(countLabel(d.matchedMembers, "member"))} matched &middot; ${escapeHtml(reviewLabel)}`
+            : `${escapeHtml(countLabel(d.matchedMembers, "member"))} matched across both platforms`,
+          href: "#members",
+          action: "Audit Member List",
+          warn: needsReview,
+        },
+      ];
+
+      const rows = steps
+        .map((s, i) => {
+          const marker = s.warn ? "!" : "&#10003;";
+          const nameSuffix = s.warn ? ` (${d.toReview})` : "";
+          return `
+            <li class="setup-steps__row${s.warn ? " is-warning" : ""}">
+              <span class="setup-steps__marker" aria-hidden="true">${marker}</span>
+              <div class="setup-steps__text">
+                <p class="setup-steps__name">${escapeHtml(`Step ${i + 1} — ${s.name}${nameSuffix}`)}</p>
+                <p class="setup-steps__detail">${s.detail}</p>
+              </div>
+              <a href="${s.href}" class="btn btn-secondary btn-sm setup-steps__action">${escapeHtml(s.action)}</a>
+            </li>`;
+        })
+        .join("");
+
+      const headMarker = needsReview ? "!" : "&#10003;";
+      const subLine = needsReview
+        ? escapeHtml(reviewLabel)
+        : d.syncRelative
+          ? `Last sync: ${escapeHtml(d.syncRelative)}`
+          : `Last sync: ${escapeHtml(d.syncAbsolute)}`;
+
+      bannerRoot.innerHTML = `
+        <div class="setup-complete${setupDetailsOpen ? " is-open" : ""}${needsReview ? " has-review" : ""}">
+          <div class="setup-complete__bar">
+            <span class="setup-complete__check" aria-hidden="true">${headMarker}</span>
+            <div class="setup-complete__headline">
+              <p class="setup-complete__title">Setup Complete (${pipeline.completedSteps}/${pipeline.totalSteps} Steps)</p>
+              <p class="setup-complete__sub">${subLine}</p>
+            </div>
+            <div class="setup-complete__actions">
+              <button type="button" id="setupDetailsToggle" class="btn btn-secondary btn-sm setup-complete__toggle"
+                      aria-expanded="${setupDetailsOpen}" aria-controls="setupDetailsPanel">
+                View Setup Details <span class="setup-complete__chevron" aria-hidden="true">&#9662;</span>
+              </button>
+              <a href="#syncData" class="btn btn-primary btn-sm setup-complete__refresh">Refresh Data</a>
+            </div>
+          </div>
+          <div class="setup-complete__details" id="setupDetailsPanel" role="region" aria-label="Setup details">
+            <div class="setup-complete__details-inner">
+              <ol class="setup-steps">${rows}</ol>
+            </div>
+          </div>
         </div>
       `;
     }
@@ -241,8 +450,6 @@ export const dashboardView: ViewModule = {
           description: "Check live Basecamp completion details for a member before approving.",
           accent: "amber",
           iconHtml: ICON_APPROVAL,
-          badgeNew: true,
-          ctaLabel: "Select Member →",
           comingSoon: true,
         },
         {
@@ -263,16 +470,18 @@ export const dashboardView: ViewModule = {
     }
 
     function renderFeatureCard(card: FeatureCard): string {
-      const badge = card.badgeNew ? '<span class="badge badge-info dashboard-tile__badge">NEW</span>' : "";
       const inert = card.comingSoon || card.locked;
-      // A single-CTA active card becomes one big click target: the article is
-      // position:relative and its CTA link stretches over it via ::after
-      // (the "stretched link" pattern). The link stays a real
-      // <a href="#route">, so hashchange routing is unchanged — no JS added.
+      // A single-CTA active card becomes one big click target (see
+      // onFeatureCardClick() in mount()): the whole `.dashboard-tile--link`
+      // article follows its CTA link on click. The CTA stays a real
+      // <a href="#route"> so keyboard activation and hashchange routing are
+      // unchanged.
       const interactive = !inert && !card.backup;
 
       let footer: string;
       if (card.backup) {
+        // Save/Load are utility actions — bordered secondary buttons, clearly
+        // subordinate to the primary CTAs on the other cards.
         const statusClass = restoreStatus?.kind === "error" ? " is-error" : "";
         footer = `
           <div class="dashboard-tile__actions">
@@ -281,12 +490,14 @@ export const dashboardView: ViewModule = {
           </div>
           <p class="help-text dashboard-tile__status${statusClass}" aria-live="polite">${restoreStatus ? escapeHtml(restoreStatus.text) : ""}</p>
         `;
-      } else if (inert) {
-        const cta = `<span class="btn btn-primary dashboard-tile__cta" aria-disabled="true">${escapeHtml(card.ctaLabel ?? "")}</span>`;
-        const trailing = card.comingSoon
-          ? '<span class="dashboard-tile__soon">Coming soon</span>'
-          : '<span class="badge badge-muted dashboard-tile__lock">&#128274; Requires imported data</span>';
-        footer = `${cta}${trailing}`;
+      } else if (card.comingSoon) {
+        // No disabled button — just a single status tag (design feedback).
+        footer = '<span class="badge badge-soft dashboard-tile__soon">Coming soon</span>';
+      } else if (card.locked) {
+        footer = `
+          <span class="btn btn-primary dashboard-tile__cta" aria-disabled="true">${escapeHtml(card.ctaLabel ?? "")}</span>
+          <span class="badge badge-soft dashboard-tile__lock">&#128274; Requires imported data</span>
+        `;
       } else {
         footer = `<a href="${card.href}" class="btn btn-primary dashboard-tile__cta">${escapeHtml(card.ctaLabel ?? "")}</a>`;
       }
@@ -297,7 +508,6 @@ export const dashboardView: ViewModule = {
           <div class="dashboard-tile__head">
             <span class="dashboard-tile__icon ${ACCENT_ICON_CLASS[card.accent]}" aria-hidden="true">${card.iconHtml}</span>
             <h2 class="dashboard-tile__title">${escapeHtml(card.title)}</h2>
-            ${badge}
           </div>
           <p class="dashboard-tile__desc">${escapeHtml(card.description)}</p>
           <div class="dashboard-tile__footer">${footer}</div>
@@ -356,7 +566,12 @@ export const dashboardView: ViewModule = {
     async function render() {
       const info = await computeStepperInfo();
       if (disposed) return;
-      renderBanner(info);
+      // Only the "Setup Complete" panel needs the per-step figures, so skip
+      // the extra buildReport() pass in every earlier state.
+      const details =
+        evaluateSetupPipeline(info).bannerState === "ready" ? await computeSetupDetails(info) : null;
+      if (disposed) return;
+      renderBanner(info, details);
       renderFeatures(areFeaturesUnlocked(info));
     }
 
@@ -370,6 +585,8 @@ export const dashboardView: ViewModule = {
     return () => {
       disposed = true;
       restoreAbort.abort();
+      featuresRoot.removeEventListener("click", onFeatureCardClick);
+      bannerRoot.removeEventListener("click", onBannerClick);
       browser.storage.onChanged.removeListener(onStorageChanged);
     };
   },

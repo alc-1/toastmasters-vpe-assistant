@@ -37,10 +37,10 @@ const SHELL_HTML = `
   <div class="meta" id="pageMeta"></div>
 
   <div id="conflictWarning" aria-live="polite"></div>
-  <div id="clubTabs" class="tabs"></div>
+  <div id="clubTabs" class="tabs tabs-border" role="tablist"></div>
   <div id="filterChips" class="toolbar"></div>
-  <input type="text" id="memberSearch" class="search-input" placeholder="Search by member or path name…">
-  <div id="membersRoot" class="table-scroll"></div>
+  <input type="text" id="memberSearch" class="input input-sm w-full lg:max-w-[280px] mb-3 block" placeholder="Search by member or path name…">
+  <div id="membersRoot"></div>
 `;
 
 interface FilterDef {
@@ -176,7 +176,7 @@ export const membersView: ViewModule = {
       }
 
       warningRoot.innerHTML = `
-        <div class="conflict-warning">
+        <div role="alert" class="alert alert-warning alert-soft mb-4 text-base">
           ${warningIconHtml("Unmatched club")}
           ${unmatchedClubs.length} club${unmatchedClubs.length === 1 ? "" : "s"} (${unmatchedClubs
             .map((s) => escapeHtml(s.clubName))
@@ -207,11 +207,11 @@ export const membersView: ViewModule = {
             : missingCount > 0
               ? `<span class="tab-count">${missingCount}</span>`
               : "";
-          return `<button class="tab-btn${s.clubKey === activeClubKey ? " active" : ""}" data-club-key="${s.clubKey}" title="${escapeAttr(s.clubName)}">${warningIcon}${escapeHtml(shortenClubName(s.clubName))}${countBadge}</button>`;
+          return `<button class="tab${s.clubKey === activeClubKey ? " tab-active" : ""}" data-club-key="${s.clubKey}" title="${escapeAttr(s.clubName)}">${warningIcon}${escapeHtml(shortenClubName(s.clubName))}${countBadge}</button>`;
         })
         .join("");
 
-      tabsRoot.querySelectorAll<HTMLButtonElement>(".tab-btn").forEach((btn) => {
+      tabsRoot.querySelectorAll<HTMLButtonElement>(".tab").forEach((btn) => {
         btn.addEventListener("click", () => {
           activeClubKey = btn.dataset.clubKey ?? null;
           renderClubTabs();
@@ -318,7 +318,7 @@ export const membersView: ViewModule = {
         getRoot("filterChips").innerHTML = "";
         const side = section.clubPair.basecampClubId ? "Basecamp" : "EasySpeak";
         membersRoot.innerHTML = `
-          <div class="conflict-warning conflict-warning--info">
+          <div role="alert" class="alert alert-info alert-soft mb-4 text-base">
             ${approvedCheckIconHtml("Acknowledged one-sided club")}
             This club only exists in ${side} — it was acknowledged as one-sided in Club Review, so there
             are no members to match here. <a href="#clubReview">Change in Club Review</a>
@@ -351,10 +351,16 @@ export const membersView: ViewModule = {
       `;
 
       const rows = sorted.map((member) => renderMemberRows(member, pools)).join("");
+      const cards = sorted.map((member) => renderMemberCard(member, pools)).join("");
 
+      // Dual render: a spreadsheet-style <table> on desktop (≥lg), a card list
+      // on narrower widths. Both carry the same data-* attributes, so
+      // attachRowHandlers()'s querySelectorAll over #membersRoot binds
+      // whichever is on screen. onLink()/onLinkInputChange() scope with
+      // closest("tr, .member-card") so the search field works in both.
       return `
         ${datalists}
-        <table class="data-table members">
+        <table class="data-table members hidden lg:table">
           <thead>
             <tr>
               <th>Basecamp name</th>
@@ -366,6 +372,25 @@ export const membersView: ViewModule = {
           </thead>
           <tbody>${rows}</tbody>
         </table>
+        <div class="member-cards flex flex-col gap-2 lg:hidden">${cards}</div>
+      `;
+    }
+
+    function renderMemberCard(member: MemberReport, pools: { easyspeakOnly: Candidate[]; basecampOnly: Candidate[] }): string {
+      const key = memberKey(member);
+      const clean = !needsAction(member);
+      const expanded = hasReviewablePaths(member) && expandedMemberKeys.has(key);
+      return `
+        <div class="member-card rounded-md border border-base-300 bg-base-100 p-3 flex flex-col gap-1.5${clean ? " opacity-70" : ""}">
+          <div class="flex flex-wrap items-center justify-end gap-1.5">
+            ${renderLinkStatusCell(member)}
+            ${renderPathBindCell(member)}
+          </div>
+          <div class="text-sm font-semibold">${renderNameCell(member, "basecamp", pools)}</div>
+          <div class="text-sm text-tm-gray-600">${renderNameCell(member, "easyspeak", pools)}</div>
+          <div class="actions flex flex-wrap justify-end gap-1.5 mt-1">${renderActionsCell(member)}</div>
+          ${expanded ? `<div class="mt-1 pt-2 border-t border-base-300" data-row-detail>${renderPathBindDetail(member)}</div>` : ""}
+        </div>
       `;
     }
 
@@ -425,7 +450,7 @@ export const membersView: ViewModule = {
       const key = memberKey(member);
       return (
         `<span class="name-header">${labelPrefix}<span class="not-linked-label">(Not linked)</span></span>` +
-        `<input type="text" class="link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" aria-label="Search ${label} members to link" autocomplete="off">`
+        `<input type="text" class="input input-xs link-search" list="${datalistId}" data-role="link-input" data-member-key="${key}" placeholder="Search ${label} members…" aria-label="Search ${label} members to link" autocomplete="off">`
       );
     }
 
@@ -437,14 +462,14 @@ export const membersView: ViewModule = {
             : member.matchSource === "orphan"
               ? "marked as having no counterpart"
               : "confirmed from a suggested match";
-        return `<span class="badge badge-confirmed" title="${escapeAttr(sourceLabel)}">Resolved manually</span>`;
+        return `<span class="badge badge-soft badge-info" title="${escapeAttr(sourceLabel)}">Resolved manually</span>`;
       }
-      if (member.presence !== "both") return '<span class="badge badge-unmatched">Unmatched</span>';
+      if (member.presence !== "both") return '<span class="badge badge-soft badge-error">Unmatched</span>';
       if (member.matchConfidence === "fuzzy") {
         const score = member.matchScore != null ? member.matchScore.toFixed(2) : "—";
-        return `<span class="badge badge-fuzzy" title="match score: ${score}">Suggested</span>`;
+        return `<span class="badge badge-soft badge-warning" title="match score: ${score}">Suggested</span>`;
       }
-      return '<span class="badge badge-exact">Exact</span>';
+      return '<span class="badge badge-soft badge-success">Exact</span>';
     }
 
     function renderPathBindCell(member: MemberReport): string {
@@ -460,18 +485,18 @@ export const membersView: ViewModule = {
           ...completed.map((p) => (p.confirmedCompleted ? `${p.basecampCompletedName} ↔ ${p.easyspeakPathLabel} (completed)` : `${p.displayName} (completed)`)),
         ];
         const label = bound.length > 0 && orphaned.length === 0 ? "Bound" : "Resolved";
-        return `<span class="badge badge-confirmed" title="${escapeAttr(titleParts.join("; "))}">${label}</span>`;
+        return `<span class="badge badge-soft badge-info" title="${escapeAttr(titleParts.join("; "))}">${label}</span>`;
       }
       if (flagged.length > 0) {
         const titleParts = flagged.map((p) => `${p.displayName} (flagged for later review)`);
-        return `<span class="badge badge-flagged" title="${escapeAttr(titleParts.join("; "))}">Flagged</span>`;
+        return `<span class="badge badge-soft badge-warning" title="${escapeAttr(titleParts.join("; "))}">Flagged</span>`;
       }
       if (completed.length > 0) {
         const titleParts = completed.map((p) => (p.confirmedCompleted ? `${p.basecampCompletedName} ↔ ${p.easyspeakPathLabel} (completed)` : `${p.displayName} (completed)`));
-        return `<span class="badge badge-confirmed" title="${escapeAttr(titleParts.join("; "))}">Completed</span>`;
+        return `<span class="badge badge-soft badge-info" title="${escapeAttr(titleParts.join("; "))}">Completed</span>`;
       }
       if (!member.hasOrphanedPaths) return '<span class="muted-text">—</span>';
-      return '<span class="badge badge-path-issue">Path issue</span>';
+      return '<span class="badge badge-soft badge-error">Path issue</span>';
     }
 
     function renderActionsCell(member: MemberReport): string {
@@ -555,8 +580,8 @@ export const membersView: ViewModule = {
             .map((p) => {
               const statusLabel = p.overridden ? "Bound manually" : "Matched automatically";
               const action = p.overridden
-                ? `<button class="secondary" data-action="unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName ?? "")}" data-es-path="${escapeAttr(p.easyspeakPathLabel ?? "")}">Unbind</button>`
-                : `<button class="secondary" data-action="force-unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName ?? "")}" data-es-path="${escapeAttr(p.easyspeakPathLabel ?? "")}" title="Splits this pair back into two unmatched paths so you can bind it differently or leave it as an orphan.">Force unbind</button>`;
+                ? `<button class="btn btn-secondary btn-sm" data-action="unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName ?? "")}" data-es-path="${escapeAttr(p.easyspeakPathLabel ?? "")}">Unbind</button>`
+                : `<button class="btn btn-secondary btn-sm" data-action="force-unbind-path" data-member-key="${key}" data-bc-path="${escapeAttr(p.basecampPathName ?? "")}" data-es-path="${escapeAttr(p.easyspeakPathLabel ?? "")}" title="Splits this pair back into two unmatched paths so you can bind it differently or leave it as an orphan.">Force unbind</button>`;
               return `
                 <div class="path-pair-row">
                   <span><strong>${escapeHtml(p.basecampPathName ?? "")}</strong> &harr; ${escapeHtml(p.easyspeakPathLabel ?? "")}</span>
@@ -580,7 +605,7 @@ export const membersView: ViewModule = {
                 <div class="path-pair-row">
                   <span><strong>${sideLabel}:</strong> ${escapeHtml(pathName)}</span>
                   <span class="muted-text">Resolved as orphan</span>
-                  <button class="secondary" data-action="unmark-path-orphan" data-member-key="${key}" data-side="${side}" data-path="${escapeAttr(pathName)}">Unmark orphan</button>
+                  <button class="btn btn-secondary btn-sm" data-action="unmark-path-orphan" data-member-key="${key}" data-side="${side}" data-path="${escapeAttr(pathName)}">Unmark orphan</button>
                 </div>
               `;
             })
@@ -599,7 +624,7 @@ export const membersView: ViewModule = {
                 <div class="path-pair-row">
                   <span><strong>${sideLabel}:</strong> ${escapeHtml(pathName)}</span>
                   <span class="muted-text">Flagged for later review</span>
-                  <button class="secondary" data-action="unflag-path" data-member-key="${key}" data-side="${side}" data-path="${escapeAttr(pathName)}">Unflag</button>
+                  <button class="btn btn-secondary btn-sm" data-action="unflag-path" data-member-key="${key}" data-side="${side}" data-path="${escapeAttr(pathName)}">Unflag</button>
                 </div>
               `;
             })
@@ -621,8 +646,8 @@ export const membersView: ViewModule = {
                 const bindControls =
                   candidates.length > 0
                     ? `<span>&harr;</span>
-                     <input type="text" class="link-search" list="${pathDatalistId}" data-role="path-bind-input" data-member-key="${key}" placeholder="Search Basecamp paths…" aria-label="Choose a path to bind this member's orphaned path to" autocomplete="off">
-                     <button data-action="bind-path" data-member-key="${key}" data-es-index="${esIndex}" disabled>Bind</button>`
+                     <input type="text" class="input input-xs link-search" list="${pathDatalistId}" data-role="path-bind-input" data-member-key="${key}" placeholder="Search Basecamp paths…" aria-label="Choose a path to bind this member's orphaned path to" autocomplete="off">
+                     <button class="btn btn-primary btn-sm" data-action="bind-path" data-member-key="${key}" data-es-index="${esIndex}" disabled>Bind</button>`
                     : "";
                 const done = pathSpeechesDone(esPath);
                 return `
@@ -630,9 +655,9 @@ export const membersView: ViewModule = {
                   <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
                   <span class="muted-text">${done} speech${done === 1 ? "" : "es"} done</span>
                   ${bindControls}
-                  <button class="secondary" data-action="mark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as completed</button>
-                  <button class="secondary" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
-                  <button class="secondary" data-action="flag-path" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Flag for later</button>
+                  <button class="btn btn-secondary btn-sm" data-action="mark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as completed</button>
+                  <button class="btn btn-secondary btn-sm" data-action="mark-path-orphan" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Mark as orphan</button>
+                  <button class="btn btn-secondary btn-sm" data-action="flag-path" data-member-key="${key}" data-side="easyspeak" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Flag for later</button>
                 </div>
               `;
               })
@@ -663,7 +688,7 @@ export const membersView: ViewModule = {
                 <div class="path-pair-row">
                   <span><strong>EasySpeak:</strong> ${escapeHtml(esPath.easyspeakPathLabel ?? "")}</span>
                   <span class="muted-text">Completed</span>
-                  <button class="secondary" data-action="unmark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Unmark completed</button>
+                  <button class="btn btn-secondary btn-sm" data-action="unmark-path-completed" data-member-key="${key}" data-path="${escapeAttr(esPath.easyspeakPathLabel ?? "")}">Unmark completed</button>
                 </div>
               `
             )
@@ -892,7 +917,7 @@ export const membersView: ViewModule = {
 
     function onLinkInputChange(input: HTMLInputElement) {
       const member = findMemberByKey(input.dataset.memberKey!);
-      const row = input.closest("tr")!;
+      const row = input.closest("tr, .member-card")!;
       const linkBtn = row.querySelector<HTMLButtonElement>('[data-action="link"]');
       if (!member || !linkBtn) return;
       const candidates = getCandidatesForMember(member);
@@ -902,7 +927,7 @@ export const membersView: ViewModule = {
     async function onLink(btn: HTMLButtonElement) {
       const member = findMemberByKey(btn.dataset.memberKey!);
       if (!member) return;
-      const row = btn.closest("tr")!;
+      const row = btn.closest("tr, .member-card")!;
       const input = row.querySelector<HTMLInputElement>('[data-role="link-input"]')!;
       const candidates = getCandidatesForMember(member);
       const match = parseCandidateSelection(input.value, candidates);

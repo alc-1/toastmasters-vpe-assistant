@@ -21,10 +21,31 @@ export default {
     "at-rule-no-unknown": [
       true,
       {
-        ignoreAtRules: ["tailwind", "apply", "layer", "screen", "variants", "responsive"],
+        // Tailwind v4 CSS-first + daisyUI plugin directives, plus the v3-era
+        // ones still valid in v4.
+        ignoreAtRules: [
+          "tailwind",
+          "apply",
+          "layer",
+          "screen",
+          "variants",
+          "responsive",
+          "theme",
+          "plugin",
+          "config",
+          "source",
+          "utility",
+          "variant",
+          "custom-variant",
+          "reference",
+        ],
       },
     ],
+    "import-notation": null, // @import "tailwindcss"; (string form required by Tailwind v4)
+    "at-rule-empty-line-before": null, // @plugin/@theme blocks sit grouped in the preamble
+    "value-keyword-case": ["lower", { ignoreProperties: ["font-family", "--font-sans"] }], // BlinkMacSystemFont etc. keep their case
     "selector-class-pattern": null, // BEM (__/--) naming throughout, not stylelint's default kebab-case-only
+    "selector-id-pattern": null, // element ids are camelCase throughout this codebase (#popupStepperRoot, etc.)
     "declaration-empty-line-before": null, // this file groups declarations with no blank line within a rule
     "comment-empty-line-before": null, // comments sit directly above the rule/declaration they describe
     "custom-property-empty-line-before": null,

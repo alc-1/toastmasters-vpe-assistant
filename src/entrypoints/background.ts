@@ -25,10 +25,10 @@
 // that.
 //
 // On "update", it no longer opens a What's New tab — "Strategy 3" for update
-// notifications replaced that auto-launch with a quiet header version badge
-// (shared/whats-new-badge.ts + shared/app-shell.ts's renderVersionBadge).
-// All this handler does now is seed `lastViewedVersion` so that badge's
-// unread dot has a correct baseline: on a fresh install the user is already
+// notifications replaced that auto-launch with a quiet "What's New" link in
+// the app footer (shared/whats-new-badge.ts + shared/app-shell.ts's
+// renderAppFooter). All this handler does now is seed `lastViewedVersion` so
+// that link's unread dot has a correct baseline: on a fresh install the user is already
 // on the latest version (nothing unread); on an update, if no baseline
 // exists yet (upgrading from a build that predates the badge) it's seeded
 // from `previousVersion` so the dot lights up for the release just installed.

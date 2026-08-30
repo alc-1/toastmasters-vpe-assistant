@@ -93,14 +93,14 @@ export const clubReviewView: ViewModule = {
       const unmatched = sortClubPairs(matches.filter(needsClubAction));
 
       const linkedSection = linked.length
-        ? `<h2 class="section-header section-header--first">Linked Clubs</h2><div class="table-scroll">${renderClubTable(linked)}</div>`
+        ? `<h2 class="section-header section-header--first">Linked Clubs</h2>${renderClubList(linked)}`
         : "";
 
       const unmatchedSection = unmatched.length
         ? `
             <h2 class="section-header${linked.length ? "" : " section-header--first"}">Unmatched Clubs</h2>
             <p class="help-text">These clubs need a decision — confirm or reject a suggested match, or use the form below to pin one manually.</p>
-            <div class="table-scroll">${renderClubTable(unmatched)}</div>
+            ${renderClubList(unmatched)}
           `
         : "";
 
@@ -111,6 +111,17 @@ export const clubReviewView: ViewModule = {
       return `${linkedSection}${unmatchedSection}${addFormSection}`;
     }
 
+    // Dual render: a table on desktop (≥lg), a card list on narrower widths.
+    // Both carry the same data-* attributes on their action buttons, so
+    // attachClubLookupHandlers()'s querySelectorAll over #clubLookupRoot binds
+    // whichever one is on screen with no extra wiring.
+    function renderClubList(pairs: ClubPair[]): string {
+      return `
+        <div class="hidden lg:block">${renderClubTable(pairs)}</div>
+        <div class="flex flex-col gap-2 lg:hidden">${pairs.map(renderClubCard).join("")}</div>
+      `;
+    }
+
     function renderClubTable(pairs: ClubPair[]): string {
       const rows = pairs.map(renderClubMatchRow).join("");
       return `<table class="data-table lookup"><thead><tr><th>Basecamp club</th><th>EasySpeak club</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -119,28 +130,46 @@ export const clubReviewView: ViewModule = {
     function renderClubMatchRow(pair: ClubPair): string {
       return `
         <tr>
-          <td data-label="Basecamp">${pair.basecamp ? escapeHtml(pair.basecamp.name) : '<span class="muted-text">—</span>'}</td>
-          <td data-label="EasySpeak">${pair.easyspeak ? escapeHtml(pair.easyspeak.name) : '<span class="muted-text">—</span>'}</td>
+          <td>${pair.basecamp ? escapeHtml(pair.basecamp.name) : '<span class="muted-text">—</span>'}</td>
+          <td>${pair.easyspeak ? escapeHtml(pair.easyspeak.name) : '<span class="muted-text">—</span>'}</td>
           <td>${renderClubStatusCell(pair)}</td>
           <td class="actions">${renderClubActionsCell(pair)}</td>
         </tr>
       `;
     }
 
+    function renderClubCard(pair: ClubPair): string {
+      const nameBlock = (label: string, name: string | undefined) => `
+        <div class="min-w-0">
+          <div class="text-[10px] font-semibold uppercase tracking-wide text-tm-gray-600">${label}</div>
+          <div>${name ? escapeHtml(name) : '<span class="muted-text">—</span>'}</div>
+        </div>`;
+      return `
+        <div class="rounded-md border border-base-300 bg-base-100 p-3 flex flex-col gap-1.5">
+          <div class="flex items-start justify-between gap-2">
+            ${nameBlock("Basecamp", pair.basecamp?.name)}
+            <div class="shrink-0">${renderClubStatusCell(pair)}</div>
+          </div>
+          ${nameBlock("EasySpeak", pair.easyspeak?.name)}
+          <div class="actions club-card__actions flex flex-wrap justify-end gap-1.5 mt-1">${renderClubActionsCell(pair)}</div>
+        </div>
+      `;
+    }
+
     function renderClubStatusCell(pair: ClubPair): string {
       if (pair.source === "orphan") {
-        return '<span class="badge badge-confirmed" title="Confirmed to have no counterpart in the other system">Acknowledged (one-sided)</span>';
+        return '<span class="badge badge-soft badge-info" title="Confirmed to have no counterpart in the other system">Acknowledged (one-sided)</span>';
       }
-      if (!pair.basecamp || !pair.easyspeak) return '<span class="badge badge-unmatched">Unmatched</span>';
+      if (!pair.basecamp || !pair.easyspeak) return '<span class="badge badge-soft badge-error">Unmatched</span>';
       if (pair.confidence === "confirmed") {
         const sourceLabel = pair.source === "manual-search" ? "linked via manual search" : "confirmed from a suggested match";
-        return `<span class="badge badge-confirmed" title="${escapeAttr(sourceLabel)}">Linked manually</span>`;
+        return `<span class="badge badge-soft badge-info" title="${escapeAttr(sourceLabel)}">Linked manually</span>`;
       }
       if (pair.confidence === "fuzzy") {
         const score = pair.score != null ? pair.score.toFixed(2) : "—";
-        return `<span class="badge badge-fuzzy" title="match score: ${score}">Suggested</span>`;
+        return `<span class="badge badge-soft badge-warning" title="match score: ${score}">Suggested</span>`;
       }
-      return '<span class="badge badge-exact">Exact</span>';
+      return '<span class="badge badge-soft badge-success">Exact</span>';
     }
 
     function renderClubActionsCell(pair: ClubPair): string {
@@ -203,10 +232,10 @@ export const clubReviewView: ViewModule = {
 
       return `
         <div class="add-form">
-          <select id="newClubPinBc" aria-label="Basecamp club">${bcOptions}</select>
+          <select id="newClubPinBc" class="select select-sm appearance-none" aria-label="Basecamp club">${bcOptions}</select>
           <span class="add-form-arrow add-form-arrow--wide">&harr;</span>
           <span class="add-form-arrow add-form-arrow--narrow">&darr;</span>
-          <select id="newClubPinEs" aria-label="EasySpeak club">${esOptions}</select>
+          <select id="newClubPinEs" class="select select-sm appearance-none" aria-label="EasySpeak club">${esOptions}</select>
           <button class="btn btn-primary" data-action="add-club-pin">Add mapping</button>
         </div>
       `;

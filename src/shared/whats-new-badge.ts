@@ -1,12 +1,12 @@
 // src/shared/whats-new-badge.ts
 //
-// State + data for the header version badge and its release-notes popover
-// (shared/app-shell.ts's renderVersionBadge() draws them; entrypoints/app/
-// main.ts wires the click/dismiss handlers). This is "Strategy 3" of the
-// update-notification options: a quiet top-bar badge with an unread dot,
-// replacing the previous behaviour where installing an update auto-opened a
-// full What's New tab (entrypoints/background.ts no longer does that — it just
-// seeds the "last seen" baseline below instead).
+// State + data for the app footer's version string + "What's New" link
+// (shared/app-shell.ts's renderAppFooter() draws them; entrypoints/app/
+// main.ts wires the click handler that clears the unread state). This is
+// "Strategy 3" of the update-notification options: a quiet footer link with
+// an unread dot, replacing the previous behaviour where installing an update
+// auto-opened a full What's New tab (entrypoints/background.ts no longer does
+// that — it just seeds the "last seen" baseline below instead).
 //
 // The changelog itself is the same build-time-bundled /changelog.json that
 // entrypoints/app/views/whatsNew.ts renders (see scripts/generate-changelog-json.ts)

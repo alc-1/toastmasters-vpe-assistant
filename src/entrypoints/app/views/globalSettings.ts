@@ -39,11 +39,10 @@ export const globalSettingsView: ViewModule = {
       const sectionRoot = root.querySelector("#anonymizeSectionRoot")!;
       sectionRoot.innerHTML = `
         <div class="card">
-          <div class="card-header"><span class="card-header__title"><span class="settings-lock-icon" aria-hidden="true">🔒</span>Privacy Mode</span></div>
+          <div class="card-header"><span class="card-header__title"><span class="settings-lock-icon" aria-hidden="true">${anonymize ? "🔒" : "🔓"}</span>Privacy Mode</span></div>
           <div class="card-body">
-            <label class="toggle-row">
-              <input type="checkbox" class="toggle-switch__input" id="anonymizeModeToggle"${anonymize ? " checked" : ""}>
-              <span class="toggle-switch" aria-hidden="true"></span>
+            <label class="flex items-center gap-3 mb-2 font-semibold cursor-pointer">
+              <input type="checkbox" class="toggle toggle-primary" id="anonymizeModeToggle"${anonymize ? " checked" : ""}>
               <span>Replace member and club names with generic labels</span>
             </label>
             <p class="help-text">Useful to generate statistics with AI while protecting personal data.</p>
@@ -78,7 +77,7 @@ export const globalSettingsView: ViewModule = {
           ([canonical, aliases]) => `
           <tr data-canonical="${escapeAttr(canonical)}">
             <td>${escapeHtml(canonical)}</td>
-            <td><input type="text" data-role="alias-input" value="${escapeAttr(aliases.join(", "))}" aria-label="Alternate spellings for ${escapeAttr(canonical)}"></td>
+            <td><input type="text" class="input input-xs w-full" data-role="alias-input" value="${escapeAttr(aliases.join(", "))}" aria-label="Alternate spellings for ${escapeAttr(canonical)}"></td>
             <td>
               <button class="btn btn-secondary" data-action="save-aliases">Save</button>
               <button class="btn btn-secondary" data-action="delete-canonical">Delete</button>
@@ -102,7 +101,7 @@ export const globalSettingsView: ViewModule = {
             </p>
             ${table}
             <div class="add-form">
-              <input type="text" id="newPathCanonical" placeholder="New canonical path name (lowercase)" aria-label="New canonical path name">
+              <input type="text" id="newPathCanonical" class="input input-sm" placeholder="New canonical path name (lowercase)" aria-label="New canonical path name">
               <button class="btn btn-primary" data-action="add-canonical">Add path</button>
             </div>
           </div>
