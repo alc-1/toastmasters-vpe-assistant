@@ -24,8 +24,7 @@ export function getStoreSelection(): { main: StoreInfo; others: StoreInfo[] } {
   return { main, others: STORES.filter((s) => s.id !== main.id) };
 }
 
-// No dedicated signup form exists yet — this points at the in-page Preview
-// Program section, which hosts the real mechanism (download the latest
-// release + open an issue). Update this the day a real signup destination
-// exists.
-export const PREVIEW_SIGNUP_URL = "#preview-program";
+// Points at the in-page "Help Shape the Tool" section, which hosts the real
+// mechanism (use the extension + open a GitHub issue). Update this the day a
+// dedicated feedback destination exists.
+export const FEEDBACK_URL = "#feedback";

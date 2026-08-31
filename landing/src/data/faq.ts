@@ -62,6 +62,6 @@ export const faqItems: FaqItem[] = [
   {
     question: "How can I provide feedback?",
     answer:
-      "Join the Preview Program and open a GitHub issue with bugs or feature ideas — that feedback is what shapes the roadmap.",
+      "Use the extension and open a GitHub issue with bugs or feature ideas — that feedback is what shapes the roadmap.",
   },
 ];

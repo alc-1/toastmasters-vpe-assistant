@@ -1,4 +1,4 @@
-import { getStoreSelection, PREVIEW_SIGNUP_URL } from "../../data/releaseInfo";
+import { getStoreSelection, FEEDBACK_URL } from "../../data/releaseInfo";
 import AlsoAvailableLinks from "../ui/AlsoAvailableLinks";
 import Button from "../ui/Button";
 import Section from "../ui/Section";
@@ -14,15 +14,14 @@ export default function FinalCTA() {
         </h2>
         <p className="text-navy-100">Ready to try it?</p>
         <p className="text-navy-200 max-w-xl">
-          Install the extension for your browser, or help shape what's next through the Preview
-          Program.
+          Install the extension for your browser, or help shape what's next with your feedback.
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
           <Button variant="primary" href={main.url} target="_blank" rel="noopener noreferrer">
             Add to {main.name}
           </Button>
-          <Button variant="ghost" href={PREVIEW_SIGNUP_URL}>
-            Join Preview Program
+          <Button variant="ghost" href={FEEDBACK_URL}>
+            Help Shape the Tool
           </Button>
         </div>
         <AlsoAvailableLinks stores={others} className="text-sm text-navy-300" />

@@ -1,16 +1,9 @@
 import type { ReactNode, SVGProps } from "react";
-import { ISSUES_URL, RELEASES_URL } from "../../data/installSteps";
+import { ISSUES_URL } from "../../data/installSteps";
 import Button from "../ui/Button";
 import Card from "../ui/Card";
 import Section from "../ui/Section";
 import SectionHeading from "../ui/SectionHeading";
-
-const whatYouGet = [
-  "Latest builds before they reach the stores",
-  "New features earlier",
-  "Direct feedback channel with the developer",
-  "Influence over the roadmap",
-];
 
 function ClubIcon(props: SVGProps<SVGSVGElement>) {
   return (
@@ -55,72 +48,112 @@ function ChartIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-const whatIAsk: { text: string; Icon: (props: SVGProps<SVGSVGElement>) => ReactNode }[] = [
-  { text: "Use it with your club", Icon: ClubIcon },
-  { text: "Tell me when something is confusing", Icon: ChatIcon },
-  { text: "Report bugs and suggest improvements", Icon: BugIcon },
-  { text: "Share which reports add the most value", Icon: ChartIcon },
+const howYouCanHelp: {
+  lead: string;
+  text: string;
+  Icon: (props: SVGProps<SVGSVGElement>) => ReactNode;
+}[] = [
+  {
+    lead: "Share your pain points:",
+    text: "Tell me which routine VPE tasks still take up too much time.",
+    Icon: ChatIcon,
+  },
+  {
+    lead: "Suggest new features:",
+    text: "Have an idea for a report or visualization? Let me know.",
+    Icon: ChartIcon,
+  },
+  {
+    lead: "Report issues:",
+    text: "Notice a mismatched record or data glitch? Drop a quick note so it can be fixed.",
+    Icon: BugIcon,
+  },
+  {
+    lead: "Guide the direction:",
+    text: "Share which features bring the most value to your club.",
+    Icon: ClubIcon,
+  },
 ];
 
-const previewSteps: { step: number; title: string; description: ReactNode }[] = [
+const whatHappensToFeedback: { lead: string; text: string }[] = [
+  {
+    lead: "User-Driven Roadmap:",
+    text: "Ideas and feature requests from real VPEs go straight to the top of the queue.",
+  },
+  {
+    lead: "Direct Access:",
+    text: "Communicate directly with the developer—no corporate support tickets.",
+  },
+  {
+    lead: "Continuous Improvement:",
+    text: "The extension is actively maintained and updated regularly based on community input.",
+  },
+];
+
+const involvementSteps: { step: number; title: string; description: ReactNode }[] = [
   {
     step: 1,
-    title: "Install the release",
-    description: "Download the latest preview build using the button below.",
+    title: "Use the Extension",
+    description: "Run it during your weekly VPE routines.",
   },
   {
     step: 2,
-    title: "Use it with your club",
-    description: "Run it against your real club data for a few weeks.",
-  },
-  {
-    step: 3,
-    title: "Open an issue with feedback",
+    title: "Share Your Ideas",
     description: (
       <>
+        Found a bug or have a feature request?{" "}
         <a
           href={ISSUES_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="text-navy-700 underline hover:text-navy-950"
         >
-          Open an issue
-        </a>{" "}
-        with bugs or ideas — that's what shapes the roadmap.
+          Open an issue on GitHub
+        </a>
+        .
       </>
     ),
   },
+  {
+    step: 3,
+    title: "Watch It Evolve",
+    description: "Your input directly influences future updates.",
+  },
 ];
 
-export default function PreviewProgram() {
+export default function HelpShapeTheTool() {
   return (
-    <Section id="preview-program" tone="white">
+    <Section id="feedback" tone="white">
       <SectionHeading
-        title="Become a Preview Tester"
-        subtitle="I'm looking for Toastmasters VPEs who want to use the latest versions of the extension with their real club data and help shape what gets built next."
+        title="Help Shape the Tool"
+        subtitle="Toastmasters VPE Assistant is built for VPEs, by a VPE. Your real-world experience directly guides what gets built next."
       />
 
       <div className="mt-10 grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
         <Card>
-          <h3 className="text-base font-semibold text-navy-950">What you get</h3>
+          <h3 className="text-base font-semibold text-navy-950">How You Can Help</h3>
           <ul className="mt-4 space-y-3 text-sm text-navy-700/90 leading-relaxed">
-            {whatYouGet.map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <span aria-hidden="true" className="text-success mt-0.5">
-                  &#10003;
+            {howYouCanHelp.map(({ lead, text, Icon }) => (
+              <li key={lead} className="flex items-start gap-2">
+                <Icon aria-hidden="true" className="h-4 w-4 shrink-0 mt-0.5 text-navy-700" />
+                <span>
+                  <span className="font-semibold text-navy-950">{lead}</span> {text}
                 </span>
-                {item}
               </li>
             ))}
           </ul>
         </Card>
         <Card>
-          <h3 className="text-base font-semibold text-navy-950">What I ask from you</h3>
+          <h3 className="text-base font-semibold text-navy-950">What Happens to Your Feedback</h3>
           <ul className="mt-4 space-y-3 text-sm text-navy-700/90 leading-relaxed">
-            {whatIAsk.map(({ text, Icon }) => (
-              <li key={text} className="flex items-start gap-2">
-                <Icon aria-hidden="true" className="h-4 w-4 shrink-0 mt-0.5 text-navy-700" />
-                {text}
+            {whatHappensToFeedback.map(({ lead, text }) => (
+              <li key={lead} className="flex items-start gap-2">
+                <span aria-hidden="true" className="text-success mt-0.5">
+                  &#10003;
+                </span>
+                <span>
+                  <span className="font-semibold text-navy-950">{lead}</span> {text}
+                </span>
               </li>
             ))}
           </ul>
@@ -129,11 +162,11 @@ export default function PreviewProgram() {
 
       <div className="mt-16 max-w-3xl mx-auto rounded-xl border border-silver-light bg-white px-6 py-8 sm:px-10 sm:py-10">
         <h3 className="text-lg font-semibold text-navy-950 text-center">
-          Join the Preview Program
+          How Your Input Shapes the Tool
         </h3>
 
         <div className="mt-8 grid gap-8 sm:grid-cols-3">
-          {previewSteps.map((item) => (
+          {involvementSteps.map((item) => (
             <div key={item.step} className="flex flex-col gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-navy-700 text-white font-semibold">
                 {item.step}
@@ -147,12 +180,12 @@ export default function PreviewProgram() {
         <div className="mt-10 flex justify-center">
           <Button
             variant="primary"
-            href={RELEASES_URL}
+            href={ISSUES_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="px-8 py-4 text-base"
           >
-            Download the latest release
+            Share Feedback or Request a Feature
           </Button>
         </div>
       </div>
