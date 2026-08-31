@@ -8,6 +8,8 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-08-31
+
 ### Changed
 
 - Club Progress "Next Level Summary" now shows the level each member is currently working on, instead of the last level they completed.
