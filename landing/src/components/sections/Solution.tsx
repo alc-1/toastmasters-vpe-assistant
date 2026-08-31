@@ -2,10 +2,10 @@ import Section from "../ui/Section";
 import SectionHeading from "../ui/SectionHeading";
 
 const highlights = [
-  "No spreadsheets",
-  "No manual exports",
-  "No copy/paste work",
-  "No repeated reconciliation",
+  "Unified progress report",
+  "Pathways onboarding helper",
+  "One-click Excel export",
+  "Privacy Mode & backups",
 ];
 
 export default function Solution() {
@@ -14,7 +14,7 @@ export default function Solution() {
       <SectionHeading
         eyebrow="The Solution"
         title="One Unified View of Club Progress"
-        subtitle="The extension pulls data from both systems, matches members, clubs, and paths, and gives you a single dashboard — instead of two browser tabs and a mental cross-reference."
+        subtitle="The extension pulls data from all three systems, matches members, clubs, and paths, and gives you a single Home screen — instead of three browser tabs and a mental cross-reference."
       />
 
       <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4">

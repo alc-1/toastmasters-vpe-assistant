@@ -4,6 +4,7 @@ import SectionHeading from "../ui/SectionHeading";
 const workflowSteps = [
   "Open Basecamp",
   "Open EasySpeak",
+  "Open Club Central",
   "Check members individually",
   "Compare records manually",
   "Figure out differences",
@@ -15,7 +16,7 @@ export default function Problem() {
       <SectionHeading
         eyebrow="The Problem"
         title="The Process Every VPE Knows Too Well"
-        subtitle="Basecamp and EasySpeak both track Pathways progress, but neither one talks to the other. Every report means doing the cross-checking yourself."
+        subtitle="Basecamp, EasySpeak, and Club Central each hold part of the picture, but none of them talk to each other. Every report means doing the cross-checking yourself."
       />
 
       <div className="mt-12 flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-stretch justify-center gap-3">

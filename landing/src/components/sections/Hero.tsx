@@ -1,4 +1,4 @@
-import dashboardScreenshot from "../../assets/screenshot_club_progress.png";
+import dashboardScreenshot from "../../assets/store_hub.png";
 import { getStoreSelection } from "../../data/releaseInfo";
 import AlsoAvailableLinks from "../ui/AlsoAvailableLinks";
 import Button from "../ui/Button";
@@ -7,7 +7,7 @@ import Container from "../ui/Container";
 import Lightbox, { useLightbox } from "../ui/Lightbox";
 
 const dashboardAlt =
-  "Toastmasters VPE Assistant Club Progress dashboard, showing member counts, paths, and a Next Level Summary table";
+  "Toastmasters VPE Assistant Home screen, showing club-data status and feature tiles for the Onboarding Helper, Club Progress Report, Excel export, and backup";
 
 const trustSignals = [
   "Built for Toastmasters VPEs",
@@ -24,10 +24,11 @@ export default function Hero() {
         <div className="grid lg:grid-cols-2 gap-14 items-center">
           <div className="flex flex-col gap-6 text-center lg:text-left items-center lg:items-start">
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white leading-tight">
-              Stop Cross-Checking Basecamp and EasySpeak
+              One View of Your Club's Pathways Progress
             </h1>
             <p className="text-lg text-navy-100 max-w-xl leading-relaxed">
-              Get a complete view of your club's Pathways progress in minutes instead of hours.
+              Bring Basecamp, EasySpeak, and Club Central together and get a complete picture of
+              every member's progress in minutes instead of hours.
             </p>
             <div className="flex flex-col gap-3 mt-2 items-center lg:items-start">
               <Button variant="primary" href={main.url} target="_blank" rel="noopener noreferrer">
@@ -47,11 +48,11 @@ export default function Hero() {
             </ul>
           </div>
 
-          <BrowserFrameMockup urlLabel="Toastmasters VPE Assistant — Club Progress">
+          <BrowserFrameMockup urlLabel="Toastmasters VPE Assistant — Home">
             <button
               type="button"
               onClick={() => lightbox.open({ src: dashboardScreenshot, alt: dashboardAlt })}
-              aria-label="View larger screenshot: Club Progress dashboard"
+              aria-label="View larger screenshot: the extension Home screen"
               className="group relative block w-full cursor-zoom-in"
             >
               <img src={dashboardScreenshot} alt={dashboardAlt} className="block w-full h-auto" />

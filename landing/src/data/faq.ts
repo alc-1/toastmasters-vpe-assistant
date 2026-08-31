@@ -7,22 +7,42 @@ export const faqItems: FaqItem[] = [
   {
     question: "What is Toastmasters VPE Assistant?",
     answer:
-      "A Chrome extension that consolidates member Pathways progress from Basecamp and EasySpeak into a single, reconciled report — so a VPE doesn't have to cross-check the two systems by hand.",
+      "A browser extension that consolidates member Pathways progress from Basecamp, EasySpeak, and Toastmasters.org Club Central into a single, reconciled report — so a VPE doesn't have to cross-check the systems by hand.",
   },
   {
     question: "Who is this for?",
     answer:
-      "Toastmasters Vice Presidents of Education who track member Pathways progress across Basecamp and EasySpeak and want to stop reconciling the two by hand.",
+      "Toastmasters Vice Presidents of Education who track member Pathways progress across Basecamp, EasySpeak, and Club Central and want to stop reconciling them by hand.",
   },
   {
     question: "Do I need to enter credentials?",
     answer:
-      "No. The extension uses the browser session you already have open for Basecamp and EasySpeak — it never asks for a separate username or password.",
+      "No. The extension uses the browser sessions you already have open for Basecamp, EasySpeak, and Club Central — it never asks for a separate username or password.",
+  },
+  {
+    question: "What is the Pathways Onboarding Helper?",
+    answer:
+      "It reads your Club Central roster and lists paid-up members — plus members whose membership is still pending — who haven't enrolled in a Pathways path yet, grouped by club, so you know exactly who to reach out to.",
+  },
+  {
+    question: "Can I export the report to a spreadsheet?",
+    answer:
+      "Yes. The extension can download an Excel workbook of member progress and path history, and you can choose to include everything or just Basecamp, EasySpeak, or Club Central data.",
+  },
+  {
+    question: "Can I move my matching decisions to another computer?",
+    answer:
+      "Yes. Save or Restore Club Settings downloads a backup file of your data and confirmed match decisions that you can load back later — on a new machine, or after a browser reset.",
   },
   {
     question: "What happens when member names don't match?",
     answer:
       "The extension suggests a match based on name similarity and shows it to you for confirmation. Nothing is merged automatically without your review.",
+  },
+  {
+    question: "Can I hide member names?",
+    answer:
+      "Yes. Privacy Mode masks member and club names on screen and in exports, and shows a clear indicator in the top bar while it's on.",
   },
   {
     question: "Which EasySpeak deployments are supported?",

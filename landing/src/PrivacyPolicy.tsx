@@ -46,22 +46,22 @@ export default function PrivacyPolicy() {
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-navy-950">
             Privacy Policy for Toastmasters VPE Assistant
           </h1>
-          <p className="mt-3 text-sm font-medium text-navy-700">Effective date: August 6, 2026</p>
+          <p className="mt-3 text-sm font-medium text-navy-700">Effective date: August 31, 2026</p>
           <p className={`mt-6 text-lg ${bodyText}`}>
-            Toastmasters VPE Assistant is a Chrome extension built to help Toastmasters Vice
+            Toastmasters VPE Assistant is a browser extension built to help Toastmasters Vice
             Presidents of Education (VPEs) get a unified view of members' Pathways progress, by
-            reading data already visible to them on Basecamp and EasySpeak. This page explains what
-            information the extension accesses, how it's used, and — most importantly — that it
-            never leaves your browser.
+            reading data already visible to them on Basecamp, EasySpeak, and Toastmasters.org Club
+            Central. This page explains what information the extension accesses, how it's used,
+            and — most importantly — that it never leaves your browser.
           </p>
         </Section>
 
         <Section id="data-accessed" tone="alt" narrow>
           <SectionHeading align="left" title="1. Data Accessed and Used" />
           <p className={`mt-6 ${bodyText}`}>
-            When you ask the extension to generate a report, it reads the content of pages you're
-            already logged into on Toastmasters Basecamp and EasySpeak. Depending on what's
-            displayed on those pages, this may include:
+            When you ask the extension to sync data, it reads the content of pages you're already
+            logged into on Toastmasters Basecamp, EasySpeak, and Toastmasters.org Club Central.
+            Depending on what's displayed on those pages, this may include:
           </p>
           <CheckList
             items={[
@@ -70,11 +70,13 @@ export default function PrivacyPolicy() {
               "Pathways paths",
               "Level completion information",
               "Progress information",
+              "Club Central roster details, including membership payment status and whether a member has enrolled in Pathways",
             ]}
           />
           <p className={`mt-6 ${bodyText}`}>
             This information is used only to generate the reports you request — matching clubs,
-            members, and paths between the two systems and showing you a combined progress view.
+            members, and paths between the systems, showing you a combined progress view, and
+            listing members who have not yet started a Pathways path.
           </p>
         </Section>
 
@@ -108,10 +110,17 @@ export default function PrivacyPolicy() {
             The extension uses your browser's local storage only to remember:
           </p>
           <CheckList
-            items={["Your preferences", "Configuration settings", "Confirmed matching decisions"]}
+            items={[
+              "Your preferences",
+              "Configuration settings",
+              "Confirmed matching decisions",
+              "The most recently synced data, so reports open without re-syncing",
+            ]}
           />
           <p className={`mt-6 ${bodyText}`}>
-            This stored information stays on your device. It is never uploaded anywhere.
+            This stored information stays on your device. It is never uploaded anywhere. You can
+            also export a backup file of this data yourself and load it back later — that file is
+            written to your device and is never sent anywhere.
           </p>
         </Section>
 
@@ -127,15 +136,17 @@ export default function PrivacyPolicy() {
             <div>
               <h3 className="text-lg font-semibold text-navy-950">Scripting permission</h3>
               <p className={`mt-2 ${bodyText}`}>
-                Used to extract information displayed on Basecamp and EasySpeak pages you're
-                already logged into.
+                Used to extract information displayed on Basecamp, EasySpeak, and Club Central
+                pages you're already logged into.
               </p>
             </div>
             <div>
               <h3 className="text-lg font-semibold text-navy-950">Host permissions</h3>
               <p className={`mt-2 ${bodyText}`}>
-                Used only to access the Basecamp and EasySpeak pages required for the extension to
-                function.
+                Used only to access the pages required for the extension to function:
+                basecamp.toastmasters.org and apps.basecamp.toastmasters.org; the EasySpeak
+                servers tmclub.eu, toastmasterclub.org, and easy-speak.org; and
+                www.toastmasters.org for Club Central.
               </p>
             </div>
           </div>

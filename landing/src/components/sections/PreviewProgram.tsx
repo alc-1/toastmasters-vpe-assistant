@@ -6,7 +6,7 @@ import Section from "../ui/Section";
 import SectionHeading from "../ui/SectionHeading";
 
 const whatYouGet = [
-  "Latest builds before Chrome Web Store release",
+  "Latest builds before they reach the stores",
   "New features earlier",
   "Direct feedback channel with the developer",
   "Influence over the roadmap",

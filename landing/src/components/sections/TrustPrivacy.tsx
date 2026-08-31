@@ -4,8 +4,8 @@ import SectionHeading from "../ui/SectionHeading";
 const points = [
   "Uses your existing browser sessions",
   "No additional passwords",
-  "Data processed locally when possible",
-  "No spreadsheet maintenance",
+  "All data processed locally in your browser",
+  "Privacy Mode masks member names on screen and in exports",
   "Human review for uncertain matches",
 ];
 

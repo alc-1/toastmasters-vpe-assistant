@@ -7,7 +7,7 @@ export default function Workflow() {
     <Section id="how-it-works" tone="alt">
       <SectionHeading
         eyebrow="How It Works"
-        title="From Manual Investigation to Two-Click Reporting"
+        title="From Manual Investigation to a Home Screen You Work From"
       />
 
       <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-8">

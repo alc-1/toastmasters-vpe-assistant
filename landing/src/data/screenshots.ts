@@ -1,7 +1,7 @@
-import setupImg from "../assets/screenshot_sync_data.png";
-import dashboardImg from "../assets/screenshot_club_progress.png";
-import memberProgressImg from "../assets/screenshot_club_progress_detail.png";
-import matchImg from "../assets/screenshot_member_review.png";
+import setupImg from "../assets/store_profile_selection.png";
+import hubImg from "../assets/store_hub.png";
+import clubProgressImg from "../assets/store_club_progress.png";
+import onboardingImg from "../assets/store_onboarding_helper.png";
 
 export interface Screenshot {
   id: string;
@@ -18,21 +18,24 @@ export const screenshots: Screenshot[] = [
     image: setupImg,
   },
   {
-    id: "dashboard",
-    title: "Unified Progress Dashboard",
-    caption: "Your club's Pathways progress in one view.",
-    image: dashboardImg,
+    id: "home",
+    title: "Your Home Screen",
+    caption:
+      "Club-data status at a glance, with a tile for every tool — and Privacy Mode plus your active profile always in the top bar.",
+    image: hubImg,
   },
   {
-    id: "match-resolution",
-    title: "Smart Match Resolution",
-    caption: "Resolve uncertain matches once and remember your decisions.",
-    image: matchImg,
+    id: "club-progress",
+    title: "Club Progress Report",
+    caption:
+      "See the level every member is working on now, who's ready to level up, and any mismatch between Basecamp and EasySpeak.",
+    image: clubProgressImg,
   },
   {
-    id: "member-progress",
-    title: "Follow Member Progress",
-    caption: "Get a clear picture of both Basecamp and EasySpeak in one place.",
-    image: memberProgressImg,
+    id: "onboarding-helper",
+    title: "Pathways Onboarding Helper",
+    caption:
+      "Paid-up members who haven't started a Pathways path yet, grouped by club and split by payment status.",
+    image: onboardingImg,
   },
 ];
