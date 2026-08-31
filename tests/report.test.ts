@@ -664,12 +664,13 @@ describe("buildReport (synthetic fixtures)", () => {
     expect(riversideSummary.rows.some((r) => r.memberName === "Helena Voss" && r.pathName === "Team Collaboration")).toBe(false);
   });
 
-  it("computes a level summary reflecting Basecamp-approved progress", () => {
+  it("computes a level summary reflecting the level currently in progress", () => {
     const summary = buildLevelSummary(report);
     const riversideSummary = summary.find((s) => s.clubName === "Riverside Toastmasters")!;
     const graceRow = riversideSummary.rows.find((r) => r.memberName === "Grace Thompson")!;
-    expect(graceRow.currentLevelLabel).toBe("Level 2");
-    expect(graceRow.nextLevelLabel).toBe("Level 3");
+    // Level 1 & 2 approved, Level 3 not — so Level 3 is the one being worked on.
+    expect(graceRow.currentLevelLabel).toBe("Level 3");
+    expect(graceRow.nextLevelLabel).toBe("Level 4");
   });
 });
 

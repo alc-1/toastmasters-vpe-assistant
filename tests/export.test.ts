@@ -61,11 +61,11 @@ describe("buildAggregatedRows", () => {
     expect(grace.easyspeakMemberId).toBe("301");
   });
 
-  it("reflects Basecamp-approved progress via computeLevelSummary, matching Club Progress's own numbers", () => {
+  it("reflects the level currently in progress via computeLevelSummary, matching Club Progress's own numbers", () => {
     const grace = rows.find((r) => r.memberName === "Grace Thompson")!;
-    expect(grace.currentLevel).toBe(2);
-    expect(grace.currentLevelLabel).toBe("Level 2");
-    expect(grace.nextLevelLabel).toBe("Level 3");
+    expect(grace.currentLevel).toBe(3);
+    expect(grace.currentLevelLabel).toBe("Level 3");
+    expect(grace.nextLevelLabel).toBe("Level 4");
     expect(grace.level1BasecampApproved).toBe(true);
     expect(grace.level1EasyspeakDone).toBe(2);
   });

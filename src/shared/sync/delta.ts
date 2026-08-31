@@ -442,18 +442,23 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
     };
   }
 
-  let currentLevel = 0;
+  let highestApprovedLevel = 0;
   for (const level of path.levels) {
-    if (level.basecamp?.approved) currentLevel = level.level;
+    if (level.basecamp?.approved) highestApprovedLevel = level.level;
   }
+  // The level the member is currently working on — the first one not yet
+  // approved (capped at 5). This is what the Next Level Summary's "Level"
+  // column names; every "missing"/status field below is already computed
+  // against it.
+  const workingLevel = Math.min(highestApprovedLevel + 1, 5);
 
-  const completed = currentLevel === 5 && !!path.pathCompletion && path.pathCompletion.completed >= path.pathCompletion.total;
+  const completed =
+    highestApprovedLevel === 5 && !!path.pathCompletion && path.pathCompletion.completed >= path.pathCompletion.total;
   if (completed) {
     return {
-      currentLevel,
-      // One rank above a merely-approved Level 5, so "Completed" sorts as
-      // more advanced than "Level 5 (Path Completion still pending)" even
-      // though both share currentLevel === 5.
+      currentLevel: 5,
+      // Above both a plain Level 5 in progress (5) and a Level 5 with only
+      // Path Completion pending (5.5), so a finished path always sorts last.
       currentLevelSortValue: 6,
       currentLevelLabel: "Completed",
       nextLevelLabel: "—",
@@ -466,9 +471,9 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
     };
   }
 
-  const currentLevelLabel = `Level ${currentLevel}`;
+  const currentLevelLabel = `Level ${workingLevel}`;
 
-  if (currentLevel === 5) {
+  if (highestApprovedLevel === 5) {
     // Level 5 approved but Path Completion itself isn't done yet — Path
     // Completion has no EasySpeak equivalent to compare against at all, so
     // there's no discrepancy/pendingValidation data to check here; status
@@ -478,8 +483,11 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
     const statusDetail =
       theoreticalMissing === 0 ? "All requirements reported" : `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining`;
     return {
-      currentLevel,
-      currentLevelSortValue: currentLevel,
+      currentLevel: 5,
+      // Half a rank above a main-branch row whose workingLevel is also 5, so
+      // "Level 5 (Path Completion still pending)" sorts as more advanced —
+      // same rationale as "Completed" sitting at 6.
+      currentLevelSortValue: 5.5,
       currentLevelLabel,
       nextLevelLabel: "Path Completion",
       theoreticalMissing,
@@ -491,7 +499,7 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
     };
   }
 
-  const nextLevel = path.levels[currentLevel]; // currentLevel is 0-4 here, levels[] is 0-indexed by level-1
+  const nextLevel = path.levels[highestApprovedLevel]; // highestApprovedLevel is 0-4 here, levels[] is 0-indexed by level-1
   const theoreticalMissing = nextLevel.basecampMissing ?? 0;
   const unreportedInBasecamp = nextLevel.easyspeak ? Math.max(0, nextLevel.discrepancy ?? 0) : 0;
   const realMissing = Math.max(0, theoreticalMissing - unreportedInBasecamp);
@@ -519,10 +527,10 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
         : `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining`;
 
   return {
-    currentLevel,
-    currentLevelSortValue: currentLevel,
+    currentLevel: workingLevel,
+    currentLevelSortValue: workingLevel,
     currentLevelLabel,
-    nextLevelLabel: `Level ${currentLevel + 1}`,
+    nextLevelLabel: workingLevel < 5 ? `Level ${workingLevel + 1}` : "Path Completion",
     theoreticalMissing,
     unreportedInBasecamp,
     realMissing,
