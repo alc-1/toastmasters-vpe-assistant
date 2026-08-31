@@ -2,9 +2,7 @@ import Section from "../ui/Section";
 import SectionHeading from "../ui/SectionHeading";
 
 const workflowSteps = [
-  "Open Basecamp",
-  "Open EasySpeak",
-  "Open Club Central",
+  "Open Club Central, Basecamp & EasySpeak",
   "Check members individually",
   "Compare records manually",
   "Figure out differences",
