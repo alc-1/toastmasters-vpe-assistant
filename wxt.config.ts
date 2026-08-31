@@ -79,6 +79,15 @@ export default defineConfig({
       // succeed for real.
       // data_collection_permissions is Mozilla's data-collection-consent requirement (mzl.la/firefox-builtin-data-consent);
       // "none" is accurate since nothing is transmitted off-device — revisit if that ever changes.
+      // `gecko_android` is what opts the extension in to Firefox for Android on
+      // AMO — without this key present, AMO never offers the add-on for Android
+      // regardless of whether the code would run there. Same 128.0 floor as
+      // desktop (general extension support on Firefox for Android landed in
+      // Fenix 120; our own CSS/`browser.action` needs push it to 128 anyway).
+      // The mobile UI has no toolbar area — the popup opens from the ⋮ menu and
+      // the merged app runs as a normal tab — so the tab-navigation scrape flows
+      // still work, but this pathway is only manually verifiable on a real
+      // Android device/emulator (the e2e suite is Chromium-desktop only).
       browser_specific_settings:
         browser === "firefox"
           ? {
@@ -89,6 +98,9 @@ export default defineConfig({
                 // supported from Firefox 128 — which the extension already
                 // effectively requires (browser.action aliasing lands in 128,
                 // and the UI uses :has() from 121).
+                strict_min_version: "128.0",
+              },
+              gecko_android: {
                 strict_min_version: "128.0",
               },
             }

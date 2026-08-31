@@ -1494,7 +1494,12 @@ A few decisions worth knowing before changing the config:
   `wxt.config.ts`, and provisioning the three `FIREFOX_*` secrets above) before this job can even
   authenticate. Until Mozilla approves a first review, a Firefox install still requires "Load
   Temporary Add-on" (see README) — don't update README's or `landing/`'s copy to claim a live AMO
-  listing exists until it verifiably does.
+  listing exists until it verifiably does. The Firefox build also opts in to **Firefox for Android**
+  via `browser_specific_settings.gecko_android` in `wxt.config.ts` (same submission, same AMO review
+  — there's no separate mobile store; that key is the only thing that makes AMO offer the add-on on
+  Android at all). Android behavior is only manually verifiable — the e2e suite is Chromium-desktop
+  only, and the same "never assume Firefox parity" rule extends to "never assume Android parity with
+  desktop Firefox" (no toolbar area, popup opens from the ⋮ menu).
 - `npm run dev`/`dev:firefox` are useful for iterating on options/popup page markup with faster
   feedback, but MV3/MV2 background + `browser.scripting` behavior (the EasySpeak flow especially)
   should always get a real build + reload before you trust it — same reasoning as the old crxjs
