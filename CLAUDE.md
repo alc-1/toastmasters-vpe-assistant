@@ -1106,12 +1106,18 @@ entrypoint itself (no `index.html`, no separate build output):
   "Onboarding Helper", reached from the Home dashboard's first feature tile. Read-only: reads only
   `clubCentralData` (+ `getAnonymizeMode()` → `anonymizeClubCentralScrape()`), never
   `basecampData`/`easyspeakData`/`buildReport()`. Lists every Club Central roster member with
-  `paymentStatus === "Paid"` and `pathwaysEnrolled === false` — the people a VPE needs to help get
-  started — grouped into one `.card` + `.data-table` per club (Name / Position / Paid through).
+  `pathwaysEnrolled === false`, tagged `status: "ready"` (`paymentStatus === "Paid"` — help them
+  start now) or `status: "pending"` (`paymentStatus === "Membership Pending"` — membership not
+  finalised yet); `"Unpaid"`/`"Unknown"` payment states aren't listed at all. Grouped into one `.card` +
+  `.data-table` per club (Name / Position / Status / Paid through — `ready` rows get a
+  `badge-soft badge-warning` "Ready to Onboard" badge, `pending` rows a `badge-soft badge-neutral`
+  "Pending Payment" badge and an `opacity-70` muted row). A `.toolbar`/`.chip` filter row (All /
+  Ready to Onboard / Pending Payment, with counts; "Ready to Onboard" is the default) re-renders the
+  card list on click — same delegated-click-on-a-stable-container pattern, no per-render rebind.
   **Deliberately not route-gated** (unlike `#exporter`/`#report`): Club Central is an independent
   source, so `resolveRoute()` lets `#onboarding` through unconditionally and the view renders its own
   "import the roster first" empty state (link to `#syncData`) when `clubCentralData` is absent, plus
-  a "🎉 everyone enrolled" state when the roster has no unenrolled paid members.
+  a "🎉 nobody waiting" state when no unenrolled member has an actionable payment status.
 - **`entrypoints/app/views/report.ts`** — the comparison view, titled "Club Progress" (a
   `ViewModule`, reached from the Home dashboard's "Club Progress Report" feature tile, or by
   navigating to `#report` directly — it's a hub feature now, not a wizard step, so it renders

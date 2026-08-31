@@ -11,6 +11,7 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 ### Changed
 
 - Club Progress "Next Level Summary" now shows the level each member is currently working on, instead of the last level they completed.
+- Pathways Onboarding Helper now also lists members whose membership is still pending.
 
 ## [2.0.0] - 2026-08-30
 
