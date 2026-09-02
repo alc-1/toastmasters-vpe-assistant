@@ -8,6 +8,8 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-02
+
 ### Added
 
 - Club Progress "Next Level Summary" now has "Expand All" and "Collapse All" buttons above the table.
