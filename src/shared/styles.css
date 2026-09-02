@@ -2855,11 +2855,18 @@ body[data-view="members"] .data-table td {
 .detail-paths {
   font-size: var(--text-sm);
   margin-bottom: 12px;
+  color: #334155; /* slate-700 — present, but doesn't overpower the table */
+  font-weight: 500;
 }
 
 .detail-paths-label {
-  color: var(--gray-600);
+  color: #64748b; /* slate-500 */
+  font-weight: 400;
   margin-right: 4px;
+}
+
+.detail-paths strong {
+  font-weight: 600;
 }
 
 .non-pathway-note {
@@ -2880,7 +2887,7 @@ table.summary tr[data-row-key] {
   margin-right: 6px;
   color: var(--gray-600);
   vertical-align: middle;
-  transition: transform 0.15s ease, color 0.15s ease;
+  transition: transform 0.2s ease, color 0.2s ease;
 }
 
 .row-chevron.expanded {
@@ -2888,17 +2895,145 @@ table.summary tr[data-row-key] {
   color: var(--primary);
 }
 
-table.summary tr.detail-row {
-  background: var(--info-bg);
+/* Detail rows are always present in the DOM (report.ts renders one per row);
+   they collapse to zero height and slide open via a grid-template-rows
+   0fr -> 1fr transition. The `> td` child combinator is load-bearing: these
+   rules must hit only the detail row's own wrapping cell, never the <td>s of
+   the nested per-level matrix table inside it. */
+table.summary tr.detail-row > td {
+  padding: 0;
+  border-bottom: 0;
 }
 
-table.summary tr.detail-row td {
-  border-left: 3px solid var(--tm-silver);
+/* Expanded detail panel: a light slate tint, a primary-coloured accent bar
+   tying it to its parent row, and a hairline top border separating the two. */
+table.summary tr.detail-row.expanded > td {
+  background: #f8fafc; /* slate-50 */
+  border-top: 1px solid var(--color-base-300); /* #e2e8f0 */
+  border-left: 3px solid var(--primary);
+}
+
+table.summary tr.detail-row .detail-row-inner {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease;
+}
+
+table.summary tr.detail-row.expanded .detail-row-inner {
+  grid-template-rows: 1fr;
+}
+
+table.summary tr.detail-row .detail-row-inner > div {
+  overflow: hidden;
+}
+
+table.summary tr.detail-row.expanded .detail-row-inner > div {
+  padding: 12px var(--space-2);
+}
+
+/* Zebra striping is assigned explicitly by report.ts (row-stripe) because the
+   always-present hidden detail <tr>s would otherwise throw off nth-child(2n). */
+table.summary tbody tr.row-stripe {
+  background: var(--surface-alt);
+}
+
+/* Unified toolbar above the Next Level Summary table: search on the far left,
+   Expand All / Collapse All on the far right. */
+.summary-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.summary-toolbar__search {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 280px;
+}
+
+.summary-expand-controls {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+/* Small screens: search takes a full-width row of its own, then the two
+   toggle buttons sit side by side splitting the width evenly below it.
+   1023.98px (not 1024px) so exactly 1024px still counts as a big screen,
+   matching the Tailwind `lg:` (min-width: 1024px) breakpoint the table/card
+   swap uses. */
+@media (max-width: 1023.98px) {
+  .summary-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .summary-toolbar__search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .summary-expand-controls {
+    flex-basis: 100%;
+  }
+
+  .summary-expand-controls .btn {
+    flex: 1 1 0;
+  }
+}
+
+/* report.ts disables whichever control would be a no-op (all rows already
+   open / all already closed). */
+.summary-expand-controls .btn:disabled,
+.summary-expand-controls .btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mobile (<lg) card equivalent of the detail row: same 0fr -> 1fr slide. */
+.summary-card[data-row-key] {
+  cursor: pointer;
+}
+
+.summary-card .card-detail-inner {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease;
+}
+
+.summary-card .card-detail-inner.expanded {
+  grid-template-rows: 1fr;
+}
+
+.summary-card .card-detail-inner > div {
+  overflow: hidden;
+}
+
+.summary-card .card-detail-inner.expanded > div {
+  margin-top: 8px;
+  padding: 12px;
+  background: #f8fafc; /* slate-50 */
+  border: 1px solid var(--color-base-300); /* #e2e8f0 */
+  border-left: 3px solid var(--primary);
+  border-radius: 6px;
+}
+
+/* The per-level matrix sits on its own clean white card inside the tinted
+   detail panel, so it reads as a distinct data block. overflow: hidden lets
+   the rounded corners clip the muted header bar. */
+.levels-table--wide,
+.levels-table--narrow {
+  margin: 12px 0 4px;
+  background: #ffffff;
+  border: 1px solid var(--color-base-300); /* #e2e8f0 */
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 table.levels {
   background: var(--surface);
-  margin: 16px 0;
+  margin: 0;
   table-layout: fixed;
   width: 100%;
 }
@@ -2907,13 +3042,53 @@ table.levels th {
   width: 14.2857%;
 }
 
+/* Muted header bar with high-contrast text, distinct from the cell values. */
+table.levels thead th,
+table.levels-narrow thead th {
+  background: var(--tile-slate-bg); /* slate-100 #f1f5f9 */
+  color: #1e293b; /* slate-800 */
+  font-weight: 600;
+}
+
 table.levels th:not(:first-child),
 table.levels td:not(:first-child) {
   text-align: center;
 }
 
-table.levels td.pending-cell {
-  background: var(--warning-bg);
+/* Comfortable, evenly-spaced cells with light-grey column separators — no
+   heavy rules (a leaked primary-coloured border-left was the old "thick blue
+   line" between columns). Row-to-row separation is the inherited .data-table
+   `border-bottom`, so Basecamp / EasySpeak / Reporting gap each read as a
+   distinct horizontal line. */
+table.levels th,
+table.levels td,
+table.levels-narrow th,
+table.levels-narrow td {
+  padding: 6px 12px;
+}
+
+table.levels th:not(:last-child),
+table.levels td:not(:last-child),
+table.levels-narrow th:not(:last-child),
+table.levels-narrow td:not(:last-child) {
+  border-right: 1px solid var(--color-base-300); /* #e2e8f0 */
+}
+
+/* Last row's own border would double up with the white card's own border. */
+table.levels tr:last-child td,
+table.levels-narrow tr:last-child td {
+  border-bottom: 0;
+}
+
+/* The matrix card is one uniform white surface — every body/footer cell is
+   explicitly #fff so no row (EasySpeak, Reporting gap) can pick up the
+   .data-table zebra/hover tint and blend into the outer slate panel. The
+   opaque cell background also covers the <tr>-level tints without needing to
+   override each. Source rows stay separated by the inherited #e2e8f0
+   bottom border. */
+table.levels tbody td,
+table.levels-narrow tbody td {
+  background: #ffffff;
 }
 
 table.levels tbody td:first-child,
@@ -2921,11 +3096,21 @@ table.levels tfoot td:first-child {
   font-weight: 600;
 }
 
+/* The "Reporting gap" row is a calculated summary, set off from the data rows
+   by a 2px top rule on the <tfoot> — otherwise it keeps the exact size,
+   left-alignment, padding and (non-italic) style of the Basecamp/EasySpeak
+   rows above it. */
 table.levels tfoot td {
-  font-style: italic;
+  font-style: normal;
+  font-size: var(--text-sm); /* match the tbody rows — <tfoot> otherwise renders larger */
   color: var(--gray-600);
-  background: var(--surface-alt);
+  background: #ffffff;
   border-top: 2px solid var(--color-base-300);
+}
+
+/* Kept as the one deliberate non-white cell: the pending-reporting highlight. */
+table.levels td.pending-cell {
+  background: var(--warning-bg);
 }
 
 table.levels td[title] {
@@ -2968,7 +3153,7 @@ table.levels td.check-cell {
 
 table.levels-narrow {
   background: var(--surface);
-  margin: 16px 0;
+  margin: 0;
   width: 100%;
 }
 
@@ -2997,6 +3182,15 @@ table.levels-narrow td.check-cell {
 table.summary {
   table-layout: fixed;
   margin-bottom: 30px;
+}
+
+/* A crisp 1px separator on every line of the Next Level Summary — the header
+   (separating it from the expand/collapse controls above) and each member
+   row. border-collapse merges this with the cells' own border-bottom, so
+   there's no doubling. */
+table.summary thead th,
+table.summary tbody tr[data-row-key] > td {
+  border-top: 1px solid var(--color-base-300);
 }
 table.summary col.col-member { width: 15%; }
 table.summary col.col-path { width: 30%; }

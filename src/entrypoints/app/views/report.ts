@@ -15,6 +15,12 @@ import { buildLevelSummary, buildReport, compareLevelSummaryRows, isMemberReadyF
 import type { ClubPairReport, LevelDiff, LevelSummaryRow, LevelUpStatus, MemberReport, PathReport } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
 
+// Opposing diagonal arrows for the Expand All / Collapse All controls
+// (Lucide maximize-2 / minimize-2). Defined before SHELL_HTML so the toolbar
+// markup there can interpolate them.
+const ICON_EXPAND = `<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+const ICON_COLLAPSE = `<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+
 const SHELL_HTML = `
   <h1 class="page-title">Club Progress</h1>
   <div class="meta" id="reportMeta"></div>
@@ -23,7 +29,6 @@ const SHELL_HTML = `
   <div id="clubTabs" class="tabs tabs-border" role="tablist"></div>
   <div id="conflictWarning" aria-live="polite"></div>
   <div id="kpiRoot" class="kpi-grid"></div>
-  <input type="text" id="summarySearch" class="input input-sm w-full lg:max-w-[280px] mb-3 block" placeholder="Search by member or path name…">
 
   <h2 class="section-header section-header--first">Next Level Summary</h2>
   <p class="help-text summary-help-text--wide">
@@ -33,6 +38,14 @@ const SHELL_HTML = `
   <p class="help-text summary-help-text--narrow">
     One card is displayed per member per path. Click a card to reveal its level-by-level detail.
   </p>
+
+  <div class="summary-toolbar">
+    <input type="text" id="summarySearch" class="input input-sm summary-toolbar__search" placeholder="Search by member or path name…">
+    <div class="summary-expand-controls">
+      <button type="button" class="btn btn-sm btn-secondary" data-expand-all>${ICON_EXPAND}Expand All</button>
+      <button type="button" class="btn btn-sm btn-secondary" data-collapse-all>${ICON_COLLAPSE}Collapse All</button>
+    </div>
+  </div>
   <div id="summaryTableRoot"></div>
 
   <div id="pendingReviewSection">
@@ -111,7 +124,7 @@ interface SummaryTableState {
   emptyMessage: string;
   rows: LevelSummaryRow[];
   sort: { key: keyof LevelSummaryRow; direction: "asc" | "desc" };
-  expandedRowKey: string | null;
+  expandedRowKeys: Set<string>;
 }
 
 const NULL_LEVEL_DIFF = (level: number): LevelDiff => ({
@@ -136,14 +149,14 @@ export const reportView: ViewModule = {
       emptyMessage: "No Pathways paths found.",
       rows: [],
       sort: { key: "statusSortRank", direction: "asc" },
-      expandedRowKey: null,
+      expandedRowKeys: new Set<string>(),
     };
     const pendingTable: SummaryTableState = {
       rootId: "pendingReviewTableRoot",
       emptyMessage: "No members pending review.",
       rows: [],
       sort: { key: "statusSortRank", direction: "asc" },
-      expandedRowKey: null,
+      expandedRowKeys: new Set<string>(),
     };
 
     let clubSections: ClubSection[] = [];
@@ -172,6 +185,7 @@ export const reportView: ViewModule = {
           '<p class="empty-state">Basecamp data is needed to build this report. ' +
           "Click the extension's toolbar icon and run the Basecamp extraction first.</p>";
         (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "none";
+        setToolbarVisible(false);
         return;
       }
       (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "";
@@ -299,10 +313,14 @@ export const reportView: ViewModule = {
         .join("");
     }
 
+    function setToolbarVisible(visible: boolean) {
+      (root.querySelector(".summary-toolbar") as HTMLElement).style.display = visible ? "" : "none";
+    }
+
     function renderClubTabs(sections: ClubSection[]) {
       clubSections = sections;
-      mainTable.expandedRowKey = null;
-      pendingTable.expandedRowKey = null;
+      mainTable.expandedRowKeys.clear();
+      pendingTable.expandedRowKeys.clear();
       const tabsRoot = getRoot("clubTabs");
 
       if (sections.length === 0) {
@@ -312,8 +330,10 @@ export const reportView: ViewModule = {
         getRoot("summaryTableRoot").innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
         getRoot("pendingReviewTableRoot").innerHTML = "";
         (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "none";
+        setToolbarVisible(false);
         return;
       }
+      setToolbarVisible(true);
 
       activeClubKey = sections[0].clubKey;
       tabsRoot.innerHTML = sections
@@ -334,8 +354,8 @@ export const reportView: ViewModule = {
       tabsRoot.querySelectorAll<HTMLButtonElement>(".tab").forEach((btn) => {
         btn.addEventListener("click", () => {
           activeClubKey = btn.dataset.clubKey ?? null;
-          mainTable.expandedRowKey = null;
-          pendingTable.expandedRowKey = null;
+          mainTable.expandedRowKeys.clear();
+          pendingTable.expandedRowKeys.clear();
           updateActiveTab();
           renderActiveClub();
         });
@@ -375,6 +395,7 @@ export const reportView: ViewModule = {
 
       if (rows.length === 0) {
         tableRoot.innerHTML = `<p class="empty-state">${escapeHtml(state.emptyMessage)}</p>`;
+        updateExpandControls(state);
         return;
       }
 
@@ -401,13 +422,16 @@ export const reportView: ViewModule = {
 
       const toggleExpand = (event: Event) => {
         const target = event.target as HTMLElement;
-        // A click inside an already-expanded card's detail must not collapse it.
+        // A click inside an already-expanded row/card's detail must not collapse it.
         if (target.closest("[data-row-detail]")) return;
         const el = target.closest<HTMLElement>("[data-row-key]");
         if (!el) return;
         const key = el.dataset.rowKey!;
-        state.expandedRowKey = state.expandedRowKey === key ? null : key;
-        renderSummaryBody(state);
+        if (state.expandedRowKeys.has(key)) state.expandedRowKeys.delete(key);
+        else state.expandedRowKeys.add(key);
+        // Toggle classes on the live nodes (rather than re-rendering) so the
+        // grid-height + chevron CSS transitions actually fire.
+        syncExpandedClasses(state);
       };
       tableRoot.querySelector("tbody")!.addEventListener("click", toggleExpand);
       tableRoot.querySelector(".summary-cards")!.addEventListener("click", toggleExpand);
@@ -432,19 +456,61 @@ export const reportView: ViewModule = {
 
       const tbody = tableRoot.querySelector("table.summary tbody");
       if (tbody) {
+        // Detail rows are now always emitted (collapsed to zero height via CSS)
+        // so a toggle can animate. That interleaves hidden <tr>s between the
+        // visible ones, breaking `nth-child(2n)` zebra striping — hence the
+        // explicit `row-stripe` parity class on every other visible row.
         tbody.innerHTML = sorted
-          .map((row) => {
+          .map((row, i) => {
             const key = rowKey(row);
-            const isExpanded = key === state.expandedRowKey;
-            return isExpanded ? renderSummaryRow(row, key, isExpanded) + renderDetailRow(row) : renderSummaryRow(row, key, isExpanded);
+            const isExpanded = state.expandedRowKeys.has(key);
+            return renderSummaryRow(row, key, isExpanded, i % 2 === 1) + renderDetailRow(row, isExpanded);
           })
           .join("");
       }
 
       const cardsRoot = tableRoot.querySelector(".summary-cards");
       if (cardsRoot) {
-        cardsRoot.innerHTML = sorted.map((row) => renderSummaryCard(row, rowKey(row), rowKey(row) === state.expandedRowKey)).join("");
+        cardsRoot.innerHTML = sorted.map((row) => renderSummaryCard(row, rowKey(row), state.expandedRowKeys.has(rowKey(row)))).join("");
       }
+
+      updateExpandControls(state);
+    }
+
+    // Disable "Expand All" once every row is open and "Collapse All" once every
+    // row is closed, so neither button is offered when it would be a no-op. The
+    // controls live in the shell toolbar and drive only the main summary table.
+    function updateExpandControls(state: SummaryTableState) {
+      if (state !== mainTable) return;
+      const expandAllBtn = root.querySelector<HTMLButtonElement>(".summary-toolbar [data-expand-all]");
+      const collapseAllBtn = root.querySelector<HTMLButtonElement>(".summary-toolbar [data-collapse-all]");
+      if (!expandAllBtn || !collapseAllBtn) return;
+      const expandedCount = state.rows.filter((row) => state.expandedRowKeys.has(rowKey(row))).length;
+      expandAllBtn.disabled = state.rows.length === 0 || expandedCount === state.rows.length;
+      collapseAllBtn.disabled = expandedCount === 0;
+    }
+
+    // Flip the `expanded` class on already-rendered nodes to match
+    // state.expandedRowKeys — used by the single-row toggle and the
+    // Expand All / Collapse All controls so the CSS transitions fire
+    // (a full re-render would paint the end state with no animation).
+    function syncExpandedClasses(state: SummaryTableState) {
+      const tableRoot = getRoot(state.rootId);
+
+      tableRoot.querySelectorAll<HTMLElement>("table.summary tbody tr[data-row-key]").forEach((tr) => {
+        const expanded = state.expandedRowKeys.has(tr.dataset.rowKey!);
+        tr.querySelector(".row-chevron")?.classList.toggle("expanded", expanded);
+        const detail = tr.nextElementSibling;
+        if (detail?.classList.contains("detail-row")) detail.classList.toggle("expanded", expanded);
+      });
+
+      tableRoot.querySelectorAll<HTMLElement>(".summary-card[data-row-key]").forEach((card) => {
+        const expanded = state.expandedRowKeys.has(card.dataset.rowKey!);
+        card.querySelector(".row-chevron")?.classList.toggle("expanded", expanded);
+        card.querySelector(".card-detail-inner")?.classList.toggle("expanded", expanded);
+      });
+
+      updateExpandControls(state);
     }
 
     function renderSummaryCard(row: LevelSummaryRow, key: string, isExpanded: boolean): string {
@@ -454,7 +520,7 @@ export const reportView: ViewModule = {
       const levelLabel = row.currentLevelLabel === "Not in Basecamp" ? "—" : row.currentLevelLabel;
       const statusInfo = STATUS_BADGE[row.status];
       return `
-        <div class="summary-card rounded-md border border-base-300 bg-base-100 p-3${muted ? " opacity-70 italic" : ""}${ready ? " font-bold" : ""}" data-row-key="${escapeAttr(key)}">
+        <div class="summary-card rounded-md border border-base-300 bg-base-100 p-3${muted ? " opacity-70 italic" : ""}${ready ? " font-bold" : ""}" data-row-key="${escapeAttr(key)}" title="Click row to expand or collapse details">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="font-semibold">${escapeHtml(row.memberName)}</div>
@@ -468,7 +534,7 @@ export const reportView: ViewModule = {
             </div>
           </div>
           <div class="mt-2 pt-2 border-t border-base-300 text-xs font-normal not-italic">${renderStatusDetail(row.statusDetail)}</div>
-          ${isExpanded ? `<div class="mt-2 font-normal not-italic" data-row-detail>${renderRowDetail(row)}</div>` : ""}
+          <div class="card-detail-inner${isExpanded ? " expanded" : ""} font-normal not-italic" data-row-detail><div>${renderRowDetail(row)}</div></div>
         </div>
       `;
     }
@@ -477,10 +543,10 @@ export const reportView: ViewModule = {
       return `${row.memberKey}::${row.pathKey}`;
     }
 
-    function renderSummaryRow(row: LevelSummaryRow, key: string, isExpanded: boolean) {
+    function renderSummaryRow(row: LevelSummaryRow, key: string, isExpanded: boolean, stripe: boolean) {
       const muted = row.status === "completed" || row.status === "not-tracked";
       const ready = row.status === "ready" || row.status === "ready-if-reported";
-      const rowClass = [muted && "muted-row", ready && "ready-row"].filter(Boolean).join(" ");
+      const rowClass = [muted && "muted-row", ready && "ready-row", stripe && "row-stripe"].filter(Boolean).join(" ");
       const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge ${presenceBadgeClass(row.pathPresence)}">${presenceLabel(row.pathPresence)}</span>`;
       const chevron = `
         <span class="row-chevron${isExpanded ? " expanded" : ""}">
@@ -489,7 +555,7 @@ export const reportView: ViewModule = {
       `;
       const statusInfo = STATUS_BADGE[row.status];
       return `
-        <tr class="${rowClass}" data-row-key="${escapeAttr(key)}">
+        <tr class="${rowClass}" data-row-key="${escapeAttr(key)}" title="Click row to expand or collapse details">
           <td>${chevron}${escapeHtml(row.memberName)}</td>
           <td>${escapeHtml(row.pathName)}${pathBadge}</td>
           <td>${escapeHtml(row.currentLevelLabel === "Not in Basecamp" ? "-" : row.currentLevelLabel)}</td>
@@ -505,10 +571,10 @@ export const reportView: ViewModule = {
       return `${escapeHtml(detail.slice(0, arrowIndex))} → <em>${escapeHtml(detail.slice(arrowIndex + 3))}</em>`;
     }
 
-    function renderDetailRow(row: LevelSummaryRow): string {
+    function renderDetailRow(row: LevelSummaryRow, isExpanded: boolean): string {
       return `
-        <tr class="detail-row">
-          <td colspan="${SUMMARY_COLUMNS.length}">${renderRowDetail(row)}</td>
+        <tr class="detail-row${isExpanded ? " expanded" : ""}">
+          <td colspan="${SUMMARY_COLUMNS.length}"><div class="detail-row-inner" data-row-detail><div>${renderRowDetail(row)}</div></div></td>
         </tr>
       `;
     }
@@ -709,6 +775,16 @@ export const reportView: ViewModule = {
     root.querySelector("#summarySearch")!.addEventListener("input", (e) => {
       activeSearchQuery = (e.target as HTMLInputElement).value.trim().toLowerCase();
       renderActiveClub();
+    });
+
+    // Shell-toolbar Expand All / Collapse All — drive the main summary table.
+    root.querySelector<HTMLButtonElement>(".summary-toolbar [data-expand-all]")!.addEventListener("click", () => {
+      mainTable.expandedRowKeys = new Set(mainTable.rows.map(rowKey));
+      syncExpandedClasses(mainTable);
+    });
+    root.querySelector<HTMLButtonElement>(".summary-toolbar [data-collapse-all]")!.addEventListener("click", () => {
+      mainTable.expandedRowKeys.clear();
+      syncExpandedClasses(mainTable);
     });
 
     const onStorageChanged = (_changes: unknown, area: string) => {

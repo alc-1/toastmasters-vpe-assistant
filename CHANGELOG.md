@@ -8,6 +8,15 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+### Added
+
+- Club Progress "Next Level Summary" now has "Expand All" and "Collapse All" buttons above the table.
+
+### Changed
+
+- Club Progress "Next Level Summary" now allows multiple rows can stay open at once (opening one no longer closes the others).
+- Club Progress "Next Level Summary" rows show a pointer cursor and a tooltip to make it clear they're clickable.
+
 ## [2.0.1] - 2026-08-31
 
 ### Changed
