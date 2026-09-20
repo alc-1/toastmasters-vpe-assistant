@@ -232,7 +232,7 @@ onboarding:
     noData:
       sentence: "Import the Club Central roster first to see who needs onboarding help. <a href=\"#syncData\">Go to Sync Data</a>."
     allDone:
-      body: "🎉 No members are waiting for Pathways enrollment right now."
+      body: "🎉 All the club members are enrolled in Pathways!"
     noFilterMatch:
       body: "No members match this filter."
   notice:
