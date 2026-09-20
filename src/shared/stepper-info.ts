@@ -226,6 +226,10 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
     setup: { info: setupInfo, done: !noProfile },
     syncData: {
       info: syncDisabled ? undefined : formatOldestSync(cached.basecampScrapedAt, cached.easyspeakScrapedAt),
+      syncRelative:
+        syncDisabled || typeof cached.basecampScrapedAt !== "number" || typeof cached.easyspeakScrapedAt !== "number"
+          ? undefined
+          : formatRelativeTime(Math.min(cached.basecampScrapedAt, cached.easyspeakScrapedAt)),
       disabled: syncDisabled,
       done: hasBothData,
       // Basecamp alone is enough to unlock Club Progress / Excel export

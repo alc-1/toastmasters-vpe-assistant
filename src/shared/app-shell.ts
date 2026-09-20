@@ -128,6 +128,14 @@ export interface StepMeta {
    *  shared/stepper-info.ts's areFeaturesUnlocked()). Not rendered by the
    *  stepper itself. */
   partialDone?: boolean;
+  /** Only set on `syncData`: the plain "3 days ago"-style relative-time
+   *  fragment on its own, already translated — the same value `info`'s full
+   *  "Updated 3 days ago" sentence embeds, split out so a consumer needing
+   *  just the relative part (entrypoints/app/views/dashboard.ts's own "Last
+   *  updated …" banner line) doesn't have to parse it back out of that
+   *  opaque, locale-dependent sentence. Not rendered by the stepper itself —
+   *  `info` alone still covers that. */
+  syncRelative?: string;
 }
 export type StepperInfo = Partial<Record<AppShellPage, StepMeta>>;
 

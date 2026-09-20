@@ -126,7 +126,7 @@ interface SetupDetails {
   toReview: number;
   /** Locale date+time of the oldest of the two source syncs. */
   syncAbsolute: string;
-  /** "4 minutes ago" — reused from syncData.info's "Updated …" phrasing. */
+  /** "4 minutes ago" — shared/stepper-info.ts's StepMeta.syncRelative. */
   syncRelative: string | null;
 }
 
@@ -151,11 +151,7 @@ async function computeSetupDetails(info: StepperInfo): Promise<SetupDetails | nu
   );
   const oldest = stamps.length ? Math.min(...stamps) : undefined;
 
-  // See the identical "Updated " prefix-strip in renderBanner() below for the
-  // known i18n limitation this shares — both parse the same opaque
-  // stepperInfo.status.updated.sentence output.
-  const syncInfo = info.syncData?.info;
-  const syncRelative = syncInfo?.startsWith("Updated ") ? syncInfo.slice("Updated ".length) : null;
+  const syncRelative = info.syncData?.syncRelative ?? null;
 
   return {
     profileLabel: formatProfileLabel(profile),
@@ -287,22 +283,14 @@ export const dashboardView: ViewModule = {
       const ctaHref =
         state === "ready" ? "#syncData" : state === "reviewNeeded" ? "#members" : `#${resumeStep}`;
 
-      // syncData.info is already "Updated 3 days ago" (shared/stepper-info.ts's
-      // formatOldestSync/formatRelativeTime) — reuse it rather than recomputing.
-      // KNOWN i18n LIMITATION: the "Updated " prefix-strip below assumes that
-      // exact English string — stepperInfo.status.updated.sentence's literal
-      // "Updated $1" — since formatOldestSync() returns one opaque formatted
-      // sentence, not {prefix, relative} separately. This still works
-      // correctly while only src/locales/en.yml exists; a second locale whose
-      // translation doesn't start with the same literal prefix would silently
-      // fall through to timestampHtml's "" branch instead of showing the
-      // relative time. Fix properly by having formatOldestSync() return a
-      // structured value instead of a pre-formatted sentence, if/when a
-      // second locale is actually added.
-      const syncInfo = info.syncData?.info;
+      // shared/stepper-info.ts's StepMeta.syncRelative is already just the
+      // "3 days ago"-style fragment, translated and split out from the full
+      // "Updated 3 days ago" sentence `info` carries — no locale-dependent
+      // string parsing needed here.
+      const syncRelative = info.syncData?.syncRelative;
       const timestampHtml =
-        info.syncData?.done && syncInfo && syncInfo.startsWith("Updated ")
-          ? `<span class="dashboard-status__timestamp">${escapeHtml(i18n.t("dashboard.banner.timestamp.sentence", [syncInfo.slice("Updated ".length)]))}</span>`
+        info.syncData?.done && syncRelative
+          ? `<span class="dashboard-status__timestamp">${escapeHtml(i18n.t("dashboard.banner.timestamp.sentence", [syncRelative]))}</span>`
           : "";
 
       const wideSteps = SETUP_STEPS.map((step, i) => {

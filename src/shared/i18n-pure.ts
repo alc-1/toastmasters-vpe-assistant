@@ -26,12 +26,31 @@
 //
 // t() here replicates createI18n()'s exact resolution algorithm (key lookup,
 // " | "-joined plural-variant selection, $N positional substitution, {name}
-// named substitution) against src/locales/en.pure-generated.json — a plain
-// JSON file (scripts/generate-i18n-pure-messages.ts, regenerated from the
-// same src/locales/en.yml the real #i18n path reads) that's safe to import
-// from Node (Vitest) and from a Vite browser bundle alike, unlike anything
-// from @wxt-dev/i18n/build itself (which statically imports node:fs/promises
-// and would break a browser bundle).
+// named substitution) against src/locales/generated/<lang>.pure-generated.json
+// — plain JSON files (scripts/generate-i18n-pure-messages.ts, regenerated from
+// the same src/locales/*.yml files the real #i18n path reads) that are safe to
+// import from Node (Vitest) and from a Vite browser bundle alike, unlike
+// anything from @wxt-dev/i18n/build itself (which statically imports
+// node:fs/promises and would break a browser bundle).
+//
+// LOCALE SELECTION: reads `browser.i18n.getUILanguage()` — guarded behind
+// `typeof browser !== "undefined"`, so this stays a no-op (falls back to the
+// default locale, "en") under Vitest, where nothing auto-imports `browser` and
+// the bare identifier is simply unbound. `typeof` is the one operator that
+// never throws on an unbound identifier, so this check is safe with or
+// without WXT's build-time auto-import having run. Inside a real built
+// extension, WXT's usual auto-import (the same mechanism every other
+// `browser.*` call site in this codebase relies on — see CLAUDE.md's
+// Architecture section) resolves `browser` to the real WebExtension API, and
+// `getUILanguage()` returns the browser's actual UI language, so this file
+// ends up matching the exact same locale the ambient `i18n.t()` path already
+// resolves to via native browser.i18n.getMessage() — no separate preference
+// to keep in sync. Deliberately NOT using `navigator.language`: unlike
+// `browser.i18n.getUILanguage()`, Node itself exposes a global `navigator`
+// (since Node 21) whose `.language` reflects the host machine's OS locale —
+// that would make this module's output depend on whatever machine/CI runner
+// Vitest happens to run on, breaking the "pure" guarantee these 5 modules'
+// tests rely on.
 //
 // Deliberately untyped on `key` (plain string, not a generated key union) —
 // unlike #i18n's compile-time-checked keys, this trades that safety for
@@ -39,10 +58,35 @@
 // (a console.warn, same as createI18n()'s own missing-key behavior) or via
 // the Vitest assertions already covering these 5 modules' output.
 
-import messages from "../locales/generated/en.pure-generated.json";
+import enMessages from "../locales/generated/en.pure-generated.json";
+import frMessages from "../locales/generated/fr.pure-generated.json";
 
 type ChromeMessage = { message: string };
-const dict = messages as Record<string, ChromeMessage>;
+type SupportedLocale = "en" | "fr";
+
+const DEFAULT_LOCALE: SupportedLocale = "en";
+
+// One literal entry per src/locales/<lang>.yml file — unlike the generation
+// script above (which discovers locale files automatically), a static import
+// can't be built from a directory listing, so adding a third locale means
+// adding its import + a line here too.
+const MESSAGES: Record<SupportedLocale, Record<string, ChromeMessage>> = {
+  en: enMessages as Record<string, ChromeMessage>,
+  fr: frMessages as Record<string, ChromeMessage>,
+};
+
+let cachedLocale: SupportedLocale | undefined;
+
+function resolveLocale(): SupportedLocale {
+  if (cachedLocale) return cachedLocale;
+  let uiLanguage: string | undefined;
+  if (typeof browser !== "undefined" && typeof browser.i18n?.getUILanguage === "function") {
+    uiLanguage = browser.i18n.getUILanguage();
+  }
+  const primary = uiLanguage?.split(/[-_]/)[0]?.toLowerCase();
+  cachedLocale = primary != null && primary in MESSAGES ? (primary as SupportedLocale) : DEFAULT_LOCALE;
+  return cachedLocale;
+}
 
 const NAMED_SUBSTITUTION_RE = /\{([A-Za-z0-9_]+)\}/g;
 
@@ -92,7 +136,13 @@ export function t(
 
   if (count != null && sub == null) sub = [String(count)];
 
-  const entry = dict[key.replaceAll(".", "_")];
+  const locale = resolveLocale();
+  const dictKey = key.replaceAll(".", "_");
+  // Falls back to the default locale for a key missing from a non-default
+  // one — mirrors native browser.i18n.getMessage()'s own default_locale
+  // fallback, so a translation file lagging behind a newly-added en.yml key
+  // degrades to English rather than to a blank string.
+  const entry = MESSAGES[locale][dictKey] ?? (locale !== DEFAULT_LOCALE ? MESSAGES[DEFAULT_LOCALE][dictKey] : undefined);
   let message = entry?.message;
   if (message == null) {
     console.warn(`[i18n-pure] Message not found: "${key}"`);

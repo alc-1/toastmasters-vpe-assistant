@@ -1,0 +1,1174 @@
+# src/locales/fr.yml
+#
+# French translation of src/locales/en.yml — same key structure, same
+# scope.element.specificity.type convention (see CLAUDE.md's "Internationalization
+# (i18n)" section). @wxt-dev/i18n scans every src/locales/*.yml file automatically
+# and generates _locales/fr/messages.json alongside _locales/en/'s at build time.
+#
+# Locale selection is entirely automatic, native WebExtension i18n behavior —
+# browser.i18n.getMessage() (which the ambient i18n.t() wraps) serves whichever
+# _locales/<lang>/ best matches the browser's own UI language, falling back to
+# manifest.default_locale ("en") otherwise. No in-app switcher exists or is needed
+# for a user whose browser itself is set to French. shared/i18n-pure.ts (the
+# separate, browser-free t() used by the handful of Vitest-tested pure modules —
+# see CLAUDE.md's "Two call paths" section) mirrors this via its own
+# browser.i18n.getUILanguage() check, so both i18n paths resolve to the same
+# locale.
+#
+# Product/brand names are left untranslated: "Toastmasters VPE Assistant" (proper
+# name), "Basecamp"/"EasySpeak"/"Club Central" (the three data sources), "Pathways"
+# (the Toastmasters education program name), "VPE" (used as-is in French
+# Toastmasters materials for "Vice-président(e) Éducation").
+
+common:
+  profile:
+    demo:
+      label: "Démo"
+    noneSelected:
+      label: "Aucun profil sélectionné pour l'instant"
+  easyspeakServer:
+    tmclubEu:
+      label: "Europe continentale (tmclub.eu)"
+      region: "Europe continentale"
+    toastmasterclubOrg:
+      label: "Royaume-Uni et Irlande (toastmasterclub.org)"
+      region: "Royaume-Uni et Irlande"
+    easySpeakOrg:
+      label: "Reste du monde (easy-speak.org)"
+      region: "Reste du monde"
+  brand:
+    title:
+      label: "Toastmasters VPE Assistant"
+  tagline:
+    default:
+      body: "Obtenez une vue claire de la progression de votre club en réunissant les données EasySpeak et Basecamp en un seul endroit."
+  cell:
+    empty:
+      label: "—"
+  countdown:
+    autoClose:
+      count:
+        1: "Cet onglet se fermera automatiquement dans 1 seconde."
+        n: "Cet onglet se fermera automatiquement dans $1 secondes."
+    cancelled:
+      body: "Fermeture automatique annulée — fermez cet onglet manuellement quand vous le souhaitez."
+  statusPage:
+    keepOpen:
+      button: "Garder cet onglet ouvert"
+  appShell:
+    subtitle:
+      body: "Réunissez les données EasySpeak et Basecamp en un seul endroit."
+    nav:
+      ariaLabel: "Principal"
+      setup:
+        label: "Configuration"
+      syncData:
+        label: "Synchronisation des données"
+      clubReview:
+        label: "Révision des clubs"
+      members:
+        label: "Révision des membres"
+    stepper:
+      pendingReviews:
+        tooltip: "Révisions en attente"
+      stepsFallback:
+        label: "Étapes"
+      stepSummary:
+        sentence: "Étape $1 : $2"
+    brand:
+      ariaLabel: "Accueil"
+    profile:
+      manage:
+        tooltip: "Gérer dans Configuration"
+    backToHome:
+      link: "← Retour à l'accueil"
+    privacy:
+      mode:
+        label: "Mode confidentialité"
+        tooltip: "Masquer les noms des membres dans toutes les vues"
+        ariaLabel: "Mode confidentialité (masquer les noms des membres)"
+    settings:
+      gear:
+        tooltip: "Paramètres généraux"
+    whatsNew:
+      default:
+        label: "Nouveautés"
+      unread:
+        ariaLabel: "Nouveautés — changements non lus"
+    routeTitle:
+      dashboard:
+        label: "Accueil"
+      exporter:
+        label: "Télécharger la feuille de calcul"
+      onboarding:
+        label: "Assistant d'inscription"
+      globalSettings:
+        label: "Paramètres généraux"
+    documentTitle:
+      sentence: "$1 — $2"
+    stepFooter:
+      back:
+        sentence: "← Retour à $1"
+      continue:
+        sentence: "Continuer vers $1 →"
+      completeSetup:
+        button: "Terminer la configuration →"
+  modal:
+    confirmDefault:
+      button: "Confirmer"
+    cancelDefault:
+      button: "Annuler"
+    closeBackdrop:
+      ariaLabel: "Fermer"
+  updateBanner:
+    available:
+      sentence: "Mise à jour disponible : v{version}"
+    download:
+      button: "Télécharger"
+    dismiss:
+      button: "Ignorer"
+  selfUpdateBanner:
+    ready:
+      sentence: "Mise à jour prête : v{version}"
+    applyNow:
+      button: "Mettre à jour maintenant"
+
+syncData:
+  panel:
+    date:
+      never:
+        label: "jamais"
+    countHeader:
+      club:
+        label: "Club"
+      members:
+        label: "Membres"
+      entries:
+        label: "Entrées (membre x parcours)"
+    totalNoun:
+      members:
+        label: "membres"
+      entries:
+        label: "entrées"
+    summary:
+      sentence: "$1 club(s), $2 $3 au total."
+    status:
+      noResponse:
+        error: "Aucune réponse du service d'arrière-plan de l'extension. Réessayez."
+      error:
+        error: "Erreur pendant l'extraction : $1"
+      complete:
+        sentence: "Extraction terminée : $1"
+      unexpectedError:
+        error: "Erreur inattendue : $1"
+
+exporter:
+  page:
+    title:
+      title: "Télécharger la feuille de calcul Excel"
+    intro:
+      body: "Exportez les données des membres et des parcours vers un fichier Excel."
+  card:
+    chooseExport:
+      title: "Choisissez quoi exporter"
+  action:
+    create:
+      button: "Créer la feuille de calcul"
+    generating:
+      label: "Génération en cours…"
+  notice:
+    privacyModeOn:
+      body: "Le mode confidentialité est activé — cette feuille de calcul utilisera des noms anonymisés."
+  status:
+    downloaded:
+      sentence: "✓ Téléchargé $1"
+    exportFailed:
+      error: "Échec de l'export : $1"
+
+whatsNew:
+  page:
+    title:
+      title: "Nouveautés"
+    intro:
+      body: "Changements notables apportés à l'extension."
+  entry:
+    version:
+      label: "Version $1"
+  list:
+    empty:
+      body: "Aucune entrée de journal des modifications disponible pour cette version."
+  fromSelect:
+    beginning:
+      label: "Depuis le début"
+    sinceVersion:
+      label: "Depuis la v$1"
+    label:
+      label: "Afficher les changements"
+
+onboarding:
+  page:
+    title:
+      title: "Assistant d'inscription Pathways"
+    intro:
+      body: "Membres ayant besoin d'une inscription à Pathways — filtrez par statut de paiement pour planifier les prochaines intégrations."
+  filter:
+    all:
+      label: "Tous"
+    ready:
+      label: "Prêt à intégrer"
+    pending:
+      label: "Paiement en attente"
+  cell:
+    membershipPending:
+      label: "Adhésion en attente"
+    empty:
+      label: "—"
+  card:
+    memberCount:
+      count:
+        1: "$1 membre"
+        n: "$1 membres"
+  table:
+    name:
+      label: "Nom"
+    position:
+      label: "Fonction"
+    status:
+      label: "Statut"
+    paidThrough:
+      label: "Payé jusqu'au"
+  emptyState:
+    noData:
+      sentence: "Importez d'abord le registre Club Central pour voir qui a besoin d'aide pour l'intégration. <a href=\"#syncData\">Aller à Synchronisation des données</a>."
+    allDone:
+      body: "🎉 Tous les membres du club sont inscrits à Pathways !"
+    noFilterMatch:
+      body: "Aucun membre ne correspond à ce filtre."
+  notice:
+    privacyModeOn:
+      body: "Le mode confidentialité est activé — les noms des membres sont anonymisés."
+
+globalSettings:
+  page:
+    title:
+      title: "Paramètres généraux"
+    intro:
+      body: "Préférences qui s'appliquent à toute l'extension, pas seulement à une étape de l'assistant."
+  anonymize:
+    card:
+      title: "Mode confidentialité"
+    toggle:
+      label: "Remplacer les noms des membres et des clubs par des libellés génériques"
+    help:
+      aiStats:
+        body: "Utile pour générer des statistiques avec l'IA tout en protégeant les données personnelles."
+      genericLabels:
+        body: "Lorsqu'il est activé, Progression du club, l'export Excel et l'aperçu des données brutes de Synchronisation des données n'affichent que des libellés génériques (« Membre 1 », « Club 1 »...) au lieu des vrais noms."
+      reviewFirst:
+        body: "Révision des membres et Révision des clubs deviennent indisponibles pendant ce temps, car la mise en correspondance des personnes/clubs par nom ne fonctionne pas sur des données anonymisées. Terminez d'abord la révision des correspondances, puis activez cette option avant de partager."
+  pathLookup:
+    card:
+      title: "Correspondance des noms de parcours"
+    help:
+      body: "Fait correspondre des orthographes alternatives (par ex. les intitulés Pathways en français/allemand) à un nom de parcours canonique. Les liaisons de parcours au niveau du membre (définies depuis la vue Révision des membres) sont prioritaires sur cette table et n'y sont pas affichées."
+    table:
+      canonicalName:
+        label: "Nom de parcours canonique"
+      alternateSpellings:
+        label: "Orthographes alternatives (séparées par des virgules)"
+      aliasInput:
+        ariaLabel: "Orthographes alternatives pour $1"
+    action:
+      save:
+        button: "Enregistrer"
+      delete:
+        button: "Supprimer"
+      addPath:
+        button: "Ajouter un parcours"
+    newCanonical:
+      placeholder: "Nouveau nom de parcours canonique (en minuscules)"
+      ariaLabel: "Nouveau nom de parcours canonique"
+    emptyState:
+      noAliases:
+        body: "Aucun alias de parcours configuré."
+
+setup:
+  page:
+    title:
+      title: "Configuration"
+    intro:
+      body: "Choisissez comment vous souhaitez préparer votre rapport de progression de club."
+  option:
+    demo:
+      title: "Essayer avec des données de démonstration"
+      description: "Découvrez l'outil avec des exemples de données de club sans vous connecter à vos données réelles."
+    real:
+      title: "Utiliser les données de mon club"
+      description: "Chargez la progression réelle des membres depuis Basecamp et EasySpeak."
+  region:
+    card:
+      title: "Région EasySpeak"
+    help:
+      body: "Nous utiliserons cette information pour trouver les données de progression des membres de votre club."
+  summary:
+    title:
+      label: "Votre configuration :"
+    demoSelected:
+      label: "Données de démonstration sélectionnées"
+    realClubData:
+      label: "Données réelles du club"
+    easyspeakRegion:
+      sentence: "Région EasySpeak : $1"
+
+clubReview:
+  page:
+    title:
+      title: "Révision des clubs"
+  lookup:
+    card:
+      title: "Correspondance des noms de clubs"
+    help:
+      body: "Associe un club Basecamp à un club EasySpeak indépendamment de la similarité de leurs noms. Les correspondances suggérées en fonction de la similarité des noms peuvent être confirmées ou rejetées ci-dessous."
+    emptyState:
+      needsBothSources:
+        body: "Extrayez d'abord les données Basecamp et EasySpeak pour examiner les correspondances de clubs."
+      noClubs:
+        body: "Aucun club trouvé dans l'une ou l'autre source de données."
+      needsBothForPin:
+        body: "Extrayez d'abord les données Basecamp et EasySpeak pour ajouter une association de club."
+      allMatched:
+        body: "Tous les clubs sont déjà associés ou épinglés."
+      privacyModeOn:
+        sentence: "Révision des clubs est indisponible tant que le mode confidentialité est activé. <a href=\"#globalSettings\">Désactivez-le dans Paramètres généraux</a> pour examiner les correspondances de clubs."
+  section:
+    linkedClubs:
+      title: "Clubs associés"
+    unmatchedClubs:
+      title: "Clubs non associés"
+      help: "Ces clubs nécessitent une décision — confirmez ou rejetez une correspondance suggérée, ou utilisez le formulaire ci-dessous pour en épingler une manuellement."
+    linkUnmatched:
+      title: "Associer les clubs non associés"
+  table:
+    basecampClub:
+      label: "Club Basecamp"
+    easyspeakClub:
+      label: "Club EasySpeak"
+    status:
+      label: "Statut"
+  status:
+    acknowledged:
+      label: "Reconnu (unilatéral)"
+      tooltip: "Confirmé comme n'ayant pas d'équivalent dans l'autre système"
+    unmatched:
+      label: "Non associé"
+    linkedManually:
+      label: "Associé manuellement"
+      manualSearch: "associé via une recherche manuelle"
+      confirmedSuggestion: "confirmé à partir d'une correspondance suggérée"
+    suggested:
+      label: "Suggéré"
+      matchScore: "score de correspondance : $1"
+    exact:
+      label: "Exact"
+  action:
+    unmark:
+      button: "Annuler le marquage"
+      tooltip: "Remet ce club dans son état non associé normal."
+    markOneSided:
+      button: "Marquer comme unilatéral"
+      tooltip: "Confirme que ce club n'a vraiment pas d'équivalent dans l'autre système, afin qu'il cesse de bloquer Révision des membres et Progression du club."
+    confirm:
+      button: "Confirmer"
+    reject:
+      button: "Ce n'est pas celui-ci"
+    unlink:
+      button: "Dissocier"
+      tooltipExact: "Exclut cette association pour qu'elle ne soit plus associée automatiquement, et marque les deux clubs comme non associés afin que vous puissiez épingler le bon manuellement."
+      tooltipOther: "Supprime cette association pour qu'elle puisse être ré-associée ou ré-épinglée."
+  addForm:
+    basecampSelect:
+      ariaLabel: "Club Basecamp"
+    easyspeakSelect:
+      ariaLabel: "Club EasySpeak"
+    addMapping:
+      button: "Ajouter une correspondance"
+  continueHelper:
+    needsBothSources:
+      body: "Importez les données Basecamp et EasySpeak pour continuer."
+    resolvePending:
+      count:
+        1: "Résolvez $1 club non associé pour continuer"
+        n: "Résolvez $1 clubs non associés pour continuer"
+
+syncDataView:
+  page:
+    title:
+      title: "Synchronisation des données"
+    intro:
+      body: "Importez les données de votre club depuis Club Central, Basecamp et EasySpeak avant de passer aux étapes de révision."
+  export:
+    menu:
+      button: "Exporter"
+    popover:
+      title: "Télécharger le classeur"
+      help: "Téléchargez vos données sous forme de classeur Excel."
+    action:
+      button: "Exporter vers Excel"
+      generating: "Génération en cours…"
+    status:
+      exported:
+        sentence: "✓ Exporté $1"
+      failed:
+        error: "Échec de l'export : $1"
+    notice:
+      privacyModeOn:
+        body: "Le mode confidentialité est activé — cet export utilisera des noms anonymisés."
+  badge:
+    notImported:
+      label: "Non importé"
+    importing:
+      label: "Importation en cours"
+    imported:
+      label: "✓ Importé"
+  card:
+    clubCentral:
+      title: "Club Central"
+    action:
+      importClubCentral:
+        button: "Importer le registre Club Central"
+        sublabel: "Ouvre un nouvel onglet toastmasters.org pendant l'importation."
+      importBasecamp:
+        button: "Importer les données Basecamp"
+        sublabel: "Ouvre un nouvel onglet Basecamp si vous n'êtes pas déjà connecté."
+      importEasyspeak:
+        button: "Importer les données EasySpeak"
+        sublabel: "Ouvre un nouvel onglet EasySpeak pendant l'importation."
+      reimport:
+        button: "Réimporter les données"
+      importing:
+        label: "Importation en cours…"
+    viewDetails:
+      label: "Voir les détails"
+    result:
+      imported:
+        count:
+          1: "[$1] $2 membre importé"
+          n: "[$1] $2 membres importés"
+    time:
+      justNow:
+        label: "à l'instant"
+  progress:
+    club:
+      sentence: "Club $1 sur $2 ($3)"
+    starting:
+      sentence: "$1 — démarrage…"
+    membersLoaded:
+      count:
+        1: "$1 — $2 membre sur $3 chargé jusqu'ici"
+        n: "$1 — $2 membres sur $3 chargés jusqu'ici"
+  summary:
+    title:
+      label: "Importation des données terminée"
+    basecamp:
+      count:
+        1: "Basecamp : $1 membre"
+        n: "Basecamp : $1 membres"
+    easyspeak:
+      count:
+        1: "EasySpeak : $1 membre"
+        n: "EasySpeak : $1 membres"
+    matched:
+      count:
+        1: "Associés : $1 membre"
+        n: "Associés : $1 membres"
+    needsReview:
+      count:
+        1: "À examiner : $1 membre"
+        n: "À examiner : $1 membres"
+    footer:
+      label: "Prêt à continuer vers Révision des clubs."
+  continueHelper:
+    needsBothSources:
+      body: "Importez les données Basecamp et EasySpeak pour continuer."
+
+dashboard:
+  banner:
+    required:
+      label: "Configuration requise"
+      button: "Démarrer la configuration →"
+    progress:
+      label: "Configuration en cours"
+      button: "Poursuivre la configuration →"
+    reviewNeeded:
+      label: "Révision nécessaire"
+      button: "Examiner les éléments non associés →"
+      count:
+        1: "Révision nécessaire ($1 élément)"
+        n: "Révision nécessaire ($1 éléments)"
+    ready:
+      label: "Données du club prêtes"
+      button: "Actualiser les données"
+    caption:
+      label: "Progression de la configuration"
+    timestamp:
+      sentence: "Dernière mise à jour $1"
+    narrowReview:
+      count:
+        1: "$1 élément encore à examiner"
+        n: "$1 éléments encore à examiner"
+    narrowComplete:
+      sentence: "Les $1 étapes de configuration sont terminées"
+    narrowStep:
+      sentence: "Étape $1 sur $2"
+  count:
+    members:
+      count:
+        1: "$1 membre"
+        n: "$1 membres"
+    clubs:
+      count:
+        1: "$1 club"
+        n: "$1 clubs"
+  setupComplete:
+    reviewPending:
+      count:
+        1: "$1 membre encore à examiner"
+        n: "$1 membres encore à examiner"
+    step:
+      heading:
+        sentence: "Étape $1 — $2"
+      setup:
+        detail: "Sélectionné : <strong>$1</strong>"
+        action: "Changer de profil"
+      syncData:
+        detail: "Club Central : $1 &nbsp;|&nbsp; Basecamp : $2 &nbsp;|&nbsp; EasySpeak : $3"
+        action: "Actualiser les données"
+      clubReview:
+        detail: "$1 connecté(s) sur les deux plateformes"
+        action: "Vérifier les clubs"
+      members:
+        detailWithReview: "$1 associé(s) &middot; $2"
+        detailNoReview: "$1 associé(s) sur les deux plateformes"
+        action: "Auditer la liste des membres"
+    lastSync:
+      sentence: "Dernière synchronisation : $1"
+    title:
+      sentence: "Configuration terminée ($1/$2 étapes)"
+    viewDetails:
+      button: "Voir les détails de la configuration"
+    detailsRegion:
+      ariaLabel: "Détails de la configuration"
+  feature:
+    onboarding:
+      title: "Assistant d'inscription Pathways"
+      description: "Trouvez les membres qui n'ont pas été enrollés dans Pathways."
+      cta: "Ouvrir l'assistant →"
+      lockLabel: "Nécessite le registre Club Central"
+    report:
+      title: "Rapport de progression du club"
+      description: "Découvrez qui est prêt à passer au niveau supérieur et examinez les écarts entre les systèmes."
+      cta: "Ouvrir le rapport →"
+    exporter:
+      description: "Exportez la progression des membres et l'historique des parcours vers un fichier Excel."
+      cta: "Créer la feuille de calcul →"
+    backup:
+      title: "Sauvegarde & restauration des données"
+      description: "Enregistrez un fichier de sauvegarde de vos associations de membres pour les restaurer en cas de besoin."
+  action:
+    saveFile:
+      button: "Faire une sauvegarde"
+      tooltip: "Télécharge un fichier .json"
+    loadFile:
+      button: "Restaurer les données"
+      tooltip: "Choisissez un fichier de sauvegarde .json"
+    lockDefault:
+      label: "Nécessite des données importées"
+  backup:
+    saved:
+      body: "Fichier de sauvegarde enregistré."
+    saveFailed:
+      error: "Impossible d'enregistrer la sauvegarde : $1"
+    restored:
+      body: "Sauvegarde restaurée."
+    restoreFailed:
+      error: "Échec de la restauration : $1"
+    confirmModal:
+      title: "Remplacer toutes les données actuelles ?"
+      body: "Le chargement de ce fichier de sauvegarde écrasera vos profils actuels, les données importées, les correspondances et les paramètres. Cette action est irréversible."
+      confirmLabel: "Charger la sauvegarde"
+
+report:
+  page:
+    title:
+      title: "Progression du club"
+  toolbar:
+    search:
+      placeholder: "Rechercher par nom de membre ou de parcours…"
+    expandAll:
+      button: "Tout développer"
+    collapseAll:
+      button: "Tout réduire"
+  section:
+    nextLevelSummary:
+      title: "Résumé du niveau suivant"
+      helpWide: "Une ligne est affichée par membre et par parcours. Cliquez sur l'en-tête d'une colonne pour trier (cliquez à nouveau pour inverser). Cliquez sur une ligne pour afficher son détail niveau par niveau."
+      helpNarrow: "Une carte est affichée par membre et par parcours. Cliquez sur une carte pour afficher son détail niveau par niveau."
+    pendingReview:
+      title: "En attente de révision"
+      help: "Membres dont la correspondance Basecamp/EasySpeak nécessite encore une décision dans <a href=\"#members\">Révision des membres</a> — les chiffres ici peuvent être incomplets tant que cela n'est pas résolu, ils sont donc séparés du Résumé du niveau suivant."
+  column:
+    member:
+      label: "Membre"
+    path:
+      label: "Parcours"
+    level:
+      label: "Niveau"
+    status:
+      label: "Statut"
+    detail:
+      label: "Détail"
+  status:
+    ready:
+      label: "Prêt"
+      description: "La demande de validation de niveau peut être envoyée."
+    readyIfReported:
+      label: "Prêt si mis à jour"
+      description: "Easyspeak indique que suffisament de discours ont été faits. Si Basecamp est mis à jour par le membre, il peut demander à valider son niveau."
+    inProgress:
+      label: "En cours"
+      description: "Encore en train de réaliser les discours du niveau."
+    needsReporting:
+      label: "Mise à jour nécessaire"
+      description: "Certains discours réalisés dans EasySpeak ne sont pas encore présents dans Basecamp."
+    completed:
+      label: "Terminé"
+      description: "Parcours terminé."
+    notTracked:
+      label: "Non suivi"
+      description: "Uniquement dans EasySpeak, pas encore dans Basecamp."
+  level5Note:
+    tooltip: "Le niveau 5 EasySpeak englobe le niveau 5 Basecamp ainsi que la fin du parcours."
+  approvedCheck:
+    tooltip: "Approuvé"
+  emptyState:
+    noPaths:
+      body: "Aucun parcours Pathways trouvé."
+    noPendingReview:
+      body: "Aucun membre en attente de révision."
+    needsBasecamp:
+      body: "Les données Basecamp sont nécessaires pour générer ce rapport. Cliquez sur l'icône de l'extension dans la barre d'outils et lancez d'abord l'extraction Basecamp."
+    noClubs:
+      body: "Aucun club trouvé dans l'une ou l'autre source de données."
+  conflictWarning:
+    orphanedClub:
+      tooltip: "Club unilatéral reconnu"
+      sentence: "Ce club n'existe que dans $1 — il a été reconnu comme unilatéral dans Révision des clubs, il n'a donc pas d'équivalent pour associer ses membres. <a href=\"#clubReview\">Modifier dans Révision des clubs</a>"
+    conflictsFound:
+      tooltip: "Conflits détectés"
+    clubNoCounterpart:
+      sentence: "Ce club n'a pas d'équivalent dans $1. <a href=\"#clubReview\">Corriger dans Révision des clubs</a>"
+    membersUnmatched:
+      count:
+        1: "$1 membre sans correspondance entre Basecamp et EasySpeak. <a href=\"#members\">Corriger dans Révision des membres</a>"
+        n: "$1 membres sans correspondance entre Basecamp et EasySpeak. <a href=\"#members\">Corriger dans Révision des membres</a>"
+  kpi:
+    members:
+      label: "Membres"
+    paths:
+      label: "Parcours"
+    readyToLevelUp:
+      label: "Prêts à passer au niveau supérieur"
+  clubTab:
+    noMatch:
+      tooltip: "Aucune correspondance trouvée entre Basecamp et EasySpeak pour ce club"
+    oneSided:
+      label: "Unilatéral"
+    unnamed:
+      label: "(club sans nom)"
+  row:
+    expandTooltip:
+      tooltip: "Cliquez sur la ligne pour développer ou réduire les détails"
+  presence:
+    both:
+      label: "Dans les deux"
+    basecampOnly:
+      label: "Basecamp uniquement"
+    easyspeakOnly:
+      label: "EasySpeak uniquement"
+  detail:
+    noActivePath:
+      body: "Aucun parcours EasySpeak actif."
+    nonPathway:
+      body: "Activité hors Pathways, non comparée."
+    pathsLabel:
+      label: "Parcours :"
+  levelsTable:
+    source:
+      label: "Source"
+    level:
+      sentence: "Niveau $1"
+    pathCompletion:
+      label: "Achèvement du parcours"
+    basecamp:
+      label: "Basecamp"
+    easyspeak:
+      label: "EasySpeak"
+    reportingGap:
+      label: "Écart de mise à jour"
+    of:
+      sentence: "$1 sur $2"
+    speechesDone:
+      sentence: "$1 discours réalisés"
+    toReport:
+      sentence: "$1 à mettre à jour"
+  anonymizeIndicator:
+    tooltip: "Désactivez dans Paramètres généraux pour voir les vrais noms"
+    label: "Anonymisé"
+  meta:
+    incomplete:
+      body: "Rapport généré avec des données incomplètes — extrayez d'abord les données Basecamp."
+    basecampOnly:
+      sentence: "Rapport généré avec des données extraites de Basecamp le $1 — EasySpeak non importé"
+    sameDay:
+      sentence: "Rapport généré avec des données extraites de Basecamp et EasySpeak le $1"
+    differentDays:
+      sentence: "Rapport généré avec des données extraites de Basecamp le $1 et d'EasySpeak le $2"
+  member:
+    fallbackName:
+      sentence: "Membre EasySpeak $1"
+  levelSummary:
+    notInBasecamp:
+      label: "Absent de Basecamp"
+    none:
+      label: "—"
+    easyspeakOnly:
+      sentence: "Uniquement dans EasySpeak, pas encore dans Basecamp"
+    completed:
+      label: "Terminé"
+    pathCompleted:
+      sentence: "Parcours terminé"
+    level:
+      label: "Niveau $1"
+    pathCompletion:
+      label: "Fin de parcours"
+    allReported:
+      sentence: "Toutes les exigences signalées"
+    speechesRemaining:
+      count:
+        1: "$1 discours restant"
+        n: "$1 discours restants"
+    speechesRemainingIfReported:
+      count:
+        1: "$1 discours restant → $2 si mis à jour"
+        n: "$1 discours restants → $2 si mis à jour"
+
+members:
+  page:
+    title:
+      title: "Révision des membres"
+    meta:
+      sentence: "Basecamp dernière extraction : $1 — EasySpeak dernière extraction : $2"
+  filter:
+    todo:
+      label: "À faire"
+    flagged:
+      label: "Signalé"
+    resolvedManually:
+      label: "Résolu manuellement"
+    all:
+      label: "Tous"
+  emptyState:
+    privacyModeOn:
+      sentence: "Révision des membres est indisponible tant que le mode confidentialité est activé. <a href=\"#globalSettings\">Désactivez-le dans Paramètres généraux</a> pour examiner les correspondances de membres."
+    needsBothSources:
+      body: "Les données Basecamp et EasySpeak sont toutes deux nécessaires pour examiner les correspondances. Cliquez sur l'icône de l'extension dans la barre d'outils et lancez les deux extractions d'abord."
+    noFilterMatch:
+      body: "Aucun membre ne correspond à ce filtre."
+    orphanedClub:
+      sentence: "Ce club n'existe que dans $1 — il a été reconnu comme unilatéral dans Révision des clubs, il n'y a donc aucun membre à associer ici. <a href=\"#clubReview\">Modifier dans Révision des clubs</a>"
+    noPathsToReview:
+      body: "Aucun parcours Pathways à examiner."
+  clubWarning:
+    unmatchedClub:
+      tooltip: "Club non associé"
+    sentence:
+      count:
+        1: "$1 club ($2) n'a aucune correspondance entre Basecamp et EasySpeak. La mise en correspondance des membres ne peut pas fonctionner correctement pour un club tant que son nom n'est pas résolu — il est préférable de <a href=\"#clubReview\">corriger les correspondances de clubs dans Révision des clubs</a> d'abord."
+        n: "$1 clubs ($2) n'ont aucune correspondance entre Basecamp et EasySpeak. La mise en correspondance des membres ne peut pas fonctionner correctement pour un club tant que son nom n'est pas résolu — il est préférable de <a href=\"#clubReview\">corriger les correspondances de clubs dans Révision des clubs</a> d'abord."
+  table:
+    basecampName:
+      label: "Nom Basecamp"
+    easyspeakName:
+      label: "Nom EasySpeak"
+    memberLink:
+      label: "Association du membre"
+    pathBind:
+      label: "Liaison du parcours"
+    actions:
+      label: "Actions"
+  nameCell:
+    noCounterpart:
+      label: "Aucun équivalent (résolu)"
+    notLinked:
+      label: "(Non associé)"
+    noCandidates:
+      label: "Aucun candidat non associé"
+    selectAriaLabel:
+      sentence: "Sélectionner le membre $1 à associer"
+    selectPlaceholderEasyspeak:
+      label: "Sélectionner un membre EasySpeak"
+    selectPlaceholderBasecamp:
+      label: "Sélectionner un membre Basecamp"
+  linkStatus:
+    manualSearch:
+      tooltip: "associé via une recherche manuelle"
+    orphanSource:
+      tooltip: "marqué comme n'ayant pas d'équivalent"
+    confirmedSuggestion:
+      tooltip: "confirmé à partir d'une correspondance suggérée"
+    resolvedManually:
+      label: "Résolu manuellement"
+  pathBindCell:
+    boundPair:
+      sentence: "$1 ↔ $2"
+    markedOrphan:
+      sentence: "$1 (marqué comme orphelin)"
+    flaggedReview:
+      sentence: "$1 (signalé pour révision ultérieure)"
+    completedPair:
+      sentence: "$1 ↔ $2 (terminé)"
+    completed:
+      sentence: "$1 (terminé)"
+    bound:
+      label: "Lié"
+    resolved:
+      label: "Résolu"
+    flagged:
+      label: "Signalé"
+    completedBadge:
+      label: "Terminé"
+    pathIssue:
+      label: "Problème de parcours"
+  action:
+    unlinkTooltipExact: "Exclut cette association pour qu'elle ne soit plus associée automatiquement, et marque les deux membres comme non associés afin que vous puissiez trouver la bonne correspondance manuellement."
+    unlinkTooltipOther: "Supprime ce lien confirmé pour que l'association puisse être ré-associée ou reliée à nouveau."
+    unmarkOrphanTooltip: "Remet ce membre en Non associé afin qu'il puisse être associé ou résolu à nouveau."
+    unmarkOrphan: "Annuler le marquage orphelin"
+    linkSelected: "Associer le membre sélectionné"
+    markOrphanTooltip: "Marque ceci comme n'ayant pas d'équivalent dans l'autre système, afin qu'il cesse d'apparaître comme nécessitant une révision."
+    markOrphan: "Marquer comme orphelin"
+    hidePathIssue: "Masquer le problème de parcours"
+    reviewPathIssue: "Examiner le problème de parcours"
+    hidePaths: "Masquer les parcours"
+    reviewPaths: "Examiner les parcours"
+  pathBind:
+    boundManually:
+      label: "Lié manuellement"
+    matchedAutomatically:
+      label: "Associé automatiquement"
+    unbind:
+      button: "Délier"
+    forceUnbind:
+      button: "Forcer la déliaison"
+      tooltip: "Sépare cette paire en deux parcours non associés afin que vous puissiez les lier différemment ou les laisser comme orphelins."
+    sideLabel:
+      sentence: "$1 :"
+    resolvedAsOrphan:
+      label: "Résolu comme orphelin"
+    unmarkOrphanButton:
+      button: "Annuler le marquage orphelin"
+    flaggedForReview:
+      label: "Signalé pour révision ultérieure"
+    unflag:
+      button: "Retirer le signalement"
+    searchBasecampPaths:
+      placeholder: "Rechercher des parcours Basecamp…"
+    bindAriaLabel:
+      label: "Choisir un parcours auquel lier le parcours orphelin de ce membre"
+    bind:
+      button: "Lier"
+    speechesDone:
+      count:
+        1: "$1 discours réalisé"
+        n: "$1 discours réalisés"
+    markCompleted:
+      button: "Marquer comme terminé"
+    flagForLater:
+      button: "Signaler pour plus tard"
+    bcOrphanTooltip: "Liez-le depuis le côté EasySpeak ci-dessus, ou laissez-le tel quel — il ne bloque pas Progression du club."
+    noCounterpartFound:
+      label: "Aucun équivalent trouvé"
+    completedLabel:
+      label: "Terminé"
+    unmarkCompleted:
+      button: "Annuler le marquage terminé"
+    confirmedByBasecampTooltip: "La liste des parcours terminés de Basecamp confirme que ce parcours est terminé pour ce membre."
+    completedConfirmedByBasecamp:
+      label: "Terminé (confirmé par Basecamp)"
+    help:
+      body: "Lier associe un parcours entre les systèmes pour ce membre uniquement ; Marquer comme orphelin confirme qu'un parcours n'a vraiment pas d'équivalent ; Signaler pour plus tard reporte la décision sans la compter comme résolue ; Marquer comme terminé confirme qu'un parcours EasySpeak uniquement est déjà terminé et le masque de Progression du club (un parcours que la liste des parcours terminés de Basecamp confirme déjà comme terminé est masqué automatiquement, sans bouton nécessaire) ; Forcer la déliaison sépare une paire automatique afin que vous puissiez la relier différemment."
+
+manifest:
+  name:
+    preview:
+      label: "Toastmasters VPE Assistant (Aperçu)"
+  description:
+    preview:
+      label: "Obtenez une vue claire de la progression de votre club en réunissant les données EasySpeak et Basecamp en un seul endroit. Version d'aperçu pour les testeurs — pas la version du Chrome Web Store."
+
+welcome:
+  meta:
+    title:
+      label: "Toastmasters VPE Assistant — Bienvenue"
+  card:
+    heading:
+      title: "Tout est prêt — l'extension est installée"
+    intro:
+      body: "Toastmasters VPE Assistant se trouve désormais dans la barre d'outils de votre navigateur. Chrome masque par défaut les extensions nouvellement installées derrière l'icône du puzzle — épinglez-la pour l'avoir à portée d'un clic dès que vous en avez besoin."
+  pinGuide:
+    step1:
+      label: "Cliquez sur l'icône du puzzle dans la barre d'outils, à côté de la barre d'adresse."
+    step2:
+      label: "Recherchez « Toastmasters VPE Assistant » dans la liste."
+    step3:
+      label: "Cliquez sur son icône d'épingle pour la garder visible dans la barre d'outils."
+  action:
+    getStarted:
+      button: "Commencer"
+
+popup:
+  header:
+    subtitle:
+      body: "Un seul endroit pour comprendre la progression des membres de votre club."
+  action:
+    openHome:
+      button: "Ouvrir l'accueil"
+    whatsNew:
+      link: "Nouveautés"
+
+basecampAuth:
+  meta:
+    title:
+      label: "Toastmasters VPE Assistant — Connexion Basecamp confirmée"
+  confirmation:
+    default:
+      title: "Connexion Basecamp confirmée"
+      body: "Vous êtes connecté à Basecamp Toastmasters. L'extraction des données se poursuit en arrière-plan — les résultats seront disponibles dans le popup de l'extension dans quelques minutes."
+
+easyspeakDone:
+  meta:
+    title:
+      label: "Toastmasters VPE Assistant — Données EasySpeak récupérées"
+  confirmation:
+    default:
+      title: "Données EasySpeak récupérées"
+      body: "Toutes les données du club ont été extraites et enregistrées. Ouvrez le popup de l'extension pour voir les résultats."
+
+clubcentralDone:
+  meta:
+    title:
+      label: "Toastmasters VPE Assistant — Registre Club Central récupéré"
+  confirmation:
+    default:
+      title: "Registre Club Central récupéré"
+      body: "Le registre de votre club a été extrait et enregistré. Ouvrez le popup de l'extension pour voir les résultats."
+
+background:
+  updateChecker:
+    notification:
+      title:
+        label: "Mise à jour disponible"
+      message:
+        sentence: "$1 v$2 est prête — cliquez pour voir la version."
+  clubcentral:
+    error:
+      loginTimeout:
+        error: "Club Central exige que vous vous connectiez. Passez à l'onglet toastmasters.org, connectez-vous, puis réessayez."
+      pageTimeout:
+        error: "Club Central n'a pas terminé le chargement. Passez à l'onglet toastmasters.org, vérifiez s'il y a une invite, puis réessayez."
+      notFound:
+        error: "Club Central a renvoyé une page « introuvable ». La navigation du site a peut-être changé — merci de le signaler."
+      loggedOut:
+        error: "Club Central vous a déconnecté pendant l'importation. Reconnectez-vous sur l'onglet toastmasters.org et réessayez."
+      noClubs:
+        error: "Aucun club trouvé dans Club Central. Êtes-vous connecté avec le bon compte, et êtes-vous responsable d'au moins un club ?"
+      tabClosedWhile:
+        error: "L'onglet Club Central a été fermé pendant $1."
+      notFoundWhile:
+        error: "Club Central a renvoyé une page « introuvable » pendant $1. $2"
+      timedOutWhile:
+        error: "Club Central a expiré pendant $1. $2"
+      controlNotFound:
+        error: "Impossible de trouver le contrôle pour $1 sur la page Club Central."
+    fallback:
+      clubName:
+        label: "Mon club"
+    description:
+      loadingDefault:
+        label: "chargement de Club Central"
+      selectingClub:
+        label: "sélection d'un club"
+      openingMembership:
+        label: "ouverture de Gestion des adhésions"
+      returningToList:
+        label: "retour à la liste des clubs"
+  easyspeak:
+    error:
+      noOfficerClub:
+        error: "Aucun club de dirigeant trouvé dans la section « Connecté à ces clubs Toastmasters » de la page de profil EasySpeak. Êtes-vous connecté avec le bon compte, et êtes-vous dirigeant d'un club quelque part ?"
+      challengeTimeout:
+        error: "EasySpeak a affiché une vérification de sécurité (Cloudflare) qui ne s'est pas résolue automatiquement. Passez à l'onglet EasySpeak, résolvez la vérification si elle est affichée, puis réessayez."
+      loginTimeout:
+        error: "EasySpeak exige que vous vous connectiez. Passez à l'onglet EasySpeak, connectez-vous, puis réessayez."
+      tabClosed:
+        error: "L'onglet EasySpeak a été fermé avant la fin du chargement de la page."
+  basecamp:
+    error:
+      unexpectedRolesResponse:
+        error: "Réponse inattendue de /api/members/roles (pas un tableau)."
+      noBcmRole:
+        error: "Aucun club avec un rôle BCM trouvé pour ce compte. Êtes-vous connecté avec le bon compte ?"
+      loginTimeout:
+        error: "Basecamp Toastmasters exige que vous vous connectiez. Passez à l'onglet Basecamp, connectez-vous, puis réessayez."
+      tabClosed:
+        error: "L'onglet Basecamp a été fermé avant la connexion."
+      tooManyPages:
+        error: "Trop de pages pour le club $1 (>200) — arrêt par mesure de sécurité."
+      tooManyOverviewPages:
+        error: "Trop de pages pour l'aperçu des membres du club $1 (>200) — arrêt par mesure de sécurité."
+      unexpectedResultsField:
+        error: "Réponse inattendue pour $1 (pas de champ « results »)."
+      stillNotAuthenticated:
+        error: "Toujours pas authentifié ($1) sur $2 après la connexion. Assurez-vous de vous connecter à Basecamp Toastmasters avec le bon compte."
+      httpError:
+        error: "$1 $2 sur $3"
+
+anonymize:
+  fallback:
+    unknownClub:
+      label: "Club inconnu"
+    unknownMember:
+      label: "Membre inconnu"
+  numbered:
+    club:
+      label: "Club $1"
+    member:
+      label: "Membre $1"
+
+stepperInfo:
+  status:
+    selectProfile:
+      label: "Sélectionnez votre profil"
+    profile:
+      sentence: "Profil : $1"
+    startRetrieval:
+      label: "Démarrer la récupération des données"
+    updated:
+      sentence: "Mis à jour $1"
+    justNow:
+      label: "à l'instant"
+    minutesAgo:
+      count:
+        1: "il y a $1 minute"
+        n: "il y a $1 minutes"
+    hoursAgo:
+      count:
+        1: "il y a $1 heure"
+        n: "il y a $1 heures"
+    daysAgo:
+      count:
+        1: "il y a $1 jour"
+        n: "il y a $1 jours"
+    weeksAgo:
+      count:
+        1: "il y a $1 semaine"
+        n: "il y a $1 semaines"
+    clubsFollowed:
+      count:
+        1: "$1 club suivi"
+        n: "$1 clubs suivis"
+    membersToReview:
+      count:
+        1: "$1 membre · $2 à examiner"
+        n: "$1 membres · $2 à examiner"
+
+export:
+  type:
+    all:
+      label: "Toutes les données"
+      description: "Données agrégées + sources + correspondances"
+    basecamp:
+      label: "Basecamp"
+      description: "Données Basecamp d'origine"
+    easyspeak:
+      label: "EasySpeak"
+      description: "Données EasySpeak d'origine"
+  notes:
+    oneSided:
+      sentence: "Unilatéral : $1 uniquement"
+    markedOrphan:
+      sentence: "Marqué orphelin : $1 uniquement"
+    automaticExactMatch:
+      sentence: "Automatique (correspondance exacte de nom)"
+    suggestedUnconfirmed:
+      sentence: "Correspondance suggérée (non confirmée)"
+    linkedManualSearch:
+      sentence: "Associé via une recherche manuelle"
+    confirmedFromSuggestion:
+      sentence: "Confirmé à partir d'une correspondance suggérée"
+    pinnedClubMatch:
+      sentence: "Correspondance de club épinglée"
+    automatic:
+      sentence: "Automatique"
+    manuallyBound:
+      sentence: "Lié manuellement pour ce membre"
+    forceUnbound:
+      sentence: "Association automatique déliée de force pour ce membre"
+    deferredReview:
+      sentence: "Examiné, délibérément reporté (ni lié, ni marqué orphelin)"
+    manuallyCompletedPath:
+      sentence: "Marqué manuellement comme terminé (parcours EasySpeak uniquement)"
+  metadata:
+    exportTimestamp:
+      label: "Horodatage de l'export"
+    exportSchemaVersion:
+      label: "Version du schéma d'export"
+    extensionVersion:
+      label: "Version de l'extension"
+    activeProfile:
+      label: "Profil actif"
+    exportType:
+      label: "Type d'export"
+    basecampScrapedAt:
+      label: "Basecamp extrait le"
+    easyspeakScrapedAt:
+      label: "EasySpeak extrait le"
+    basecampClubs:
+      label: "Clubs Basecamp"
+    basecampMembers:
+      label: "Membres Basecamp"
+    easyspeakClubs:
+      label: "Clubs EasySpeak"
+    easyspeakMembers:
+      label: "Membres EasySpeak"
+    clubPairs:
+      label: "Paires de clubs"
+    membersMatched:
+      label: "Membres associés"
+    membersTotal:
+      label: "Total des membres"
+    notYetExtracted:
+      label: "Pas encore extrait"
+
+backup:
+  parse:
+    invalidJson:
+      error: "Ce fichier n'est pas un fichier de sauvegarde valide."
+    wrongFormat:
+      error: "Ce fichier n'est pas une sauvegarde de Toastmasters VPE Assistant."
+    missingVersion:
+      error: "Ce fichier de sauvegarde n'a pas de version et ne peut pas être restauré."
+    newerVersion:
+      error: "Cette sauvegarde a été créée par une version plus récente de l'extension. Mettez d'abord à jour, puis réessayez."
+    noData:
+      error: "Ce fichier de sauvegarde ne contient aucune donnée à restaurer."

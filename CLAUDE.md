@@ -1377,8 +1377,9 @@ content-script entrypoint injected by its stable built path, the same way
 ## Internationalization (i18n)
 
 Every user-facing string in this extension goes through **[@wxt-dev/i18n](https://wxt.dev/i18n)**,
-sourced from the single message file `src/locales/en.yml` (English-only for now — see "Adding a
-second language" below). Wired in via `wxt.config.ts`'s `modules: ["@wxt-dev/i18n/module"]` +
+sourced from `src/locales/en.yml` (the default/fallback locale) plus `src/locales/fr.yml` — see
+"Adding a second (or third+) language" below for how a locale is added and how selection works.
+Wired in via `wxt.config.ts`'s `modules: ["@wxt-dev/i18n/module"]` +
 `manifest.default_locale: "en"`; that module scans `src/locales/*.yml`, auto-generates the native
 `_locales/<lang>/messages.json` (used both by `browser.i18n.getMessage()` at runtime and by
 `__MSG_x__` manifest placeholders — see "Manifest strings" below) and a typed key union consumed by
@@ -1474,18 +1475,38 @@ depending on it at runtime: `scripts/generate-i18n-pure-messages.ts` (same regen
 `scripts/generate-changelog-json.ts` — chained into `postinstall`/every `dev`/`build*`/`zip*` script
 via the `generate` npm script, and into `wxt.config.ts`'s `build:before` hook) calls
 `@wxt-dev/i18n/build`'s `parseMessagesFile()` + `generateChromeMessages()` — the exact transform the
-WXT module itself uses to produce `_locales/<lang>/messages.json` — against `src/locales/en.yml`,
-and writes the result as a plain JSON file, `src/locales/generated/en.pure-generated.json`
+WXT module itself uses to produce `_locales/<lang>/messages.json` — against **every**
+`src/locales/<lang>.yml` file it finds (a plain `readdirSync` scan, not hardcoded to `en.yml`), and
+writes one plain JSON file per locale, `src/locales/generated/<lang>.pure-generated.json`
 (gitignored, fully derived — note the `generated/` subdirectory: it must NOT sit directly in
 `src/locales/`, or the `@wxt-dev/i18n` WXT module's own directory scan picks it up and misidentifies
-it as an unsupported locale named "en.pure-generated", producing a build warning). `shared/i18n-pure.ts`
-imports that JSON directly (safe in Node/Vitest and in a Vite browser bundle alike, unlike anything
-from `@wxt-dev/i18n/build` itself, which statically imports `node:fs/promises` and would break a
-browser bundle) and re-implements `createI18n().t()`'s exact key-lookup/plural-selection/substitution
-algorithm against it. Same source YAML, same compiled shape, two independent readers — deliberately
-untyped on `key` (a plain `string`, not a generated key union) as the one thing traded away for
-guaranteed Vitest/bundle compatibility; a typo only surfaces at runtime (a `console.warn`, mirroring
-`createI18n()`'s own missing-key behavior) or via that module's existing Vitest coverage.
+it as an unsupported locale named "`<lang>`.pure-generated", producing a build warning).
+`shared/i18n-pure.ts` imports each of those JSON files directly (safe in Node/Vitest and in a Vite
+browser bundle alike, unlike anything from `@wxt-dev/i18n/build` itself, which statically imports
+`node:fs/promises` and would break a browser bundle) and re-implements `createI18n().t()`'s exact
+key-lookup/plural-selection/substitution algorithm against them. Same source YAML files, same
+compiled shape, two independent readers — deliberately untyped on `key` (a plain `string`, not a
+generated key union) as the one thing traded away for guaranteed Vitest/bundle compatibility; a typo
+only surfaces at runtime (a `console.warn`, mirroring `createI18n()`'s own missing-key behavior) or
+via that module's existing Vitest coverage.
+
+**Locale selection on this path is automatic, mirroring the ambient path exactly** — unlike the
+generation script (which auto-discovers every `src/locales/*.yml` file), `shared/i18n-pure.ts` itself
+needs one literal `import`/`MESSAGES` entry per locale (a static import can't be built from a
+directory listing at bundle time), so adding a third locale means adding its import there too, not
+just dropping in a new `.yml` file. At call time, `resolveLocale()` reads
+`browser.i18n.getUILanguage()` — guarded behind `typeof browser !== "undefined"`, so it's a safe no-op
+(falls back to `"en"`) under Vitest, where nothing auto-imports `browser` and the bare identifier is
+simply unbound (`typeof` is the one operator that never throws on an unbound identifier). Inside a
+real built extension, the same WXT auto-import every other `browser.*` call site relies on resolves it
+to the real API, so this file ends up reading the exact same locale the ambient `i18n.t()` path already
+resolves to via native `browser.i18n.getMessage()` — no separate preference to keep in sync.
+Deliberately **not** `navigator.language`: Node itself exposes a global `navigator` (since Node 21)
+whose `.language` reflects the *host machine's* OS locale, which would make this module's Vitest
+output depend on whatever machine/CI runner happens to run it — the opposite of the "pure" guarantee
+its own tests rely on. A key missing from a non-default locale's JSON falls back to the `"en"` one
+(mirrors native `browser.i18n.getMessage()`'s own `default_locale` fallback), so a translation file
+that lags behind a newly-added `en.yml` key degrades to English rather than an empty string.
 
 **Before adding `i18n.t()`/`t()` to a new file, check whether anything importing it (even
 transitively) is Vitest-tested.** A real, shipped bug during this migration: `shared/app-shell.ts`'s
@@ -1544,24 +1565,42 @@ run build:preview && npm run build:preview:firefox`), since this is the one plac
 `__MSG_x__` key name only surfaces once the extension is actually loaded in a browser, not in `tsc`
 or Vitest.
 
-### Adding a second language
+### Adding a second (or third+) language
 
-Not built yet — deliberately, since only English exists today. When it's needed: add
-`src/locales/<lang>.yml` (same key structure, translated values — `@wxt-dev/i18n` scans every
-`src/locales/*.yml` file automatically), regenerate types/build normally, then add a locale-selection
-mechanism (e.g. a new `shared/settings-store.ts` preference, threaded into whichever `browser.i18n`
-API or `createI18n()` locale option actually drives *which* `_locales/<lang>/` the runtime reads —
-not investigated yet, since it's out of scope while English-only). `shared/i18n-pure.ts`'s local path
-would need the equivalent: a `t()` per locale, or a locale parameter threaded through.
-**`entrypoints/app/views/dashboard.ts`'s `renderBanner()`/`computeSetupDetails()` have a known,
-documented limitation that would need fixing first** — both parse `shared/stepper-info.ts`'s
-`formatOldestSync()` output (`"Updated $1"`) by string-matching the literal English prefix `"Updated "`
-to extract just the relative-time portion for the "Last updated …" banner line. This works today
-because both sides are the same hardcoded English string, but a translation whose "Updated" doesn't
-start with that exact substring would silently fall through to showing nothing instead of the
-relative time. The real fix is having `formatOldestSync()` return a structured `{absolute, relative}`
-value instead of one pre-formatted sentence — flagged inline at both call sites in `dashboard.ts`,
-not fixed now since there's no second locale yet to actually break it.
+`src/locales/fr.yml` exists alongside `en.yml` (added 2026-09-20) — same 523-key structure, translated
+values, verified by a script diffing the two files' flattened key sets and every `$1`/`$2`/`{name}`
+placeholder for exact parity. **No manual locale-selection mechanism was needed for this to work** —
+native WebExtension i18n (`browser.i18n.getMessage()`, which `createI18n().t()` wraps) automatically
+serves whichever `_locales/<lang>/` best matches the browser's own UI language, falling back to
+`manifest.default_locale` ("en") otherwise; `@wxt-dev/i18n` picked up `fr.yml` and generated
+`_locales/fr/messages.json` with zero config changes. A user whose browser itself is set to French
+sees the French UI automatically; there is still no in-extension override to pick a language
+independent of the browser's own setting, if that's ever wanted.
+
+**Adding a further locale**: add `src/locales/<lang>.yml` (same key structure, translated values —
+`@wxt-dev/i18n` scans every `src/locales/*.yml` file automatically for the ambient path, and
+`scripts/generate-i18n-pure-messages.ts` does the same for the pure path below), regenerate
+(`npm run generate` / any `dev`/`build*`/`zip*` script runs it automatically), then add one line to
+`shared/i18n-pure.ts` — see that file and the "Two call paths" section above; a static `import` can't
+be built from a directory listing, so that one file needs a literal addition per locale even though
+everything else auto-discovers `src/locales/*.yml`.
+
+**Known, now-fixed pitfall, worth remembering if a similar pattern shows up elsewhere**: adding
+`fr.yml` immediately surfaced a real, shipped bug — `entrypoints/app/views/dashboard.ts`'s
+`renderBanner()`/`computeSetupDetails()` used to string-match the literal English prefix `"Updated "`
+out of `shared/stepper-info.ts`'s `formatOldestSync()` output (`"Updated $1"`) to extract just the
+relative-time portion for the "Last updated …" banner line. This worked only by coincidence while both
+sides were the same hardcoded English string; once the browser's own French UI language made
+`stepperInfo.status.updated.sentence` actually resolve to `"Mis à jour $1"`, the prefix check silently
+failed and the whole timestamp line disappeared — no error, just missing text. Fixed by having
+`computeStepperInfo()` (`shared/stepper-info.ts`) return the relative-time fragment as its own
+structured `StepMeta.syncRelative` field (`shared/app-shell.ts`), alongside the existing pre-formatted
+`info` sentence the stepper still renders as-is — `dashboard.ts`'s two call sites read
+`syncRelative` directly now, no parsing. If another view is ever tempted to string-match a piece out
+of an already-translated sentence instead of computing/exposing that piece separately, this is the
+bug it will reproduce, and it will not show up until a second locale is genuinely reachable (exactly
+what happened here) — treat "only one locale exists so it's untestable" as a reason to fix it anyway,
+not a reason to defer it.
 
 ## Build tooling
 

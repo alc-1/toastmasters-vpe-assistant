@@ -8,6 +8,10 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+### Added
+
+- French translation — the extension now shows French automatically when the browser's own language is French.
+
 ## [2.1.0] - 2026-09-02
 
 ### Added
