@@ -432,7 +432,14 @@ export const reportView: ViewModule = {
         <div class="summary-cards flex flex-col gap-2 lg:hidden"></div>
       `;
 
-      tableRoot.querySelectorAll<HTMLTableCellElement>("th").forEach((th) => {
+      // Scoped to the outer table's own header row (`> thead`), not a bare
+      // "th" descendant selector — every row's detail is always rendered
+      // (collapsed via CSS, not removed; see the comment on the
+      // tbody.innerHTML assignment below), and its nested per-level
+      // "levels" table lives inside the same outer <table>, so an unscoped
+      // selector here would also match that table's own <th>s (which carry
+      // no data-key) and misattach a sort-click listener to them.
+      tableRoot.querySelectorAll<HTMLTableCellElement>("table.summary > thead th").forEach((th) => {
         th.addEventListener("click", () => {
           const key = th.dataset.key as keyof LevelSummaryRow;
           state.sort = state.sort.key === key ? { key, direction: state.sort.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" };
@@ -463,7 +470,14 @@ export const reportView: ViewModule = {
 
     function updateSummaryHeaders(state: SummaryTableState) {
       const tableRoot = getRoot(state.rootId);
-      tableRoot.querySelectorAll<HTMLTableCellElement>("table.summary th").forEach((th) => {
+      // Same "> thead" scoping as the click-listener attachment above, and
+      // for the same reason: an unscoped "table.summary th" also matches
+      // the always-rendered nested "levels" detail table's own <th>s, which
+      // carry no data-key — summaryColumns().find() would then return
+      // undefined and the `!` assertion below would throw, silently
+      // aborting this whole forEach (and, since callers run this before
+      // renderSummaryBody(), the row re-sort right along with it).
+      tableRoot.querySelectorAll<HTMLTableCellElement>("table.summary > thead th").forEach((th) => {
         const col = summaryColumns().find((c) => c.key === th.dataset.key)!;
         const isActive = th.dataset.key === state.sort.key;
         const arrow = isActive ? (state.sort.direction === "asc" ? " ▲" : " ▼") : "";

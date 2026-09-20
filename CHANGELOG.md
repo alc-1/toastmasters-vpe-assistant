@@ -16,6 +16,7 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 ### Fixed
 
 - Member Review's "Path bind" now shows "Path issue" for a member until all unresolved EasySpeak paths are handled.
+- Club Progress "Next Level Summary" column headers now actually sort the table when clicked.
 
 ## [2.1.0] - 2026-09-02
 
