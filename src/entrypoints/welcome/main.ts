@@ -7,7 +7,10 @@
 // step — "Get started" navigates this same tab there rather than opening a
 // second one.
 
+import { applyI18n } from "../../shared/i18n-dom";
 import { appRouteUrl } from "../../shared/pages";
+
+applyI18n();
 
 document.getElementById("pinMockup")!.innerHTML = renderPinMockup();
 

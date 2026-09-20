@@ -1,6 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "wxt";
 import { generateChangelogJson } from "./scripts/generate-changelog-json";
+import { generateI18nPureMessages } from "./scripts/generate-i18n-pure-messages";
 
 // Two release targets share this one config: "store" (the Chrome Web Store /
 // AMO submission candidate) and "preview" (for testers, outside either
@@ -13,6 +14,14 @@ import { generateChangelogJson } from "./scripts/generate-changelog-json";
 export default defineConfig({
   srcDir: "src",
   outDirTemplate: "{{mode}}/{{browser}}-mv{{manifestVersion}}",
+
+  // @wxt-dev/i18n: reads src/locales/en.yml (manifest.default_locale below),
+  // auto-generates the native _locales/en/messages.json + the #i18n
+  // auto-import's typed structure. See CLAUDE.md's "Internationalization
+  // (i18n)" section for the full story, including why a handful of pure/
+  // Vitest-tested shared modules use a separate local i18n instance
+  // (shared/i18n-pure.ts) instead of #i18n.
+  modules: ["@wxt-dev/i18n/module"],
 
   // Tailwind CSS v4 is wired in as a Vite plugin (v4's official integration —
   // there is no tailwind.config.ts / postcss.config.js anymore; theme + the
@@ -32,12 +41,27 @@ export default defineConfig({
     // `wxt prepare` (postinstall) stays covered by its own explicit call: the
     // file must exist on disk before prepare scans public/ for the PublicPath
     // type on a fresh clone.
-    "build:before": () => generateChangelogJson(),
+    "build:before": async () => {
+      generateChangelogJson();
+      await generateI18nPureMessages();
+    },
   },
 
   manifest: ({ mode, browser }) => {
     const isPreview = mode === "preview";
-    const titleSuffix = isPreview ? " (Preview)" : "";
+
+    // __MSG_x__ is the native WebExtension i18n placeholder mechanism —
+    // resolved from the generated _locales/en/messages.json (itself
+    // generated from src/locales/en.yml by the @wxt-dev/i18n module above)
+    // at load time, keyed by the message's dot-path with dots replaced by
+    // underscores. Native substitution has no runtime templating, so the
+    // store/preview variants are two separate, self-contained message keys
+    // rather than one key plus a JS-side suffix — the store variant reuses
+    // common.brand.title.label/common.tagline.default.body (the same
+    // strings the welcome/popup pages show) since it's identical text; only
+    // the preview variant needed its own manifest.* entries.
+    const name = isPreview ? "__MSG_manifest_name_preview_label__" : "__MSG_common_brand_title_label__";
+    const description = isPreview ? "__MSG_manifest_description_preview_label__" : "__MSG_common_tagline_default_body__";
 
     const icons = {
       16: "icons/default/16.png",
@@ -47,10 +71,9 @@ export default defineConfig({
     };
 
     return {
-      name: `Toastmasters VPE Assistant${titleSuffix}`,
-      description:
-        "Get a clear view of your club’s progress by bringing EasySpeak and Basecamp data together in one place." +
-        (isPreview ? " Preview build for testers — not the Chrome Web Store version." : ""),
+      default_locale: "en",
+      name,
+      description,
 
       permissions: ["storage", "scripting", ...(isPreview ? ["alarms", "notifications"] : [])],
 
@@ -67,7 +90,7 @@ export default defineConfig({
       icons,
       action: {
         default_icon: icons,
-        default_title: `Toastmasters VPE Assistant${titleSuffix}`,
+        default_title: name,
       },
 
       // Required for AMO submission (listed) — placeholder id.

@@ -6,6 +6,7 @@
 // ReportResult and resolution-store.ts's persisted records directly — no
 // matching/aggregation logic is reimplemented here.
 
+import { t } from "../i18n-pure";
 import { computeLevelSummary, computeMatchSummary, countBasecampMembers, countEasySpeakMembers } from "../sync/delta";
 import type {
   BasecampProgression,
@@ -33,9 +34,9 @@ const LEVEL_NUMBERS = [1, 2, 3, 4, 5] as const;
 export type ExportType = "all" | "basecamp" | "easyspeak";
 
 export const EXPORT_TYPE_LABEL: Record<ExportType, string> = {
-  all: "All data",
-  basecamp: "Basecamp",
-  easyspeak: "EasySpeak",
+  all: t("export.type.all.label"),
+  basecamp: t("export.type.basecamp.label"),
+  easyspeak: t("export.type.easyspeak.label"),
 };
 
 // One-line description of each export type, shown next to the label in the
@@ -43,9 +44,9 @@ export const EXPORT_TYPE_LABEL: Record<ExportType, string> = {
 // Exporter view (entrypoints/app/views/exporter.ts) — kept here so both
 // consumers share one copy.
 export const EXPORT_OPTION_DESC: Record<ExportType, string> = {
-  all: "Aggregated data + sources + matches",
-  basecamp: "Original Basecamp data",
-  easyspeak: "Original EasySpeak data",
+  all: t("export.type.all.description"),
+  basecamp: t("export.type.basecamp.description"),
+  easyspeak: t("export.type.easyspeak.description"),
 };
 
 function formatTimestamp(ms: number): string {
@@ -230,16 +231,20 @@ export type ResolutionRecords = Required<Omit<ResolutionData, "allowFuzzyMemberM
 
 function describeMemberMatchNotes(member: MemberReport): string {
   if (member.presence !== "both") {
-    const side = member.presence === "basecamp-only" ? "Basecamp" : "EasySpeak";
-    return member.matchSource === "orphan" ? `Marked orphan: ${side} only` : `One-sided: ${side} only`;
+    const side = member.presence === "basecamp-only" ? t("export.type.basecamp.label") : t("export.type.easyspeak.label");
+    return member.matchSource === "orphan"
+      ? t("export.notes.markedOrphan.sentence", [side])
+      : t("export.notes.oneSided.sentence", [side]);
   }
   switch (member.matchConfidence) {
     case "exact":
-      return "Automatic (exact name match)";
+      return t("export.notes.automaticExactMatch.sentence");
     case "fuzzy":
-      return "Suggested match (unconfirmed)";
+      return t("export.notes.suggestedUnconfirmed.sentence");
     case "confirmed":
-      return member.matchSource === "manual-search" ? "Linked via manual search" : "Confirmed from a suggested match";
+      return member.matchSource === "manual-search"
+        ? t("export.notes.linkedManualSearch.sentence")
+        : t("export.notes.confirmedFromSuggestion.sentence");
     default:
       return "";
   }
@@ -294,7 +299,11 @@ export function buildMatchesRows(report: ReportResult, resolution: ResolutionRec
         matchSource: pin?.source ?? null,
         forced: club.clubMatchForced,
         recordedAt: null, // ClubLookupEntry has no timestamp field
-        notes: club.clubMatchForced ? "Pinned club match" : club.matchScore === 1 ? "Automatic (exact name match)" : "Automatic",
+        notes: club.clubMatchForced
+          ? t("export.notes.pinnedClubMatch.sentence")
+          : club.matchScore === 1
+            ? t("export.notes.automaticExactMatch.sentence")
+            : t("export.notes.automatic.sentence"),
       });
     }
 
@@ -384,7 +393,9 @@ export function buildMatchesRows(report: ReportResult, resolution: ResolutionRec
       matchSource: null,
       forced: null,
       recordedAt: formatTimestamp(o.orphanedAt),
-      notes: o.basecampClubId != null ? "One-sided: Basecamp only" : "One-sided: EasySpeak only",
+      notes: t("export.notes.oneSided.sentence", [
+        o.basecampClubId != null ? t("export.type.basecamp.label") : t("export.type.easyspeak.label"),
+      ]),
     });
   }
 
@@ -407,7 +418,9 @@ export function buildMatchesRows(report: ReportResult, resolution: ResolutionRec
       matchSource: null,
       forced: null,
       recordedAt: formatTimestamp(o.orphanedAt),
-      notes: o.basecampUserId != null ? "One-sided: Basecamp only" : "One-sided: EasySpeak only",
+      notes: t("export.notes.oneSided.sentence", [
+        o.basecampUserId != null ? t("export.type.basecamp.label") : t("export.type.easyspeak.label"),
+      ]),
     });
   }
 
@@ -423,7 +436,7 @@ export function buildMatchesRows(report: ReportResult, resolution: ResolutionRec
       matchSource: null,
       forced: true,
       recordedAt: formatTimestamp(o.boundAt),
-      notes: "Manually bound for this member",
+      notes: t("export.notes.manuallyBound.sentence"),
     });
   }
 
@@ -439,7 +452,7 @@ export function buildMatchesRows(report: ReportResult, resolution: ResolutionRec
       matchSource: null,
       forced: null,
       recordedAt: formatTimestamp(e.excludedAt),
-      notes: "Automatic pairing force-unbound for this member",
+      notes: t("export.notes.forceUnbound.sentence"),
     });
   }
 
@@ -455,7 +468,9 @@ export function buildMatchesRows(report: ReportResult, resolution: ResolutionRec
       matchSource: null,
       forced: null,
       recordedAt: formatTimestamp(o.orphanedAt),
-      notes: o.basecampPathName != null ? "One-sided: Basecamp only" : "One-sided: EasySpeak only",
+      notes: t("export.notes.oneSided.sentence", [
+        o.basecampPathName != null ? t("export.type.basecamp.label") : t("export.type.easyspeak.label"),
+      ]),
     });
   }
 
@@ -471,7 +486,7 @@ export function buildMatchesRows(report: ReportResult, resolution: ResolutionRec
       matchSource: null,
       forced: null,
       recordedAt: formatTimestamp(f.flaggedAt),
-      notes: "Reviewed, deliberately deferred (neither bound nor marked orphan)",
+      notes: t("export.notes.deferredReview.sentence"),
     });
   }
 
@@ -487,7 +502,7 @@ export function buildMatchesRows(report: ReportResult, resolution: ResolutionRec
       matchSource: null,
       forced: null,
       recordedAt: formatTimestamp(c.completedAt),
-      notes: "Manually marked completed (EasySpeak-only path)",
+      notes: t("export.notes.manuallyCompletedPath.sentence"),
     });
   }
 
@@ -618,27 +633,28 @@ export interface MetadataInput {
 
 export function buildMetadataRows(input: MetadataInput): MetadataRow[] {
   const { matched, total } = computeMatchSummary(input.report);
+  const notYetExtracted = t("export.metadata.notYetExtracted.label");
   return [
-    { key: "Export Timestamp", value: new Date(input.exportedAt).toLocaleString() },
-    { key: "Export Schema Version", value: input.schemaVersion },
-    { key: "Extension Version", value: input.extensionVersion },
-    { key: "Active Profile", value: input.activeProfileLabel },
-    { key: "Export Type", value: EXPORT_TYPE_LABEL[input.exportType] },
+    { key: t("export.metadata.exportTimestamp.label"), value: new Date(input.exportedAt).toLocaleString() },
+    { key: t("export.metadata.exportSchemaVersion.label"), value: input.schemaVersion },
+    { key: t("export.metadata.extensionVersion.label"), value: input.extensionVersion },
+    { key: t("export.metadata.activeProfile.label"), value: input.activeProfileLabel },
+    { key: t("export.metadata.exportType.label"), value: EXPORT_TYPE_LABEL[input.exportType] },
     {
-      key: "Basecamp Scraped At",
-      value: input.basecampScrapedAt ? new Date(input.basecampScrapedAt).toLocaleDateString() : "Not yet extracted",
+      key: t("export.metadata.basecampScrapedAt.label"),
+      value: input.basecampScrapedAt ? new Date(input.basecampScrapedAt).toLocaleDateString() : notYetExtracted,
     },
     {
-      key: "EasySpeak Scraped At",
-      value: input.easyspeakScrapedAt ? new Date(input.easyspeakScrapedAt).toLocaleDateString() : "Not yet extracted",
+      key: t("export.metadata.easyspeakScrapedAt.label"),
+      value: input.easyspeakScrapedAt ? new Date(input.easyspeakScrapedAt).toLocaleDateString() : notYetExtracted,
     },
-    { key: "Basecamp Clubs", value: Object.keys(input.basecampData).length },
-    { key: "Basecamp Members", value: countBasecampMembers(input.basecampData) },
-    { key: "EasySpeak Clubs", value: Object.keys(input.easyspeakData).length },
-    { key: "EasySpeak Members", value: countEasySpeakMembers(input.easyspeakData) },
-    { key: "Club Pairs", value: input.report.clubPairs.length },
-    { key: "Members Matched", value: matched },
-    { key: "Members Total", value: total },
+    { key: t("export.metadata.basecampClubs.label"), value: Object.keys(input.basecampData).length },
+    { key: t("export.metadata.basecampMembers.label"), value: countBasecampMembers(input.basecampData) },
+    { key: t("export.metadata.easyspeakClubs.label"), value: Object.keys(input.easyspeakData).length },
+    { key: t("export.metadata.easyspeakMembers.label"), value: countEasySpeakMembers(input.easyspeakData) },
+    { key: t("export.metadata.clubPairs.label"), value: input.report.clubPairs.length },
+    { key: t("export.metadata.membersMatched.label"), value: matched },
+    { key: t("export.metadata.membersTotal.label"), value: total },
   ];
 }
 

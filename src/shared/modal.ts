@@ -35,7 +35,14 @@ export interface ConfirmModalOptions {
  * on cancel / Esc / backdrop click.
  */
 export function confirmModal(opts: ConfirmModalOptions): Promise<boolean> {
-  const { title, body, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = false, signal } = opts;
+  const {
+    title,
+    body,
+    confirmLabel = i18n.t("common.modal.confirmDefault.button"),
+    cancelLabel = i18n.t("common.modal.cancelDefault.button"),
+    danger = false,
+    signal,
+  } = opts;
 
   return new Promise<boolean>((resolve) => {
     if (signal?.aborted) {
@@ -54,7 +61,7 @@ export function confirmModal(opts: ConfirmModalOptions): Promise<boolean> {
           <button type="button" class="btn ${danger ? "btn-error" : "btn-primary"}" data-modal-action="confirm">${escapeHtml(confirmLabel)}</button>
         </div>
       </div>
-      <form method="dialog" class="modal-backdrop"><button type="submit" tabindex="-1" aria-label="Close">close</button></form>
+      <form method="dialog" class="modal-backdrop"><button type="submit" tabindex="-1" aria-label="${escapeHtml(i18n.t("common.modal.closeBackdrop.ariaLabel"))}">close</button></form>
     `;
 
     let settled = false;

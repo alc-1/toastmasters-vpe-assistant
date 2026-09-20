@@ -51,14 +51,16 @@ import type { EasySpeakScrape, MemberchartParseResult, ProfileParseResult } from
 // executeScript() call below resolves.
 const PARSER_FILE = "/content-scripts/easyspeak-parser.js" as const;
 
+// CHALLENGE_TITLE/RESTRICTED_ACCESS_TEXT are NOT this extension's own UI copy
+// — they're literal English text matched against EasySpeak's/Cloudflare's own
+// page content (see navigateAndWaitForRealPage() below), so they must stay
+// exactly as-is regardless of this extension's own locale.
 const CHALLENGE_TITLE = "Just a moment...";
 const PAGE_LOAD_TIMEOUT_MS = 30000;
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 const RESTRICTED_ACCESS_TEXT = "restricted to full members";
-const CHALLENGE_TIMEOUT_MESSAGE =
-  "EasySpeak showed a security check (Cloudflare) that didn't resolve automatically. " +
-  "Switch to the EasySpeak tab, solve the check if one is shown, then try again.";
-const LOGIN_TIMEOUT_MESSAGE = "EasySpeak requires you to log in. Switch to the EasySpeak tab, log in, then try again.";
+const CHALLENGE_TIMEOUT_MESSAGE = i18n.t("background.easyspeak.error.challengeTimeout.error");
+const LOGIN_TIMEOUT_MESSAGE = i18n.t("background.easyspeak.error.loginTimeout.error");
 
 /**
  * Entry point: discovers the clubs where the user is a club officer from
@@ -85,10 +87,7 @@ export async function scrapeAllEasySpeakClubs(): Promise<EasySpeakScrape> {
   const { clubs } = (await loadAndParse(tabId, `${root}/profile.php?mode=editprofile#tab_ti`, "parseProfileLinks")) as ProfileParseResult;
 
   if (clubs.length === 0) {
-    throw new Error(
-      'No officer club found in the EasySpeak profile page\'s "Connected to these Toastmaster clubs" ' +
-        "section. Are you logged in with the right account, and are you a club officer somewhere?"
-    );
+    throw new Error(i18n.t("background.easyspeak.error.noOfficerClub.error"));
   }
 
   const result: EasySpeakScrape = {};
@@ -141,6 +140,11 @@ async function loadAndParse(tabId: number, url: string, parseFnName: ParseFnName
     func: (fnName: string) => {
       const fn = (globalThis as unknown as Record<string, () => unknown>)[fnName];
       if (typeof fn !== "function") {
+        // Runs inside the target tab's own isolated JS realm (executeScript's
+        // func: callback), not the background context — no #i18n auto-import
+        // reaches here, so this stays a plain literal rather than i18n.t().
+        // A near-impossible-to-hit internal assertion, not a user-actionable
+        // message, so that's an acceptable scope limitation.
         throw new Error(`Parser ${fnName} was not injected into the page.`);
       }
       return fn();
@@ -280,7 +284,7 @@ function navigateAndWaitForRealPage(tabId: number, url: string, timeoutMs = PAGE
 
     function onRemoved(removedTabId: number) {
       if (removedTabId === tabId) {
-        finish(() => reject(new Error("The EasySpeak tab was closed before the page finished loading.")));
+        finish(() => reject(new Error(i18n.t("background.easyspeak.error.tabClosed.error"))));
       }
     }
 

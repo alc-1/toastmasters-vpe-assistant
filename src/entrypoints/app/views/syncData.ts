@@ -28,23 +28,24 @@ import { escapeHtml } from "../../../shared/dom-utils";
 import type { BasecampOverviewScrape, BasecampScrape, ClubCentralScrape, EasySpeakScrape, SourceKey } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
 
-const SHELL_HTML = `
+function shellHtml(): string {
+  return `
   <div class="page-intro page-intro--with-actions">
     <div class="page-intro__text">
-      <h1 class="page-title">Sync Data</h1>
-      <p class="page-intro__desc">Import your club data from Club Central, Basecamp, and EasySpeak before continuing to the review steps.</p>
+      <h1 class="page-title">${escapeHtml(i18n.t("syncDataView.page.title.title"))}</h1>
+      <p class="page-intro__desc">${escapeHtml(i18n.t("syncDataView.page.intro.body"))}</p>
     </div>
     <div class="dropdown dropdown-end shrink-0">
       <button id="exportMenuBtn" tabindex="0" class="btn btn-secondary btn-sm" type="button">
-        Export <span class="text-[10px]" aria-hidden="true">▾</span>
+        ${escapeHtml(i18n.t("syncDataView.export.menu.button"))} <span class="text-[10px]" aria-hidden="true">▾</span>
       </button>
       <div id="exportPopover" tabindex="0"
            class="dropdown-content z-20 mt-2 w-[300px] max-w-[calc(100vw-2rem)] rounded-md border border-base-300 bg-base-100 p-4 shadow-lg">
-        <div class="text-sm font-semibold mb-2">Download Workbook</div>
-        <p class="help-text">Download your data as an Excel workbook.</p>
+        <div class="text-sm font-semibold mb-2">${escapeHtml(i18n.t("syncDataView.export.popover.title"))}</div>
+        <p class="help-text">${escapeHtml(i18n.t("syncDataView.export.popover.help"))}</p>
         <div id="exportOptionsRoot" class="export-options"></div>
         <p id="anonymizeExportNotice" class="help-text" aria-live="polite"></p>
-        <button id="exportExcelBtn" class="btn btn-primary btn-sm w-full" disabled>Export to Excel</button>
+        <button id="exportExcelBtn" class="btn btn-primary btn-sm w-full" disabled>${escapeHtml(i18n.t("syncDataView.export.action.button"))}</button>
         <p id="statusExport" class="help-text" aria-live="polite"></p>
       </div>
     </div>
@@ -53,18 +54,18 @@ const SHELL_HTML = `
   <div class="sync-cards">
     <div class="card sync-card">
       <div class="card-header sync-card__header">
-        <span class="sync-card__title">Club Central</span>
-        <span id="badgeClubCentral" class="badge badge-soft badge-error">Not Imported</span>
+        <span class="sync-card__title">${escapeHtml(i18n.t("syncDataView.card.clubCentral.title"))}</span>
+        <span id="badgeClubCentral" class="badge badge-soft badge-error">${escapeHtml(i18n.t("syncDataView.badge.notImported.label"))}</span>
       </div>
       <div class="card-body sync-card__body">
         <p id="statusClubCentral" class="sync-card__status-text help-text" aria-live="polite"></p>
         <div id="metaClubCentral" class="sync-card__result"></div>
         <button id="scrapeClubCentralBtn" class="btn btn-primary sync-card__action">
-          <span class="sync-card__action-label">Import Club Central Roster</span>
-          <span class="sync-card__action-sublabel">Opens a new toastmasters.org tab during import.</span>
+          <span class="sync-card__action-label">${escapeHtml(i18n.t("syncDataView.card.action.importClubCentral.button"))}</span>
+          <span class="sync-card__action-sublabel">${escapeHtml(i18n.t("syncDataView.card.action.importClubCentral.sublabel"))}</span>
         </button>
         <details id="detailsClubCentral" class="sync-card__details" hidden>
-          <summary>View details</summary>
+          <summary>${escapeHtml(i18n.t("syncDataView.card.viewDetails.label"))}</summary>
           <div id="summaryClubCentral" class="summary"></div>
           <pre id="rawDataClubCentral" class="raw-data"></pre>
         </details>
@@ -73,19 +74,19 @@ const SHELL_HTML = `
 
     <div class="card sync-card">
       <div class="card-header sync-card__header">
-        <span class="sync-card__title">Basecamp</span>
-        <span id="badgeBasecamp" class="badge badge-soft badge-error">Not Imported</span>
+        <span class="sync-card__title">${escapeHtml(i18n.t("export.type.basecamp.label"))}</span>
+        <span id="badgeBasecamp" class="badge badge-soft badge-error">${escapeHtml(i18n.t("syncDataView.badge.notImported.label"))}</span>
       </div>
       <div class="card-body sync-card__body">
         <p id="statusBasecamp" class="sync-card__status-text help-text" aria-live="polite"></p>
         <p id="progressBasecamp" class="sync-card__status-text help-text" aria-live="polite"></p>
         <div id="metaBasecamp" class="sync-card__result"></div>
         <button id="scrapeBasecampBtn" class="btn btn-primary sync-card__action">
-          <span class="sync-card__action-label">Import Basecamp Data</span>
-          <span class="sync-card__action-sublabel">Opens a new Basecamp tab if you aren't already logged in.</span>
+          <span class="sync-card__action-label">${escapeHtml(i18n.t("syncDataView.card.action.importBasecamp.button"))}</span>
+          <span class="sync-card__action-sublabel">${escapeHtml(i18n.t("syncDataView.card.action.importBasecamp.sublabel"))}</span>
         </button>
         <details id="detailsBasecamp" class="sync-card__details" hidden>
-          <summary>View details</summary>
+          <summary>${escapeHtml(i18n.t("syncDataView.card.viewDetails.label"))}</summary>
           <div id="summaryBasecamp" class="summary"></div>
           <pre id="rawDataBasecamp" class="raw-data"></pre>
         </details>
@@ -94,18 +95,18 @@ const SHELL_HTML = `
 
     <div class="card sync-card">
       <div class="card-header sync-card__header">
-        <span class="sync-card__title">EasySpeak</span>
-        <span id="badgeEasySpeak" class="badge badge-soft badge-error">Not Imported</span>
+        <span class="sync-card__title">${escapeHtml(i18n.t("export.type.easyspeak.label"))}</span>
+        <span id="badgeEasySpeak" class="badge badge-soft badge-error">${escapeHtml(i18n.t("syncDataView.badge.notImported.label"))}</span>
       </div>
       <div class="card-body sync-card__body">
         <p id="statusEasySpeak" class="sync-card__status-text help-text" aria-live="polite"></p>
         <div id="metaEasySpeak" class="sync-card__result"></div>
         <button id="scrapeEasySpeakBtn" class="btn btn-primary sync-card__action">
-          <span class="sync-card__action-label">Import EasySpeak Data</span>
-          <span class="sync-card__action-sublabel">Opens a new EasySpeak tab during import.</span>
+          <span class="sync-card__action-label">${escapeHtml(i18n.t("syncDataView.card.action.importEasyspeak.button"))}</span>
+          <span class="sync-card__action-sublabel">${escapeHtml(i18n.t("syncDataView.card.action.importEasyspeak.sublabel"))}</span>
         </button>
         <details id="detailsEasySpeak" class="sync-card__details" hidden>
-          <summary>View details</summary>
+          <summary>${escapeHtml(i18n.t("syncDataView.card.viewDetails.label"))}</summary>
           <div id="summaryEasySpeak" class="summary"></div>
           <pre id="rawDataEasySpeak" class="raw-data"></pre>
         </details>
@@ -117,14 +118,19 @@ const SHELL_HTML = `
 
   <p id="continueHelper" class="help-text step-continue-helper"></p>
 `;
+}
 
 type BadgeTone = "danger" | "pending" | "success";
 
-const BADGE_LABEL: Record<BadgeTone, string> = {
-  danger: "Not Imported",
-  pending: "Importing",
-  success: "✓ Imported",
-};
+function badgeLabel(tone: BadgeTone): string {
+  return i18n.t(
+    tone === "danger"
+      ? "syncDataView.badge.notImported.label"
+      : tone === "pending"
+        ? "syncDataView.badge.importing.label"
+        : "syncDataView.badge.imported.label",
+  );
+}
 
 const BADGE_TONE_CLASS: Record<BadgeTone, string> = {
   danger: "badge-error",
@@ -140,7 +146,7 @@ function computeExportAvailability(basecampData: BasecampScrape | null, easyspea
 
 function setBadge(el: HTMLElement, tone: BadgeTone) {
   el.className = `badge badge-soft ${BADGE_TONE_CLASS[tone]}`;
-  el.textContent = BADGE_LABEL[tone];
+  el.textContent = badgeLabel(tone);
 }
 
 // Full date + time, in the browser's own locale (no explicit locale arg —
@@ -148,13 +154,13 @@ function setBadge(el: HTMLElement, tone: BadgeTone) {
 // fallback for a missing timestamp instead of that function's "never" (this
 // view only ever calls it once a source's data is actually present).
 function formatTime(timestamp: number | undefined): string {
-  if (!timestamp) return "just now";
+  if (!timestamp) return i18n.t("syncDataView.card.time.justNow.label");
   return new Date(timestamp).toLocaleString();
 }
 
 export const syncDataView: ViewModule = {
   async mount(root) {
-    root.innerHTML = SHELL_HTML;
+    root.innerHTML = shellHtml();
 
     // Set true by the disposer. refresh() has several await points (a
     // background message round-trip, storage reads, buildReport()) — if
@@ -196,7 +202,7 @@ export const syncDataView: ViewModule = {
       await onScrapeClick<BasecampScrape>({
         els: basecampEls,
         message: { type: "SCRAPE_BASECAMP" },
-        loadingLabel: "Importing…",
+        loadingLabel: i18n.t("syncDataView.card.action.importing.label"),
         render: (els, data) => renderScrapeResult(els, data, "basecamp", anonymize),
       });
       importActionOccurred = true;
@@ -209,7 +215,7 @@ export const syncDataView: ViewModule = {
       await onScrapeClick<EasySpeakScrape>({
         els: easyspeakEls,
         message: { type: "SCRAPE_EASYSPEAK" },
-        loadingLabel: "Importing…",
+        loadingLabel: i18n.t("syncDataView.card.action.importing.label"),
         render: (els, data) => renderScrapeResult(els, data, "easyspeak", anonymize),
       });
       importActionOccurred = true;
@@ -222,7 +228,7 @@ export const syncDataView: ViewModule = {
       await onScrapeClick<ClubCentralScrape>({
         els: clubCentralEls,
         message: { type: "SCRAPE_CLUBCENTRAL" },
-        loadingLabel: "Importing…",
+        loadingLabel: i18n.t("syncDataView.card.action.importing.label"),
         render: (els, data) => renderScrapeResult(els, data, "clubcentral", anonymize),
       });
       importActionOccurred = true;
@@ -296,13 +302,15 @@ export const syncDataView: ViewModule = {
       // flag + label change is enough.
       exporting = true;
       exportBtn.setAttribute("aria-busy", "true");
-      exportBtn.textContent = "Generating…";
+      exportBtn.textContent = i18n.t("syncDataView.export.action.generating");
       statusExport.textContent = "";
       try {
         const summary = await exportToExcel(selectedExportType);
-        statusExport.innerHTML = `✓ Exported <ins>${escapeHtml(summary.filename)}</ins>`;
+        statusExport.innerHTML = i18n.t("syncDataView.export.status.exported.sentence", [`<ins>${escapeHtml(summary.filename)}</ins>`]);
       } catch (err) {
-        statusExport.textContent = `Export failed: ${err instanceof Error ? err.message : String(err)}`;
+        statusExport.textContent = i18n.t("syncDataView.export.status.failed.error", [
+          err instanceof Error ? err.message : String(err),
+        ]);
       } finally {
         exporting = false;
         exportBtn.removeAttribute("aria-busy");
@@ -348,10 +356,10 @@ export const syncDataView: ViewModule = {
 
       const anonymize = await getAnonymizeMode();
       if (disposed) return;
-      renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, "Import Basecamp Data", cached.basecampData ?? null, cached.basecampScrapedAt, basecampLoading, countBasecampMembers, "basecamp", anonymize);
-      renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, "Import EasySpeak Data", cached.easyspeakData ?? null, cached.easyspeakScrapedAt, easyspeakLoading, countEasySpeakMembers, "easyspeak", anonymize);
-      renderSourceCard(clubCentralEls, badgeClubCentral, metaClubCentral, detailsClubCentral, "Import Club Central Roster", cached.clubCentralData ?? null, cached.clubCentralScrapedAt, clubCentralLoading, countClubCentralMembers, "clubcentral", anonymize);
-      document.getElementById("anonymizeExportNotice")!.textContent = anonymize ? "Privacy Mode is on — this export will use anonymized names." : "";
+      renderSourceCard(basecampEls, badgeBasecamp, metaBasecamp, detailsBasecamp, i18n.t("syncDataView.card.action.importBasecamp.button"), cached.basecampData ?? null, cached.basecampScrapedAt, basecampLoading, countBasecampMembers, "basecamp", anonymize);
+      renderSourceCard(easyspeakEls, badgeEasySpeak, metaEasySpeak, detailsEasySpeak, i18n.t("syncDataView.card.action.importEasyspeak.button"), cached.easyspeakData ?? null, cached.easyspeakScrapedAt, easyspeakLoading, countEasySpeakMembers, "easyspeak", anonymize);
+      renderSourceCard(clubCentralEls, badgeClubCentral, metaClubCentral, detailsClubCentral, i18n.t("syncDataView.card.action.importClubCentral.button"), cached.clubCentralData ?? null, cached.clubCentralScrapedAt, clubCentralLoading, countClubCentralMembers, "clubcentral", anonymize);
+      document.getElementById("anonymizeExportNotice")!.textContent = anonymize ? i18n.t("syncDataView.export.notice.privacyModeOn.body") : "";
       await renderProgress();
       if (disposed) return;
 
@@ -368,7 +376,7 @@ export const syncDataView: ViewModule = {
       if (disposed) return;
 
       const hasBoth = !!cached.basecampData && !!cached.easyspeakData;
-      continueHelper.textContent = hasBoth ? "" : "Import Basecamp and EasySpeak data to continue.";
+      continueHelper.textContent = hasBoth ? "" : i18n.t("syncDataView.continueHelper.needsBothSources.body");
     }
 
     async function renderProgress() {
@@ -378,11 +386,19 @@ export const syncDataView: ViewModule = {
         progressBasecamp.textContent = "";
         return;
       }
-      const clubLabel = `Club ${progress.currentClubIndex} of ${progress.clubsTotal} (${progress.currentClubName})`;
+      const clubLabel = i18n.t("syncDataView.progress.club.sentence", [
+        String(progress.currentClubIndex),
+        String(progress.clubsTotal),
+        progress.currentClubName,
+      ]);
       progressBasecamp.textContent =
         progress.currentClubMembersTotal === null
-          ? `${clubLabel} — starting…`
-          : `${clubLabel} — ${progress.currentClubMembersFetched} member${progress.currentClubMembersFetched === 1 ? "" : "s"} out of ${progress.currentClubMembersTotal} loaded so far`;
+          ? i18n.t("syncDataView.progress.starting.sentence", [clubLabel])
+          : i18n.t("syncDataView.progress.membersLoaded.count", progress.currentClubMembersFetched, [
+              clubLabel,
+              String(progress.currentClubMembersFetched),
+              String(progress.currentClubMembersTotal),
+            ]);
     }
 
     function renderSourceCard<T extends BasecampScrape | EasySpeakScrape | ClubCentralScrape>(
@@ -402,7 +418,7 @@ export const syncDataView: ViewModule = {
         setBadge(badge, "pending");
         els.btn.className = "btn btn-primary sync-card__action";
         els.btn.disabled = true;
-        els.btnLabel.textContent = "Importing…";
+        els.btnLabel.textContent = i18n.t("syncDataView.card.action.importing.label");
         details.hidden = true;
         return;
       }
@@ -412,9 +428,9 @@ export const syncDataView: ViewModule = {
       if (data) {
         setBadge(badge, "success");
         els.btn.className = "btn btn-secondary sync-card__action";
-        els.btnLabel.textContent = "Re-import data";
+        els.btnLabel.textContent = i18n.t("syncDataView.card.action.reimport.button");
         const count = countMembers(data);
-        result.innerHTML = `<div>[${formatTime(scrapedAt)}] Imported ${count} member${count === 1 ? "" : "s"}</div>`;
+        result.innerHTML = `<div>${escapeHtml(i18n.t("syncDataView.card.result.imported.count", count, [formatTime(scrapedAt), String(count)]))}</div>`;
         els.status.textContent = "";
         details.hidden = false;
         renderScrapeResult(els, data, source, anonymize);
@@ -446,16 +462,16 @@ export const syncDataView: ViewModule = {
       completionSummary.hidden = false;
       completionSummary.innerHTML = `
         <div class="setup-summary__title sync-summary-title">
-          <span>Data Import Complete</span>
+          <span>${escapeHtml(i18n.t("syncDataView.summary.title.label"))}</span>
           <span class="sync-summary-check">✓</span>
         </div>
         <div class="setup-summary__stats">
-          <div class="setup-summary__item">Basecamp: ${basecampCount} member${basecampCount === 1 ? "" : "s"}</div>
-          <div class="setup-summary__item">EasySpeak: ${easyspeakCount} member${easyspeakCount === 1 ? "" : "s"}</div>
-          <div class="setup-summary__item">Matched: ${matched} member${matched === 1 ? "" : "s"}</div>
-          <div class="setup-summary__item">Needs Review: ${needsReview} member${needsReview === 1 ? "" : "s"}</div>
+          <div class="setup-summary__item">${escapeHtml(i18n.t("syncDataView.summary.basecamp.count", basecampCount))}</div>
+          <div class="setup-summary__item">${escapeHtml(i18n.t("syncDataView.summary.easyspeak.count", easyspeakCount))}</div>
+          <div class="setup-summary__item">${escapeHtml(i18n.t("syncDataView.summary.matched.count", matched))}</div>
+          <div class="setup-summary__item">${escapeHtml(i18n.t("syncDataView.summary.needsReview.count", needsReview))}</div>
         </div>
-        <p class="setup-summary__footer">Ready to continue to Club Review.</p>
+        <p class="setup-summary__footer">${escapeHtml(i18n.t("syncDataView.summary.footer.label"))}</p>
       `;
     }
 

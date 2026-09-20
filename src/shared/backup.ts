@@ -13,6 +13,7 @@
 // (local.replaceAll()), so the dashboard confirms with the user first.
 
 import { downloadBlob } from "./export/download";
+import { t } from "./i18n-pure";
 import { local } from "./storage";
 
 export const BACKUP_FORMAT = "toastmasters-vpe-assistant-backup";
@@ -42,29 +43,29 @@ export function parseBackup(text: string): BackupFile {
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error("This file isn't a valid backup file.");
+    throw new Error(t("backup.parse.invalidJson.error"));
   }
 
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("This file isn't a valid backup file.");
+    throw new Error(t("backup.parse.invalidJson.error"));
   }
 
   const candidate = parsed as Record<string, unknown>;
 
   if (candidate.format !== BACKUP_FORMAT) {
-    throw new Error("This file isn't a Toastmasters VPE Assistant backup.");
+    throw new Error(t("backup.parse.wrongFormat.error"));
   }
 
   if (typeof candidate.version !== "number") {
-    throw new Error("This backup file is missing its version and can't be restored.");
+    throw new Error(t("backup.parse.missingVersion.error"));
   }
 
   if (candidate.version > BACKUP_VERSION) {
-    throw new Error("This backup was created by a newer version of the extension. Update first, then try again.");
+    throw new Error(t("backup.parse.newerVersion.error"));
   }
 
   if (typeof candidate.data !== "object" || candidate.data === null || Array.isArray(candidate.data)) {
-    throw new Error("This backup file has no data to restore.");
+    throw new Error(t("backup.parse.noData.error"));
   }
 
   return {

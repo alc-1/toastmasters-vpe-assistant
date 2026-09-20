@@ -9,22 +9,24 @@
   },
   "scripts": {
     "generate:changelog-json": "node scripts/generate-changelog-json.ts",
-    "dev": "npm run generate:changelog-json && wxt",
-    "dev:firefox": "npm run generate:changelog-json && wxt -b firefox",
-    "build": "npm run generate:changelog-json && tsc --noEmit && wxt build --mode store",
-    "build:firefox": "npm run generate:changelog-json && tsc --noEmit && wxt build -b firefox --mode store",
-    "build:preview": "npm run generate:changelog-json && tsc --noEmit && wxt build --mode preview",
-    "build:preview:firefox": "npm run generate:changelog-json && tsc --noEmit && wxt build -b firefox --mode preview",
-    "zip": "npm run generate:changelog-json && wxt zip --mode store",
-    "zip:firefox": "npm run generate:changelog-json && wxt zip -b firefox --mode store",
-    "zip:preview": "npm run generate:changelog-json && wxt zip --mode preview",
-    "zip:preview:firefox": "npm run generate:changelog-json && wxt zip -b firefox --mode preview",
+    "generate:i18n-pure": "node scripts/generate-i18n-pure-messages.ts",
+    "generate": "npm run generate:changelog-json && npm run generate:i18n-pure",
+    "dev": "npm run generate && wxt",
+    "dev:firefox": "npm run generate && wxt -b firefox",
+    "build": "npm run generate && tsc --noEmit && wxt build --mode store",
+    "build:firefox": "npm run generate && tsc --noEmit && wxt build -b firefox --mode store",
+    "build:preview": "npm run generate && tsc --noEmit && wxt build --mode preview",
+    "build:preview:firefox": "npm run generate && tsc --noEmit && wxt build -b firefox --mode preview",
+    "zip": "npm run generate && wxt zip --mode store",
+    "zip:firefox": "npm run generate && wxt zip -b firefox --mode store",
+    "zip:preview": "npm run generate && wxt zip --mode preview",
+    "zip:preview:firefox": "npm run generate && wxt zip -b firefox --mode preview",
     "typecheck": "tsc --noEmit",
     "lint:css": "stylelint \"src/shared/styles.css\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "postinstall": "node scripts/generate-changelog-json.ts && wxt prepare"
+    "postinstall": "npm run generate && wxt prepare"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
@@ -41,6 +43,7 @@
     "wxt": "^0.21.4"
   },
   "dependencies": {
+    "@wxt-dev/i18n": "^0.2.7",
     "exceljs": "^4.4.0"
   }
 }

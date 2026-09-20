@@ -396,6 +396,9 @@ src/
     ├── sync-status-panel.ts # Data Extraction card logic, currently used only by
     │                        # entrypoints/app/views/syncData.ts (not the popup — see below)
     ├── dom-utils.ts         # escapeHtml/escapeAttr/warningIconHtml
+    ├── i18n-pure.ts         # local t() for the pure/Vitest-tested modules below — see
+    │                        #   "Internationalization (i18n)" section
+    ├── i18n-dom.ts          # applyI18n() — data-i18n/-attr-* walker for the static-HTML pages
     ├── settings-store.ts    # active profile (demo, or one of the three EasySpeak regions) + Anonymize
     │                        # Mode + formatProfileLabel()
     ├── resolution-store.ts  # the 6 persisted name-resolution keys
@@ -1371,6 +1374,195 @@ Cloudflare or similar). And if it needs the latter, its parser must be a `regist
 content-script entrypoint injected by its stable built path, the same way
 `entrypoints/easyspeak-parser.content.ts` is — see the injection-pattern bullet above.
 
+## Internationalization (i18n)
+
+Every user-facing string in this extension goes through **[@wxt-dev/i18n](https://wxt.dev/i18n)**,
+sourced from the single message file `src/locales/en.yml` (English-only for now — see "Adding a
+second language" below). Wired in via `wxt.config.ts`'s `modules: ["@wxt-dev/i18n/module"]` +
+`manifest.default_locale: "en"`; that module scans `src/locales/*.yml`, auto-generates the native
+`_locales/<lang>/messages.json` (used both by `browser.i18n.getMessage()` at runtime and by
+`__MSG_x__` manifest placeholders — see "Manifest strings" below) and a typed key union consumed by
+the WXT-auto-imported `i18n` global.
+
+### Key naming: `scope.element.specificity.type`
+
+Every key in `src/locales/en.yml` follows this four-part convention (mirrored directly by YAML
+nesting — `members.action.unlink.button` is `members: { action: { unlink: { button: ... } } }`):
+
+- **scope** — the view/module namespace: `dashboard`, `report`, `members`, `setup`, `syncData`
+  (also `syncDataView` for the view file, since `syncData` is used by `shared/sync-status-panel.ts`
+  itself), `clubReview`, `globalSettings`, `exporter`, `onboarding`, `whatsNew`, `popup`, `welcome`,
+  `basecampAuth`, `easyspeakDone`, `clubcentralDone`, `common` (chrome/modal/countdown/app-shell
+  reused across ≥2 scopes), `background` (background/api/*.ts error strings, further split by
+  source: `background.basecamp.*`/`background.easyspeak.*`/`background.clubcentral.*`/
+  `background.updateChecker.*`), `manifest` (the handful of `wxt.config.ts` strings not already
+  covered by `common.brand.*`/`common.tagline.*`), `stepperInfo`, `anonymize`, `export` (the Excel
+  export row/metadata labels in `shared/export/rows.ts`).
+- **element** — the UI region/category within that scope: `banner`, `card`, `table`, `badge`,
+  `tooltip`, `action`, `emptyState`, `kpi`, `status`, `section`, `column`, `row`, `level5Note`, etc.
+  — named after the concrete DOM/UI piece the string belongs to, not the string's grammar.
+- **specificity** — the concrete instance within that element: `unlink`, `readyToLevelUp`,
+  `setupIncomplete`, `basecampScrapedAt`, `oneSided`, `minutesAgo`, etc.
+- **type** — the string's grammatical/functional role: `label` (a short noun/phrase), `title`,
+  `body` (a sentence/paragraph), `button`, `tooltip`, `ariaLabel`, `placeholder`, `error`, `sentence`
+  (a full interpolated sentence — prefer this over composing several smaller translated fragments
+  together in code, since word order varies by language and a future translator needs a whole
+  sentence to work with, not glued pieces), `count` (a pluralized quantity — see below).
+
+When the exact same English text is genuinely the same concept in two places (e.g. "Basecamp"/
+"EasySpeak" as a source name, "Cancel" as a generic dialog action), reuse the existing key rather
+than duplicating the string under a new one — `export.type.basecamp.label`/
+`export.type.easyspeak.label` and `common.modal.cancelDefault.button` are reused this way across
+many views. Don't reuse a key just because the text happens to match by coincidence if the *concept*
+differs (e.g. `report.status.completed.label` "Completed" vs. `members.pathBindCell.completedBadge.label`
+"Completed" are kept separate despite identical text, since they describe different things and could
+plausibly need different translations later).
+
+### Pluralization and interpolation
+
+`@wxt-dev/i18n` pluralizes via **numeric-keyed variants under one message key** — not an
+`{one, other}` object shape:
+
+```yaml
+speechesRemaining:
+  count:
+    1: "$1 speech remaining"
+    n: "$1 speeches remaining"
+```
+
+Called as `i18n.t("report.levelSummary.speechesRemaining.count", theoreticalMissing)` — passing a
+bare number selects the plural variant (1 vs. everything else) *and* substitutes it into that
+variant's own `$1` for free. A `0:` variant is also supported when English needs a distinct "no
+items" phrasing (not currently used here). Interpolation into a `.count`-typed key beyond the count
+itself needs an explicit substitution array too, e.g. `speechesRemainingIfReported`'s
+`"$1 speech remaining → $2 if reported"` is called as
+`i18n.t(key, theoreticalMissing, [String(theoreticalMissing), String(realMissing)])` — the count arg
+picks the plural form, the array fills every `$N`.
+
+Non-pluralized interpolation uses either positional `$1`/`$2`/… (`i18n.t(key, [value1, value2])`) or
+named `{placeholder}` substitutions (`i18n.t(key, { placeholder: value })`) — pick whichever reads
+more clearly at the call site; both are supported natively. Values interpolated into HTML (almost
+every call site, since views build markup as template literals) must still go through
+`shared/dom-utils.ts`'s `escapeHtml`/`escapeAttr` exactly as before — `i18n.t()` does no HTML
+escaping of its own, substitutions and all.
+
+### Two call paths — both required, not an inconsistency
+
+**Ambient `i18n.t()`** (no import statement, same WXT-auto-import convention as `browser`/
+`defineBackground()` elsewhere in this codebase) — used by everything that only ever runs inside the
+real, loaded extension bundle: every `entrypoints/app/views/*.ts`, `entrypoints/app/main.ts`,
+`entrypoints/popup/main.ts`, the static-HTML pages' `main.ts` files (via `shared/i18n-dom.ts`, see
+below), `background/api/*.ts`, and shared modules with no Vitest coverage (`shared/app-shell.ts`,
+`shared/modal.ts`, `shared/countdown.ts`, `shared/sync-status-panel.ts`).
+
+**`t()` from `shared/i18n-pure.ts`** (an explicit import, since these files already keep a strict
+zero-ambient-dependency style) — used by the handful of shared modules that are pure, browser-free,
+and **directly unit-tested by Vitest**: `shared/sync/delta.ts`, `shared/export/rows.ts`,
+`shared/backup.ts`, `shared/stepper-info.ts`, `shared/anonymize.ts`. This split exists because
+`i18n.t()` (via `createI18n()`, confirmed by reading `node_modules/@wxt-dev/i18n/dist/index.mjs`) is
+a thin wrapper around `browser.i18n.getMessage()` — it only resolves messages inside a real, loaded
+browser extension, reading the native `_locales/<lang>/messages.json` the `@wxt-dev/i18n` WXT module
+generates at build/dev time. `vitest.config.ts` deliberately never loads a live WXT/Vite build (see
+its own comment), so nothing Vitest imports directly can depend on that global existing at all — and
+there is no in-memory/Node-only message-resolution path anywhere in `@wxt-dev/i18n`; its documented
+"non-WXT custom build integration" (`parseMessagesFile`/`generateChromeMessagesFile` from
+`@wxt-dev/i18n/build`) only *generates* a real `_locales/*/messages.json` for a non-WXT bundler to
+ship, it doesn't give you a way to resolve messages without one.
+
+`shared/i18n-pure.ts` solves this by reusing `@wxt-dev/i18n`'s own compiled-message shape rather than
+depending on it at runtime: `scripts/generate-i18n-pure-messages.ts` (same regeneration wiring as
+`scripts/generate-changelog-json.ts` — chained into `postinstall`/every `dev`/`build*`/`zip*` script
+via the `generate` npm script, and into `wxt.config.ts`'s `build:before` hook) calls
+`@wxt-dev/i18n/build`'s `parseMessagesFile()` + `generateChromeMessages()` — the exact transform the
+WXT module itself uses to produce `_locales/<lang>/messages.json` — against `src/locales/en.yml`,
+and writes the result as a plain JSON file, `src/locales/generated/en.pure-generated.json`
+(gitignored, fully derived — note the `generated/` subdirectory: it must NOT sit directly in
+`src/locales/`, or the `@wxt-dev/i18n` WXT module's own directory scan picks it up and misidentifies
+it as an unsupported locale named "en.pure-generated", producing a build warning). `shared/i18n-pure.ts`
+imports that JSON directly (safe in Node/Vitest and in a Vite browser bundle alike, unlike anything
+from `@wxt-dev/i18n/build` itself, which statically imports `node:fs/promises` and would break a
+browser bundle) and re-implements `createI18n().t()`'s exact key-lookup/plural-selection/substitution
+algorithm against it. Same source YAML, same compiled shape, two independent readers — deliberately
+untyped on `key` (a plain `string`, not a generated key union) as the one thing traded away for
+guaranteed Vitest/bundle compatibility; a typo only surfaces at runtime (a `console.warn`, mirroring
+`createI18n()`'s own missing-key behavior) or via that module's existing Vitest coverage.
+
+**Before adding `i18n.t()`/`t()` to a new file, check whether anything importing it (even
+transitively) is Vitest-tested.** A real, shipped bug during this migration: `shared/app-shell.ts`'s
+`NAV_ITEMS`/`GOAL_SUBTITLE` were originally plain module-top-level `const`s calling `i18n.t()`
+eagerly — since `shared/stepper-info.ts` (Vitest-tested) imports `NAV_ITEMS` from `app-shell.ts`
+purely for its `.key`/`.href` fields, merely *importing* `stepper-info.ts` in a test transitively
+evaluated `app-shell.ts`'s top level and threw `ReferenceError: i18n is not defined` before any test
+even ran. Fixed by making `label` a **getter**, not a plain string property, so `i18n.t()` is
+resolved lazily on each access rather than once at module-eval time (see `NAV_ITEMS`'s definition in
+`shared/app-shell.ts`) — the same fix applies to any similar module-top-level label map/array a
+tested module might import for unrelated fields. Inside a function body (the overwhelming majority
+of call sites — every view's `mount()`, every `render*()` helper) this isn't a concern at all, since
+the function body only runs when actually invoked, never at import time; `shared/stepper-info.ts`'s
+own `SETUP_STEPS` array is the one legitimate exception to "always defer" — it uses the **local**
+`t()` from `shared/i18n-pure.ts` (this file already imports it for its other functions), which has
+no ambient dependency at all, so eager evaluation there is safe.
+
+One narrower exception on the ambient-path side: a function passed to
+`browser.scripting.executeScript()`'s `func:` option (see `background/api/easyspeak.ts`'s and
+`background/api/clubcentral.ts`'s `loadAndParse()`) runs inside the **target tab's own isolated JS
+realm**, not the background context — no `#i18n` auto-import reaches there, so the one such literal
+(`` `Parser ${fnName} was not injected into the page.` `` — a near-impossible-to-hit internal
+assertion, not a user-actionable message) stays a plain untranslated string, documented inline at
+both call sites.
+
+### Static HTML pages: `shared/i18n-dom.ts`
+
+`welcome/index.html`, `basecamp-auth/index.html`, `easyspeak-done/index.html`,
+`clubcentral-done/index.html`, and 4 of `popup/index.html`'s strings have no other JS-driven text —
+these mark elements with `data-i18n="scope.element.specificity.type"` (sets `.textContent`) or
+`data-i18n-attr-<attr>="key"` (e.g. `data-i18n-attr-title="key"`, `data-i18n-attr-aria-label="key"` —
+sets that attribute), left empty in the HTML itself. Each page's `main.ts` calls
+`applyI18n()` (`shared/i18n-dom.ts`, ambient `i18n.t()` path) once, before any other DOM work.
+`shared/countdown.ts`'s per-tick "closes in N seconds" sentence and cancel message are the one
+exception — regenerated via direct `i18n.t()` calls inside `startCountdown()` itself each tick
+(a `count`-typed key resolves the whole sentence), rather than `data-i18n`, since a live countdown
+number doesn't fit a static-attribute model; this is also why the `<span id="countdown">N</span>`
+markup those 3 pages used to have is gone — the whole sentence is regenerated as one unit now.
+
+### Manifest strings
+
+`wxt.config.ts`'s `manifest()` factory sets `name`/`description`/`action.default_title` to literal
+`"__MSG_key__"` strings (the native WebExtension i18n placeholder mechanism — resolved by the
+*browser*, from the generated `_locales/<lang>/messages.json`, not by the build; `manifest.json`
+itself is expected to still contain the literal unresolved `__MSG_x__` text after building — verify
+by checking `_locales/en/messages.json` has the matching key, not by expecting `manifest.json` to
+show real text). The store build reuses `common.brand.title.label`/`common.tagline.default.body`
+(the same strings `welcome`/`popup` show) via `__MSG_common_brand_title_label__`/
+`__MSG_common_tagline_default_body__`; the preview build needs its own `manifest.name.preview.label`/
+`manifest.description.preview.label` entries, since native substitution has no runtime templating —
+there's no way to compose a shared base string with a conditional suffix at substitution time, so the
+preview build's full "(Preview)"-suffixed name and "Preview build for testers…"-appended description
+are each one self-contained key, not the store key plus JS-side concatenation. Verify a manifest
+string change against **all 4 build combinations** (`npm run build && npm run build:firefox && npm
+run build:preview && npm run build:preview:firefox`), since this is the one place a subtly wrong
+`__MSG_x__` key name only surfaces once the extension is actually loaded in a browser, not in `tsc`
+or Vitest.
+
+### Adding a second language
+
+Not built yet — deliberately, since only English exists today. When it's needed: add
+`src/locales/<lang>.yml` (same key structure, translated values — `@wxt-dev/i18n` scans every
+`src/locales/*.yml` file automatically), regenerate types/build normally, then add a locale-selection
+mechanism (e.g. a new `shared/settings-store.ts` preference, threaded into whichever `browser.i18n`
+API or `createI18n()` locale option actually drives *which* `_locales/<lang>/` the runtime reads —
+not investigated yet, since it's out of scope while English-only). `shared/i18n-pure.ts`'s local path
+would need the equivalent: a `t()` per locale, or a locale parameter threaded through.
+**`entrypoints/app/views/dashboard.ts`'s `renderBanner()`/`computeSetupDetails()` have a known,
+documented limitation that would need fixing first** — both parse `shared/stepper-info.ts`'s
+`formatOldestSync()` output (`"Updated $1"`) by string-matching the literal English prefix `"Updated "`
+to extract just the relative-time portion for the "Last updated …" banner line. This works today
+because both sides are the same hardcoded English string, but a translation whose "Updated" doesn't
+start with that exact substring would silently fall through to showing nothing instead of the
+relative time. The real fix is having `formatOldestSync()` return a structured `{absolute, relative}`
+value instead of one pre-formatted sentence — flagged inline at both call sites in `dashboard.ts`,
+not fixed now since there's no second locale yet to actually break it.
+
 ## Build tooling
 
 [WXT](https://wxt.dev) (`wxt.config.ts`) builds `src/` into `.output/<mode>/<browser>-mv<manifestVersion>/`
@@ -1657,6 +1849,11 @@ changes) — no other code is shared between the two projects.
   bullet above), injected by its stable built path — not a manifest-declared `content_scripts` match
   rule, and not the old crxjs `?iife`-import workaround (WXT bundles content scripts as IIFEs by
   default, so that trick no longer applies at all).
+- **Every user-facing string goes through `i18n.t()` (ambient) or `t()` from `shared/i18n-pure.ts`
+  (the handful of pure/Vitest-tested shared modules) — never a bare string literal in view/background
+  code.** Keys follow `scope.element.specificity.type`, defined in `src/locales/en.yml` — see the
+  "Internationalization (i18n)" section above for the full convention, the two call paths, and the
+  pluralization/interpolation syntax before adding a new string or a new file that needs one.
 - `public/icons/*.png` were generated once via a scratchpad-only Node script (hand-written SVGs
   rasterized with `sharp`) — that tool isn't part of the repo and never will be; if the icon designs
   need to change, regenerate the PNGs the same throwaway way rather than adding an image-processing

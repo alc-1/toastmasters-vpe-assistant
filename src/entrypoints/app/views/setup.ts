@@ -16,16 +16,18 @@ import { EASYSPEAK_SERVERS, getActiveProfile, getLastEasySpeakRegion, setActiveP
 import type { EasySpeakServerId } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
 
-const SHELL_HTML = `
+function shellHtml(): string {
+  return `
   <div class="page-intro">
-    <h1 class="page-title">Setup</h1>
-    <p class="page-intro__desc">Choose how you want to prepare your club progress report.</p>
+    <h1 class="page-title">${escapeHtml(i18n.t("setup.page.title.title"))}</h1>
+    <p class="page-intro__desc">${escapeHtml(i18n.t("setup.page.intro.body"))}</p>
   </div>
 
   <div id="optionCardsRoot"></div>
   <div id="regionSectionRoot"></div>
   <div id="summaryRoot"></div>
 `;
+}
 
 // null = no choice made yet (the Setup step's required no-default state).
 type DataSourceChoice = "demo" | "real" | null;
@@ -38,7 +40,7 @@ const REGION_IMAGES: Record<EasySpeakServerId, string> = {
 
 export const setupView: ViewModule = {
   async mount(root) {
-    root.innerHTML = SHELL_HTML;
+    root.innerHTML = shellHtml();
 
     // Set true by the disposer — guards against init() resuming after an
     // await (e.g. if the user navigates away right as a storage-triggered
@@ -67,15 +69,15 @@ export const setupView: ViewModule = {
           <label class="option-card${choice === "demo" ? " selected" : ""}">
             <input type="radio" name="dataSourceChoice" value="demo"${choice === "demo" ? " checked" : ""}>
             <span class="option-card__body">
-              <span class="option-card__title">Try with demo data</span>
-              <span class="option-card__desc">Explore the tool using sample club information without connecting to your real data.</span>
+              <span class="option-card__title">${escapeHtml(i18n.t("setup.option.demo.title"))}</span>
+              <span class="option-card__desc">${escapeHtml(i18n.t("setup.option.demo.description"))}</span>
             </span>
           </label>
           <label class="option-card${choice === "real" ? " selected" : ""}">
             <input type="radio" name="dataSourceChoice" value="real"${choice === "real" ? " checked" : ""}>
             <span class="option-card__body">
-              <span class="option-card__title">Use my club data</span>
-              <span class="option-card__desc">Load your real member progress from Basecamp and EasySpeak.</span>
+              <span class="option-card__title">${escapeHtml(i18n.t("setup.option.real.title"))}</span>
+              <span class="option-card__desc">${escapeHtml(i18n.t("setup.option.real.description"))}</span>
             </span>
           </label>
         </div>
@@ -117,9 +119,9 @@ export const setupView: ViewModule = {
 
       sectionRoot.innerHTML = `
         <div class="card">
-          <div class="card-header"><span class="card-header__title">EasySpeak region</span></div>
+          <div class="card-header"><span class="card-header__title">${escapeHtml(i18n.t("setup.region.card.title"))}</span></div>
           <div class="card-body">
-            <p class="help-text">We'll use this to find your club member progress data.</p>
+            <p class="help-text">${escapeHtml(i18n.t("setup.region.help.body"))}</p>
             <div class="region-cards">${cards}</div>
           </div>
         </div>
@@ -145,11 +147,14 @@ export const setupView: ViewModule = {
       }
 
       const regionLabel = EASYSPEAK_SERVERS.find((s) => s.id === region)?.label ?? region;
-      const items = choice === "demo" ? ["Demo data selected"] : ["Real club data", `EasySpeak region: ${regionLabel}`];
+      const items =
+        choice === "demo"
+          ? [i18n.t("setup.summary.demoSelected.label")]
+          : [i18n.t("setup.summary.realClubData.label"), i18n.t("setup.summary.easyspeakRegion.sentence", [regionLabel])];
 
       summaryRoot.innerHTML = `
         <div class="setup-summary">
-          <div class="setup-summary__title">Your setup:</div>
+          <div class="setup-summary__title">${escapeHtml(i18n.t("setup.summary.title.label"))}</div>
           ${items.map((item) => `<div class="setup-summary__item">✓ ${escapeHtml(item)}</div>`).join("")}
         </div>
       `;

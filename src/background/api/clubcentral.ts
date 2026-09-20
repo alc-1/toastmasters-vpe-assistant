@@ -53,14 +53,10 @@ const LOGIN_ORIGIN = "https://login.toastmasters.org";
 const PAGE_LOAD_TIMEOUT_MS = 45_000;
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
 
-const LOGIN_TIMEOUT_MESSAGE =
-  "Club Central requires you to log in. Switch to the toastmasters.org tab, log in, then try again.";
-const PAGE_TIMEOUT_MESSAGE =
-  "Club Central didn't finish loading. Switch to the toastmasters.org tab, check for any prompt, then try again.";
-const NOT_FOUND_MESSAGE =
-  "Club Central returned a 'Page Not Found'. The site's navigation may have changed — please report this.";
-const LOGGED_OUT_MESSAGE =
-  "Club Central logged you out mid-import. Log back in on the toastmasters.org tab and try again.";
+const LOGIN_TIMEOUT_MESSAGE = i18n.t("background.clubcentral.error.loginTimeout.error");
+const PAGE_TIMEOUT_MESSAGE = i18n.t("background.clubcentral.error.pageTimeout.error");
+const NOT_FOUND_MESSAGE = i18n.t("background.clubcentral.error.notFound.error");
+const LOGGED_OUT_MESSAGE = i18n.t("background.clubcentral.error.loggedOut.error");
 
 type ParseFnName = "parseClubList" | "parseRoster";
 type PageExpectation = "landing" | "dashboard" | "roster";
@@ -95,13 +91,11 @@ export async function scrapeAllClubCentralClubs(): Promise<ClubCentralScrape> {
     // picker. If Membership Management is right there, scrape that one club;
     // otherwise it's a real "no clubs" situation.
     if (!(await probeMatches(tabId, "dashboard"))) {
-      throw new Error(
-        "No clubs found in Club Central. Are you logged in with the right account, and are you an officer of at least one club?"
-      );
+      throw new Error(i18n.t("background.clubcentral.error.noClubs.error"));
     }
     await clickMembershipManagement(tabId);
     const { clubName, members } = (await loadAndParse(tabId, "parseRoster")) as ClubRosterParseResult;
-    result["club"] = { name: clubName ?? "My club", members };
+    result["club"] = { name: clubName ?? i18n.t("background.clubcentral.fallback.clubName.label"), members };
   } else {
     for (let i = 0; i < clubs.length; i++) {
       const club = clubs[i];
@@ -139,6 +133,10 @@ async function loadAndParse(tabId: number, parseFnName: ParseFnName): Promise<Cl
 
   const [{ result }] = await browser.scripting.executeScript({
     target: { tabId },
+    // Runs inside the target tab's own isolated JS realm, not the background
+    // context — no #i18n auto-import reaches here (see easyspeak.ts's
+    // loadAndParse() for the identical, deliberate exception), so this stays
+    // a plain literal.
     func: (fnName: string) => {
       const fn = (globalThis as unknown as Record<string, () => unknown>)[fnName];
       if (typeof fn !== "function") {
@@ -259,7 +257,7 @@ interface WaitOptions {
  * never a deep link.
  */
 async function waitForPage(tabId: number, expect: PageExpectation, opts: WaitOptions = {}): Promise<void> {
-  const what = opts.description ?? "loading Club Central";
+  const what = opts.description ?? i18n.t("background.clubcentral.description.loadingDefault.label");
   const timeoutMs = opts.firstLoad ? LOGIN_TIMEOUT_MS : PAGE_LOAD_TIMEOUT_MS;
   const deadline = Date.now() + timeoutMs;
   let reRequested = false;
@@ -267,7 +265,7 @@ async function waitForPage(tabId: number, expect: PageExpectation, opts: WaitOpt
 
   while (Date.now() < deadline) {
     const tab = await getTab(tabId);
-    if (!tab) throw new Error(`The Club Central tab was closed while ${what}.`);
+    if (!tab) throw new Error(i18n.t("background.clubcentral.error.tabClosedWhile.error", [what]));
 
     if (tab.status !== "complete" || isLoginOrUnknown(tab)) {
       if (isLoginOrUnknown(tab)) everSawLogin = true;
@@ -290,7 +288,7 @@ async function waitForPage(tabId: number, expect: PageExpectation, opts: WaitOpt
         await sleep(POLL_INTERVAL_MS);
         continue;
       }
-      throw new Error(`Club Central returned a 'Page Not Found' while ${what}. ${NOT_FOUND_MESSAGE}`);
+      throw new Error(i18n.t("background.clubcentral.error.notFoundWhile.error", [what, NOT_FOUND_MESSAGE]));
     }
 
     if (probeSatisfies(p, expect)) return;
@@ -306,7 +304,7 @@ async function waitForPage(tabId: number, expect: PageExpectation, opts: WaitOpt
   }
 
   if (everSawLogin) throw new Error(opts.firstLoad ? LOGIN_TIMEOUT_MESSAGE : LOGGED_OUT_MESSAGE);
-  throw new Error(`Club Central timed out while ${what}. ${PAGE_TIMEOUT_MESSAGE}`);
+  throw new Error(i18n.t("background.clubcentral.error.timedOutWhile.error", [what, PAGE_TIMEOUT_MESSAGE]));
 }
 
 // ---------------------------------------------------------------------------
@@ -335,7 +333,7 @@ async function clickAndWait<A extends unknown[]>(
     void err;
   }
   if (results && (results[0]?.result as "clicked" | "none" | undefined) === "none") {
-    throw new Error(`Couldn't find the control to ${description} on the Club Central page.`);
+    throw new Error(i18n.t("background.clubcentral.error.controlNotFound.error", [description]));
   }
   await waitForPage(tabId, expect, { description });
 }
@@ -353,7 +351,7 @@ async function clickAndWait<A extends unknown[]>(
 function selectClub(tabId: number, clubId: string): Promise<void> {
   return clickAndWait(
     tabId,
-    "selecting a club",
+    i18n.t("background.clubcentral.description.selectingClub.label"),
     "dashboard",
     (id: string) => {
       const tile = document.querySelector(`.clubTile[data-club-id="${id}"]`) as HTMLElement | null;
@@ -377,7 +375,7 @@ function selectClub(tabId: number, clubId: string): Promise<void> {
 function clickMembershipManagement(tabId: number): Promise<void> {
   return clickAndWait(
     tabId,
-    "opening Membership Management",
+    i18n.t("background.clubcentral.description.openingMembership.label"),
     "roster",
     () => {
       const link =
@@ -406,7 +404,7 @@ async function returnToClubPicker(tabId: number): Promise<void> {
   if (p?.hasClubCentralLink) {
     await clickAndWait(
       tabId,
-      "returning to the club list",
+      i18n.t("background.clubcentral.description.returningToList.label"),
       "landing",
       () => {
         const landingPath = "/my-toastmasters/profile/club-central";

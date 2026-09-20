@@ -28,7 +28,7 @@
 // the same per-step info line (e.g. "12 clubs followed") shown under each
 // step's label, so both steppers surface identical information.
 
-import { chevronIconHtml, escapeHtml, settingsIconHtml, sparkleIconHtml, warningIconHtml } from "./dom-utils";
+import { chevronIconHtml, escapeAttr, escapeHtml, settingsIconHtml, sparkleIconHtml, warningIconHtml } from "./dom-utils";
 import type { VersionBadgeState } from "./whats-new-format";
 
 // "report" (Club Progress) is still a valid AppRoute (shared/pages.ts) and a
@@ -45,14 +45,46 @@ export type AppShellPage = "report" | "members" | "setup" | "syncData" | "clubRe
 // popup instead opens each step in a new tab directly via
 // browser.tabs.create()/shared/pages.ts's appRouteUrl(), ignoring these
 // hrefs entirely.
-export const NAV_ITEMS: { key: AppShellPage; label: string; href: string }[] = [
-  { key: "setup", label: "Setup", href: "#setup" },
-  { key: "syncData", label: "Sync Data", href: "#syncData" },
-  { key: "clubReview", label: "Club Review", href: "#clubReview" },
-  { key: "members", label: "Member Review", href: "#members" },
+// `label` is a getter, not a plain string, so it's resolved lazily on each
+// access rather than once at module-eval time — shared/stepper-info.ts (a
+// pure, Vitest-tested module with no #i18n access at all) imports NAV_ITEMS
+// only for `.key`/`.href`, never `.label`, and a plain eager i18n.t() call
+// here would throw ("i18n is not defined") the moment Vitest imports this
+// module transitively, before any test even runs.
+export const NAV_ITEMS: { key: AppShellPage; readonly label: string; href: string }[] = [
+  {
+    key: "setup",
+    get label() {
+      return i18n.t("common.appShell.nav.setup.label");
+    },
+    href: "#setup",
+  },
+  {
+    key: "syncData",
+    get label() {
+      return i18n.t("common.appShell.nav.syncData.label");
+    },
+    href: "#syncData",
+  },
+  {
+    key: "clubReview",
+    get label() {
+      return i18n.t("common.appShell.nav.clubReview.label");
+    },
+    href: "#clubReview",
+  },
+  {
+    key: "members",
+    get label() {
+      return i18n.t("common.appShell.nav.members.label");
+    },
+    href: "#members",
+  },
 ];
 
-const GOAL_SUBTITLE = "Bring EasySpeak and Basecamp data together in one place.";
+function goalSubtitle(): string {
+  return i18n.t("common.appShell.subtitle.body");
+}
 
 /** Per-step metadata computed by shared/stepper-info.ts's computeStepperInfo()
  *  and shared verbatim by both renderAppShell() and renderVerticalStepper()
@@ -106,7 +138,7 @@ export type StepperInfo = Partial<Record<AppShellPage, StepMeta>>;
 // would change what the step displays before they got there themselves.
 function circleGlyph(index: number, meta: StepMeta | undefined): string {
   if (meta?.locked) return String(index + 1);
-  if (meta?.warning) return warningIconHtml("Pending reviews");
+  if (meta?.warning) return warningIconHtml(i18n.t("common.appShell.stepper.pendingReviews.tooltip"));
   if (meta?.done) return "&#10003;";
   return String(index + 1);
 }
@@ -221,7 +253,9 @@ export function renderAppFooter(badge: VersionBadgeState | undefined): string {
           <span class="app-footer__dot-core"></span>
         </span>`
     : "";
-  const ariaLabel = unread ? "What's New — unread changes" : "What's New";
+  const ariaLabel = escapeAttr(
+    unread ? i18n.t("common.appShell.whatsNew.unread.ariaLabel") : i18n.t("common.appShell.whatsNew.default.label"),
+  );
 
   return `
     <footer class="app-footer">
@@ -229,7 +263,7 @@ export function renderAppFooter(badge: VersionBadgeState | undefined): string {
       <span class="app-footer__sep" aria-hidden="true">&middot;</span>
       <a href="#whatsNew" id="appWhatsNewLink" class="app-footer__link${unread ? " app-footer__link--unread" : ""}" aria-label="${ariaLabel}">
         ${sparkleHtml}
-        <span>What's New</span>
+        <span>${escapeHtml(i18n.t("common.appShell.whatsNew.default.label"))}</span>
         ${dotHtml}
       </a>
     </footer>`;
@@ -271,14 +305,16 @@ export function renderAppShell({
   // builds markup only, no listeners). "Steps" is a fallback title for any
   // caller that renders the stepper with no active wizard step; every route
   // that currently shows the stepper is a wizard step, so it's unused today.
-  const summaryTitle = activeItem ? `Step ${activeIndex + 1}: ${escapeHtml(activeItem.label)}` : "Steps";
+  const summaryTitle = activeItem
+    ? i18n.t("common.appShell.stepper.stepSummary.sentence", [String(activeIndex + 1), escapeHtml(activeItem.label)])
+    : i18n.t("common.appShell.stepper.stepsFallback.label");
   const summaryInfoHtml = activeInfoText ? `<span class="app-stepper__summary-info">${escapeHtml(activeInfoText)}</span>` : "";
   const summaryGlyph = activeItem ? circleGlyph(activeIndex, activeMeta) : "&#8226;";
   const summaryCircleClass = activeItem ? circleClass(activeMeta) : "";
 
   const stepperHtml = showStepper
     ? `
-    <nav class="app-stepper" aria-label="Primary">
+    <nav class="app-stepper" aria-label="${escapeAttr(i18n.t("common.appShell.nav.ariaLabel"))}">
       <button type="button" class="app-stepper__summary" aria-expanded="false">
         <span class="app-stepper__circle${summaryCircleClass}">${summaryGlyph}</span>
         <span class="app-stepper__summary-text">
@@ -299,13 +335,13 @@ export function renderAppShell({
   // markup.
   const profileHtml =
     profileLabel !== undefined
-      ? `<a href="#setup" class="app-header__profile" title="Manage in Setup">
+      ? `<a href="#setup" class="app-header__profile" title="${escapeAttr(i18n.t("common.appShell.profile.manage.tooltip"))}">
         <span class="app-header__profile-label">${escapeHtml(profileLabel)}</span>
         ${chevronIconHtml()}
       </a>`
       : "";
   const backHtml = showBackToHome
-    ? `<a href="#dashboard" class="app-header__back">&larr; Back to Home</a>`
+    ? `<a href="#dashboard" class="app-header__back">${escapeHtml(i18n.t("common.appShell.backToHome.link"))}</a>`
     : "";
 
   // The <label> wraps the switch and its text so the two are one hit target
@@ -314,26 +350,27 @@ export function renderAppShell({
   // visible on the narrow header where the "Privacy Mode" words are dropped.
   const privacyHtml =
     anonymize !== undefined
-      ? `<label class="app-header__privacy" title="Hide member names across every view">
-        <span class="app-header__privacy-text">Privacy Mode</span>
-        <input type="checkbox" class="toggle toggle-sm" id="appPrivacyToggle" aria-label="Privacy Mode (hide member names)"${anonymize ? " checked" : ""}>
+      ? `<label class="app-header__privacy" title="${escapeAttr(i18n.t("common.appShell.privacy.mode.tooltip"))}">
+        <span class="app-header__privacy-text">${escapeHtml(i18n.t("common.appShell.privacy.mode.label"))}</span>
+        <input type="checkbox" class="toggle toggle-sm" id="appPrivacyToggle" aria-label="${escapeAttr(i18n.t("common.appShell.privacy.mode.ariaLabel"))}"${anonymize ? " checked" : ""}>
         <span class="app-header__privacy-lock" aria-hidden="true">${anonymize ? "🔒" : "🔓"}</span>
       </label>`
       : "";
 
+  const settingsLabel = escapeAttr(i18n.t("common.appShell.settings.gear.tooltip"));
   return `
     <header class="app-header">
-      <a href="#dashboard" class="app-header__brand" aria-label="Home">
+      <a href="#dashboard" class="app-header__brand" aria-label="${escapeAttr(i18n.t("common.appShell.brand.ariaLabel"))}">
         <img class="app-header__logo" src="../icons/default/48.png" width="48" height="48" alt="" />
         <div class="app-header__text">
-          <div class="app-header__title">Toastmasters VPE Assistant</div>
-          <div class="app-header__subtitle">${GOAL_SUBTITLE}</div>
+          <div class="app-header__title">${escapeHtml(i18n.t("common.brand.title.label"))}</div>
+          <div class="app-header__subtitle">${goalSubtitle()}</div>
         </div>
       </a>
       <div class="app-header__actions">
         ${profileHtml}
         ${privacyHtml}
-        <a href="#globalSettings" class="app-header__settings-btn${settingsActive ? " active" : ""}" title="Global Settings" aria-label="Global Settings">${settingsIconHtml()}</a>
+        <a href="#globalSettings" class="app-header__settings-btn${settingsActive ? " active" : ""}" title="${settingsLabel}" aria-label="${settingsLabel}">${settingsIconHtml()}</a>
       </div>
     </header>${backHtml}${stepperHtml}
   `;
@@ -358,21 +395,19 @@ export function renderStepFooter(active: AppShellPage, info?: StepperInfo): stri
   const nextItem = NAV_ITEMS[index + 1];
 
   const prevHtml = prevItem
-    ? `<a href="${prevItem.href}" class="btn btn-secondary step-footer__btn">&larr; Back to ${escapeHtml(prevItem.label)}</a>`
+    ? `<a href="${prevItem.href}" class="btn btn-secondary step-footer__btn">${escapeHtml(i18n.t("common.appShell.stepFooter.back.sentence", [prevItem.label]))}</a>`
     : "<span></span>"; // flex spacer, keeps Next right-aligned on the first page
 
   let nextHtml = "";
   if (nextItem) {
-    const label = `Continue to ${nextItem.label}`;
+    const label = i18n.t("common.appShell.stepFooter.continue.sentence", [nextItem.label]);
     const nextDisabled = !!info?.[nextItem.key]?.disabled;
-    // Arrow mirrors Previous's leading "&larr;" — trailing here since Next
-    // points the opposite direction, both on the outer edge of their button.
     nextHtml = nextDisabled
-      ? `<span class="btn btn-primary btn-disabled step-footer__btn" aria-disabled="true">${escapeHtml(label)} &rarr;</span>`
-      : `<a href="${nextItem.href}" class="btn btn-primary step-footer__btn">${escapeHtml(label)} &rarr;</a>`;
+      ? `<span class="btn btn-primary btn-disabled step-footer__btn" aria-disabled="true">${escapeHtml(label)}</span>`
+      : `<a href="${nextItem.href}" class="btn btn-primary step-footer__btn">${escapeHtml(label)}</a>`;
   } else if (index === NAV_ITEMS.length - 1) {
     // Last wizard step — finish the wizard and go back to the hub.
-    nextHtml = `<a href="#dashboard" id="completeSetupBtn" class="btn btn-primary step-footer__btn">Complete Setup &rarr;</a>`;
+    nextHtml = `<a href="#dashboard" id="completeSetupBtn" class="btn btn-primary step-footer__btn">${escapeHtml(i18n.t("common.appShell.stepFooter.completeSetup.button"))}</a>`;
   }
 
   return `<div class="step-footer">${prevHtml}${nextHtml}</div>`;
@@ -394,5 +429,5 @@ export function renderVerticalStepper(info: StepperInfo): string {
     return `<div class="app-stepper__step${stateClass}">${body}</div>`;
   }).join("");
 
-  return `<nav class="app-stepper app-stepper--vertical" aria-label="Setup progress">${stepsHtml}</nav>`;
+  return `<nav class="app-stepper app-stepper--vertical" aria-label="${escapeAttr(i18n.t("dashboard.banner.caption.label"))}">${stepsHtml}</nav>`;
 }

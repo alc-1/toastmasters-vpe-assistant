@@ -12,11 +12,12 @@
 // label, and a club's basecampClubName/easyspeakClubName collapse to the
 // same label too — so the same person/club reads identically on both sides.
 
+import { t } from "./i18n-pure";
 import { memberKey } from "./sync/delta";
 import type { BasecampScrape, ClubCentralScrape, ClubPairReport, EasySpeakScrape, MemberReport, ReportResult } from "./types";
 
-const FALLBACK_CLUB_LABEL = "Unknown club";
-const FALLBACK_MEMBER_LABEL = "Unknown member";
+const FALLBACK_CLUB_LABEL = t("anonymize.fallback.unknownClub.label");
+const FALLBACK_MEMBER_LABEL = t("anonymize.fallback.unknownMember.label");
 
 export interface AnonymizationMaps {
   clubLabelByPairKey: Map<string, string>;
@@ -49,13 +50,13 @@ export function buildAnonymizationMaps(report: ReportResult): AnonymizationMaps 
   };
 
   report.clubPairs.forEach((pair, clubIndex) => {
-    const clubLabel = `Club ${clubIndex + 1}`;
+    const clubLabel = t("anonymize.numbered.club.label", [String(clubIndex + 1)]);
     maps.clubLabelByPairKey.set(clubPairKey(pair.basecampClubId, pair.easyspeakClubId), clubLabel);
     if (pair.basecampClubId != null) maps.clubLabelByBasecampId.set(pair.basecampClubId, clubLabel);
     if (pair.easyspeakClubId != null) maps.clubLabelByEasyspeakId.set(pair.easyspeakClubId, clubLabel);
 
     pair.members.forEach((member, memberIndex) => {
-      const memberLabel = `Member ${memberIndex + 1}`;
+      const memberLabel = t("anonymize.numbered.member.label", [String(memberIndex + 1)]);
       maps.memberLabelByMemberKey.set(memberKey(member), memberLabel);
       if (member.basecampUserId != null) maps.memberLabelByBasecampUserId.set(member.basecampUserId, memberLabel);
       if (member.easyspeakMemberId != null) maps.memberLabelByEasyspeakMemberId.set(member.easyspeakMemberId, memberLabel);
@@ -112,7 +113,9 @@ function anonymizeMember(member: MemberReport, maps: AnonymizationMaps): MemberR
 export function anonymizeBasecampScrape(data: BasecampScrape, maps?: AnonymizationMaps): BasecampScrape {
   const out: BasecampScrape = {};
   Object.entries(data).forEach(([clubId, club], clubIndex) => {
-    const clubLabel = maps ? (maps.clubLabelByBasecampId.get(clubId) ?? FALLBACK_CLUB_LABEL) : `Club ${clubIndex + 1}`;
+    const clubLabel = maps
+      ? (maps.clubLabelByBasecampId.get(clubId) ?? FALLBACK_CLUB_LABEL)
+      : t("anonymize.numbered.club.label", [String(clubIndex + 1)]);
     const seen = new Map<number, string>();
     let nextMemberIndex = 1;
     out[clubId] = {
@@ -121,7 +124,7 @@ export function anonymizeBasecampScrape(data: BasecampScrape, maps?: Anonymizati
         const userId = member.user.id;
         let label = maps ? maps.memberLabelByBasecampUserId.get(userId) : seen.get(userId);
         if (!label) {
-          label = maps ? FALLBACK_MEMBER_LABEL : `Member ${nextMemberIndex++}`;
+          label = maps ? FALLBACK_MEMBER_LABEL : t("anonymize.numbered.member.label", [String(nextMemberIndex++)]);
           if (!maps) seen.set(userId, label);
         }
         return { ...member, user: { ...member.user, name: label } };
@@ -134,7 +137,9 @@ export function anonymizeBasecampScrape(data: BasecampScrape, maps?: Anonymizati
 export function anonymizeEasySpeakScrape(data: EasySpeakScrape, maps?: AnonymizationMaps): EasySpeakScrape {
   const out: EasySpeakScrape = {};
   Object.entries(data).forEach(([clubId, club], clubIndex) => {
-    const clubLabel = maps ? (maps.clubLabelByEasyspeakId.get(clubId) ?? FALLBACK_CLUB_LABEL) : `Club ${clubIndex + 1}`;
+    const clubLabel = maps
+      ? (maps.clubLabelByEasyspeakId.get(clubId) ?? FALLBACK_CLUB_LABEL)
+      : t("anonymize.numbered.club.label", [String(clubIndex + 1)]);
     const seen = new Map<string, string>();
     let nextMemberIndex = 1;
     out[clubId] = {
@@ -143,7 +148,7 @@ export function anonymizeEasySpeakScrape(data: EasySpeakScrape, maps?: Anonymiza
         const id = member.memberId ?? "";
         let label = maps ? maps.memberLabelByEasyspeakMemberId.get(id) : seen.get(id);
         if (!label) {
-          label = maps ? FALLBACK_MEMBER_LABEL : `Member ${nextMemberIndex++}`;
+          label = maps ? FALLBACK_MEMBER_LABEL : t("anonymize.numbered.member.label", [String(nextMemberIndex++)]);
           if (!maps) seen.set(id, label);
         }
         return { ...member, name: label };
@@ -166,12 +171,12 @@ export function anonymizeClubCentralScrape(data: ClubCentralScrape): ClubCentral
     const seen = new Map<string, string>();
     let nextMemberIndex = 1;
     out[clubId] = {
-      name: `Club ${clubIndex + 1}`,
+      name: t("anonymize.numbered.club.label", [String(clubIndex + 1)]),
       members: club.members.map((member) => {
         const key = member.memberNumber ?? member.name;
         let label = seen.get(key);
         if (!label) {
-          label = `Member ${nextMemberIndex++}`;
+          label = t("anonymize.numbered.member.label", [String(nextMemberIndex++)]);
           seen.set(key, label);
         }
         return { ...member, name: label };

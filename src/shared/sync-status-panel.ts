@@ -64,7 +64,7 @@ export function bindSourceEls(ids: SourceElIds): SourceEls {
 }
 
 export function formatDate(timestamp: number | undefined): string {
-  return timestamp ? new Date(timestamp).toLocaleString() : "never";
+  return timestamp ? new Date(timestamp).toLocaleString() : i18n.t("syncData.panel.date.never.label");
 }
 
 export function setStatus(els: SourceEls, text: string) {
@@ -105,13 +105,19 @@ export function renderScrapeResult(
   const clubCount = Object.keys(displayData).length;
   const totalMembers = Object.values(displayData).reduce((sum, club) => sum + club.members.length, 0);
 
-  const countHeader = source === "clubcentral" ? "Members" : "Entries (member x path)";
-  let html = `<table><tr><th>Club</th><th>${countHeader}</th></tr>`;
+  const countHeader = i18n.t(
+    source === "clubcentral" ? "syncData.panel.countHeader.members.label" : "syncData.panel.countHeader.entries.label",
+  );
+  let html = `<table><tr><th>${escapeHtml(i18n.t("syncData.panel.countHeader.club.label"))}</th><th>${countHeader}</th></tr>`;
   for (const club of Object.values(displayData)) {
     html += `<tr><td>${escapeHtml(club.name)}</td><td>${club.members.length}</td></tr>`;
   }
-  const totalNoun = source === "clubcentral" ? "members" : "entries";
-  html += `</table><p>${clubCount} club(s), ${totalMembers} ${totalNoun} total.</p>`;
+  const totalNoun = i18n.t(
+    source === "clubcentral" ? "syncData.panel.totalNoun.members.label" : "syncData.panel.totalNoun.entries.label",
+  );
+  html += `</table><p>${escapeHtml(
+    i18n.t("syncData.panel.summary.sentence", [String(clubCount), String(totalMembers), totalNoun]),
+  )}</p>`;
   els.summary.innerHTML = html;
 
   els.rawData.textContent = JSON.stringify(displayData, null, 2);
@@ -143,21 +149,21 @@ export async function onScrapeClick<T>({ els, message, loadingLabel, render, onD
     const response = await sendMessage(message);
 
     if (!response) {
-      setStatus(els, "No response from the extension background worker. Try again.");
+      setStatus(els, i18n.t("syncData.panel.status.noResponse.error"));
       return;
     }
 
     if (!response.ok) {
-      setStatus(els, `Error during extraction: ${response.error}`);
+      setStatus(els, i18n.t("syncData.panel.status.error.error", [response.error]));
       return;
     }
 
-    setStatus(els, `Extraction complete: ${formatDate(Date.now())}`);
+    setStatus(els, i18n.t("syncData.panel.status.complete.sentence", [formatDate(Date.now())]));
     render(els, response.data as T);
 
     if (onDone) await onDone();
   } catch (err) {
-    setStatus(els, `Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+    setStatus(els, i18n.t("syncData.panel.status.unexpectedError.error", [err instanceof Error ? err.message : String(err)]));
   } finally {
     setButtonLoading(els, false, loadingLabel);
   }

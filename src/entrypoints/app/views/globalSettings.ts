@@ -16,20 +16,22 @@ import { escapeAttr, escapeHtml } from "../../../shared/dom-utils";
 import type { PathLookup } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
 
-const SHELL_HTML = `
+function shellHtml(): string {
+  return `
   <div class="page-intro">
-    <h1 class="page-title">Global Settings</h1>
-    <p class="page-intro__desc">Preferences that apply across the whole extension, not just one step of the wizard.</p>
+    <h1 class="page-title">${escapeHtml(i18n.t("globalSettings.page.title.title"))}</h1>
+    <p class="page-intro__desc">${escapeHtml(i18n.t("globalSettings.page.intro.body"))}</p>
   </div>
 
   <div id="anonymizeSectionRoot"></div>
 
   <div id="pathLookupSectionRoot"></div>
 `;
+}
 
 export const globalSettingsView: ViewModule = {
   async mount(root) {
-    root.innerHTML = SHELL_HTML;
+    root.innerHTML = shellHtml();
 
     // Set true by the disposer — see syncData.ts's mount() for the full
     // writeup of why an in-flight async refresh needs this guard.
@@ -39,21 +41,18 @@ export const globalSettingsView: ViewModule = {
       const sectionRoot = root.querySelector("#anonymizeSectionRoot")!;
       sectionRoot.innerHTML = `
         <div class="card">
-          <div class="card-header"><span class="card-header__title"><span class="settings-lock-icon" aria-hidden="true">${anonymize ? "🔒" : "🔓"}</span>Privacy Mode</span></div>
+          <div class="card-header"><span class="card-header__title"><span class="settings-lock-icon" aria-hidden="true">${anonymize ? "🔒" : "🔓"}</span>${escapeHtml(i18n.t("globalSettings.anonymize.card.title"))}</span></div>
           <div class="card-body">
             <label class="flex items-center gap-3 mb-2 font-semibold cursor-pointer">
               <input type="checkbox" class="toggle toggle-primary" id="anonymizeModeToggle"${anonymize ? " checked" : ""}>
-              <span>Replace member and club names with generic labels</span>
+              <span>${escapeHtml(i18n.t("globalSettings.anonymize.toggle.label"))}</span>
             </label>
-            <p class="help-text">Useful to generate statistics with AI while protecting personal data.</p>
+            <p class="help-text">${escapeHtml(i18n.t("globalSettings.anonymize.help.aiStats.body"))}</p>
             <p class="help-text">
-              While on, Club Progress, the Excel export, and the Sync Data raw-data preview all show
-              only generic labels ("Member 1", "Club 1"...) instead of real names.
+              ${escapeHtml(i18n.t("globalSettings.anonymize.help.genericLabels.body"))}
             </p>
             <p class="help-text">
-              Member Review and Club Review become unavailable during that time, since matching
-              people/clubs by name doesn't work on anonymized data. Finish reviewing matches first,
-              then turn this on before sharing.
+              ${escapeHtml(i18n.t("globalSettings.anonymize.help.reviewFirst.body"))}
             </p>
           </div>
         </div>
@@ -77,10 +76,10 @@ export const globalSettingsView: ViewModule = {
           ([canonical, aliases]) => `
           <tr data-canonical="${escapeAttr(canonical)}">
             <td>${escapeHtml(canonical)}</td>
-            <td><input type="text" class="input input-xs w-full" data-role="alias-input" value="${escapeAttr(aliases.join(", "))}" aria-label="Alternate spellings for ${escapeAttr(canonical)}"></td>
+            <td><input type="text" class="input input-xs w-full" data-role="alias-input" value="${escapeAttr(aliases.join(", "))}" aria-label="${escapeAttr(i18n.t("globalSettings.pathLookup.table.aliasInput.ariaLabel", [canonical]))}"></td>
             <td>
-              <button class="btn btn-secondary" data-action="save-aliases">Save</button>
-              <button class="btn btn-secondary" data-action="delete-canonical">Delete</button>
+              <button class="btn btn-secondary" data-action="save-aliases">${escapeHtml(i18n.t("globalSettings.pathLookup.action.save.button"))}</button>
+              <button class="btn btn-secondary" data-action="delete-canonical">${escapeHtml(i18n.t("globalSettings.pathLookup.action.delete.button"))}</button>
             </td>
           </tr>
         `
@@ -88,21 +87,20 @@ export const globalSettingsView: ViewModule = {
         .join("");
 
       const table = rows
-        ? `<div class="table-scroll"><table class="data-table lookup"><thead><tr><th>Canonical path name</th><th>Alternate spellings (comma-separated)</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
-        : '<p class="empty-state">No path aliases configured.</p>';
+        ? `<div class="table-scroll"><table class="data-table lookup"><thead><tr><th>${escapeHtml(i18n.t("globalSettings.pathLookup.table.canonicalName.label"))}</th><th>${escapeHtml(i18n.t("globalSettings.pathLookup.table.alternateSpellings.label"))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<p class="empty-state">${escapeHtml(i18n.t("globalSettings.pathLookup.emptyState.noAliases.body"))}</p>`;
 
       return `
         <div class="card">
-          <div class="card-header"><span class="card-header__title">Path name lookup</span></div>
+          <div class="card-header"><span class="card-header__title">${escapeHtml(i18n.t("globalSettings.pathLookup.card.title"))}</span></div>
           <div class="card-body">
             <p class="help-text">
-              Maps alternate spellings (e.g. French/German Pathways titles) to a canonical path name.
-              Member-level path binds (set from the Member Review view) take priority over this table and are not shown here.
+              ${escapeHtml(i18n.t("globalSettings.pathLookup.help.body"))}
             </p>
             ${table}
             <div class="add-form">
-              <input type="text" id="newPathCanonical" class="input input-sm" placeholder="New canonical path name (lowercase)" aria-label="New canonical path name">
-              <button class="btn btn-primary" data-action="add-canonical">Add path</button>
+              <input type="text" id="newPathCanonical" class="input input-sm" placeholder="${escapeAttr(i18n.t("globalSettings.pathLookup.newCanonical.placeholder"))}" aria-label="${escapeAttr(i18n.t("globalSettings.pathLookup.newCanonical.ariaLabel"))}">
+              <button class="btn btn-primary" data-action="add-canonical">${escapeHtml(i18n.t("globalSettings.pathLookup.action.addPath.button"))}</button>
             </div>
           </div>
         </div>

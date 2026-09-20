@@ -37,23 +37,27 @@ interface ClubBucket {
   members: OnboardingMember[];
 }
 
-const SHELL_HTML = `
+function shellHtml(): string {
+  return `
   <div class="page-intro">
-    <h1 class="page-title">Pathways Onboarding Helper</h1>
+    <h1 class="page-title">${escapeHtml(i18n.t("onboarding.page.title.title"))}</h1>
     <p class="page-intro__desc">
-      Members who need Pathways enrollment — filter by payment status to plan upcoming onboarding.
+      ${escapeHtml(i18n.t("onboarding.page.intro.body"))}
     </p>
   </div>
   <p id="onboardingAnonymizeNotice" class="help-text" aria-live="polite"></p>
   <div id="onboardingFilters" class="toolbar"></div>
   <div id="onboardingRoot"></div>
 `;
+}
 
-const FILTERS: { key: OnboardingFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "ready", label: "Ready to Onboard" },
-  { key: "pending", label: "Pending Payment" },
-];
+function filters(): { key: OnboardingFilter; label: string }[] {
+  return [
+    { key: "all", label: i18n.t("onboarding.filter.all.label") },
+    { key: "ready", label: i18n.t("onboarding.filter.ready.label") },
+    { key: "pending", label: i18n.t("onboarding.filter.pending.label") },
+  ];
+}
 
 const DEFAULT_FILTER: OnboardingFilter = "ready";
 
@@ -91,14 +95,20 @@ function collectBuckets(data: ClubCentralScrape): ClubBucket[] {
     .sort((a, b) => a.clubName.localeCompare(b.clubName, undefined, { sensitivity: "base" }));
 }
 
-const STATUS_BADGE: Record<OnboardingStatus, string> = {
-  ready: '<span class="badge badge-soft badge-warning">Ready to Onboard</span>',
-  pending: '<span class="badge badge-soft badge-neutral">Pending Payment</span>',
-};
+function statusBadge(status: OnboardingStatus): string {
+  return status === "ready"
+    ? `<span class="badge badge-soft badge-warning">${escapeHtml(i18n.t("onboarding.filter.ready.label"))}</span>`
+    : `<span class="badge badge-soft badge-neutral">${escapeHtml(i18n.t("onboarding.filter.pending.label"))}</span>`;
+}
+
+function emptyCellHtml(): string {
+  return `<span class="muted-text">${escapeHtml(i18n.t("onboarding.cell.empty.label"))}</span>`;
+}
 
 function paidThroughCell(m: OnboardingMember): string {
-  if (m.status === "pending") return '<span class="muted-text">Membership pending</span>';
-  return m.paidUntil ? escapeHtml(m.paidUntil) : '<span class="muted-text">—</span>';
+  if (m.status === "pending")
+    return `<span class="muted-text">${escapeHtml(i18n.t("onboarding.cell.membershipPending.label"))}</span>`;
+  return m.paidUntil ? escapeHtml(m.paidUntil) : emptyCellHtml();
 }
 
 function renderRow(m: OnboardingMember): string {
@@ -108,8 +118,8 @@ function renderRow(m: OnboardingMember): string {
   return `
     <tr${rowClass} data-status="${m.status}">
       <td>${escapeHtml(m.name)}</td>
-      <td>${m.position ? escapeHtml(m.position) : '<span class="muted-text">—</span>'}</td>
-      <td>${STATUS_BADGE[m.status]}</td>
+      <td>${m.position ? escapeHtml(m.position) : emptyCellHtml()}</td>
+      <td>${statusBadge(m.status)}</td>
       <td>${paidThroughCell(m)}</td>
     </tr>`;
 }
@@ -124,12 +134,12 @@ function renderBucket(bucket: ClubBucket, filter: OnboardingFilter): string {
     <div class="card">
       <div class="card-header">
         <span class="card-header__title">${escapeHtml(bucket.clubName)}</span>
-        <span class="badge badge-soft badge-neutral">${count} member${count === 1 ? "" : "s"}</span>
+        <span class="badge badge-soft badge-neutral">${escapeHtml(i18n.t("onboarding.card.memberCount.count", count))}</span>
       </div>
       <div class="card-body">
         <div class="overflow-x-auto">
           <table class="data-table">
-            <thead><tr><th>Name</th><th>Position</th><th>Status</th><th>Paid through</th></tr></thead>
+            <thead><tr><th>${escapeHtml(i18n.t("onboarding.table.name.label"))}</th><th>${escapeHtml(i18n.t("onboarding.table.position.label"))}</th><th>${escapeHtml(i18n.t("onboarding.table.status.label"))}</th><th>${escapeHtml(i18n.t("onboarding.table.paidThrough.label"))}</th></tr></thead>
             <tbody>${visible.map(renderRow).join("")}</tbody>
           </table>
         </div>
@@ -140,7 +150,7 @@ function renderBucket(bucket: ClubBucket, filter: OnboardingFilter): string {
 
 export const onboardingView: ViewModule = {
   async mount(root) {
-    root.innerHTML = SHELL_HTML;
+    root.innerHTML = shellHtml();
 
     let disposed = false;
     let buckets: ClubBucket[] = [];
@@ -166,7 +176,7 @@ export const onboardingView: ViewModule = {
         return;
       }
       const c = counts();
-      filterRoot.innerHTML = FILTERS.map(
+      filterRoot.innerHTML = filters().map(
         (f) =>
           `<button class="chip${f.key === activeFilter ? " active" : ""}" data-filter="${f.key}">` +
           `${escapeHtml(f.label)} <span class="chip-count">${c[f.key]}</span></button>`,
@@ -175,19 +185,16 @@ export const onboardingView: ViewModule = {
 
     function renderList() {
       if (!hasData) {
-        listRoot.innerHTML =
-          '<p class="empty-state">Import the Club Central roster first to see who needs onboarding help. ' +
-          '<a href="#syncData">Go to Sync Data</a>.</p>';
+        listRoot.innerHTML = `<p class="empty-state">${i18n.t("onboarding.emptyState.noData.sentence")}</p>`;
         return;
       }
       if (buckets.length === 0) {
-        listRoot.innerHTML =
-          '<p class="empty-state">🎉 No members are waiting for Pathways enrollment right now.</p>';
+        listRoot.innerHTML = `<p class="empty-state">${escapeHtml(i18n.t("onboarding.emptyState.allDone.body"))}</p>`;
         return;
       }
       const cards = buckets.map((b) => renderBucket(b, activeFilter)).join("");
       listRoot.innerHTML =
-        cards || '<p class="empty-state">No members match this filter.</p>';
+        cards || `<p class="empty-state">${escapeHtml(i18n.t("onboarding.emptyState.noFilterMatch.body"))}</p>`;
     }
 
     async function load() {
@@ -197,7 +204,7 @@ export const onboardingView: ViewModule = {
       ]);
       if (disposed) return;
 
-      notice.textContent = anonymize ? "Privacy Mode is on — member names are anonymized." : "";
+      notice.textContent = anonymize ? i18n.t("onboarding.notice.privacyModeOn.body") : "";
 
       const raw = cached.clubCentralData ?? null;
       hasData = !!raw && Object.keys(raw).length > 0;

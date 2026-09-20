@@ -26,7 +26,7 @@ import {
 } from "../../../shared/stepper-info";
 import { downloadBackup, parseBackup, restoreBackup } from "../../../shared/backup";
 import { confirmModal } from "../../../shared/modal";
-import { escapeHtml } from "../../../shared/dom-utils";
+import { escapeAttr, escapeHtml } from "../../../shared/dom-utils";
 import { formatProfileLabel, getActiveProfile } from "../../../shared/settings-store";
 import { loadResolutionData } from "../../../shared/resolution-store";
 import { local } from "../../../shared/storage";
@@ -40,11 +40,13 @@ import {
 import type { AppShellPage, StepperInfo } from "../../../shared/app-shell";
 import type { ViewModule } from "../../../shared/view";
 
-const SHELL_HTML = `
+function shellHtml(): string {
+  return `
   <div id="dashboardBannerRoot"></div>
 
   <div class="dashboard-features" id="dashboardFeaturesRoot"></div>
 `;
+}
 
 // Copy + CTA per banner state. The state machine that picks the state (and
 // resolves the resume step) lives in shared/stepper-info.ts's
@@ -53,13 +55,17 @@ const SHELL_HTML = `
 // first three, green for ready); `label` is static except reviewNeeded, whose
 // "(N items)" count is appended in renderBanner(). CTA target: reviewNeeded →
 // #members; ready → #syncData ("Refresh Data"); otherwise the furthest step
-// the user has actually reached.
-const BANNER_COPY: Record<SetupBannerState, { dot: string; label: string; cta: string }> = {
-  required: { dot: "is-progress", label: "Setup Required", cta: "Start Setup →" },
-  progress: { dot: "is-progress", label: "Setup In Progress", cta: "Continue Setup →" },
-  reviewNeeded: { dot: "is-warning", label: "Review Needed", cta: "Review Unmatched →" },
-  ready: { dot: "is-ready", label: "Club Data Ready", cta: "Refresh Data" },
-};
+// the user has actually reached. A function, not a module-top-level const —
+// see shellHtml()'s comment on why i18n.t() calls stay lazy throughout this
+// file.
+function bannerCopy(): Record<SetupBannerState, { dot: string; label: string; cta: string }> {
+  return {
+    required: { dot: "is-progress", label: i18n.t("dashboard.banner.required.label"), cta: i18n.t("dashboard.banner.required.button") },
+    progress: { dot: "is-progress", label: i18n.t("dashboard.banner.progress.label"), cta: i18n.t("dashboard.banner.progress.button") },
+    reviewNeeded: { dot: "is-warning", label: i18n.t("dashboard.banner.reviewNeeded.label"), cta: i18n.t("dashboard.banner.reviewNeeded.button") },
+    ready: { dot: "is-ready", label: i18n.t("dashboard.banner.ready.label"), cta: i18n.t("dashboard.banner.ready.button") },
+  };
+}
 
 type TileAccent = "indigo" | "emerald" | "amber" | "slate";
 
@@ -145,6 +151,9 @@ async function computeSetupDetails(info: StepperInfo): Promise<SetupDetails | nu
   );
   const oldest = stamps.length ? Math.min(...stamps) : undefined;
 
+  // See the identical "Updated " prefix-strip in renderBanner() below for the
+  // known i18n limitation this shares — both parse the same opaque
+  // stepperInfo.status.updated.sentence output.
   const syncInfo = info.syncData?.info;
   const syncRelative = syncInfo?.startsWith("Updated ") ? syncInfo.slice("Updated ".length) : null;
 
@@ -156,18 +165,22 @@ async function computeSetupDetails(info: StepperInfo): Promise<SetupDetails | nu
     clubCount: report.clubPairs.length,
     matchedMembers: matched,
     toReview: info.members?.warningCount ?? 0,
-    syncAbsolute: oldest ? new Date(oldest).toLocaleString() : "just now",
+    syncAbsolute: oldest ? new Date(oldest).toLocaleString() : i18n.t("stepperInfo.status.justNow.label"),
     syncRelative,
   };
 }
 
-function countLabel(n: number, noun: string): string {
-  return `${n} ${noun}${n === 1 ? "" : "s"}`;
+function memberCountLabel(n: number): string {
+  return i18n.t("dashboard.count.members.count", n);
+}
+
+function clubCountLabel(n: number): string {
+  return i18n.t("dashboard.count.clubs.count", n);
 }
 
 export const dashboardView: ViewModule = {
   async mount(root) {
-    root.innerHTML = SHELL_HTML;
+    root.innerHTML = shellHtml();
 
     // See syncData.ts's mount() for the full writeup: an async render()
     // resuming after the view was navigated away from must not write into
@@ -255,11 +268,9 @@ export const dashboardView: ViewModule = {
         resumeStep,
       } = pipeline;
 
-      const { dot: dotClass, cta } = BANNER_COPY[state];
-      const statusLabel =
-        state === "reviewNeeded"
-          ? `Review Needed (${pendingCount} item${pendingCount === 1 ? "" : "s"})`
-          : BANNER_COPY[state].label;
+      const copy = bannerCopy();
+      const { dot: dotClass, cta } = copy[state];
+      const statusLabel = state === "reviewNeeded" ? i18n.t("dashboard.banner.reviewNeeded.count", pendingCount) : copy[state].label;
 
       // "Continue Setup" resumes at `resumeStep` — the furthest step this
       // profile has actually opened, resolved by evaluateSetupPipeline(). The
@@ -278,10 +289,20 @@ export const dashboardView: ViewModule = {
 
       // syncData.info is already "Updated 3 days ago" (shared/stepper-info.ts's
       // formatOldestSync/formatRelativeTime) — reuse it rather than recomputing.
+      // KNOWN i18n LIMITATION: the "Updated " prefix-strip below assumes that
+      // exact English string — stepperInfo.status.updated.sentence's literal
+      // "Updated $1" — since formatOldestSync() returns one opaque formatted
+      // sentence, not {prefix, relative} separately. This still works
+      // correctly while only src/locales/en.yml exists; a second locale whose
+      // translation doesn't start with the same literal prefix would silently
+      // fall through to timestampHtml's "" branch instead of showing the
+      // relative time. Fix properly by having formatOldestSync() return a
+      // structured value instead of a pre-formatted sentence, if/when a
+      // second locale is actually added.
       const syncInfo = info.syncData?.info;
       const timestampHtml =
         info.syncData?.done && syncInfo && syncInfo.startsWith("Updated ")
-          ? `<span class="dashboard-status__timestamp">Last updated ${escapeHtml(syncInfo.slice("Updated ".length))}</span>`
+          ? `<span class="dashboard-status__timestamp">${escapeHtml(i18n.t("dashboard.banner.timestamp.sentence", [syncInfo.slice("Updated ".length)]))}</span>`
           : "";
 
       const wideSteps = SETUP_STEPS.map((step, i) => {
@@ -310,10 +331,10 @@ export const dashboardView: ViewModule = {
 
       const narrowText =
         state === "reviewNeeded"
-          ? `${pendingCount} item${pendingCount === 1 ? "" : "s"} still to review`
+          ? i18n.t("dashboard.banner.narrowReview.count", pendingCount)
           : completed === total
-            ? "All 4 setup steps complete"
-            : `Step ${completed + 1} of ${total}`;
+            ? i18n.t("dashboard.banner.narrowComplete.sentence", [String(total)])
+            : i18n.t("dashboard.banner.narrowStep.sentence", [String(completed + 1), String(total)]);
 
       // The status headline + timestamp are grouped with the CTA on the right
       // (data status and the action that changes it read as one unit); the
@@ -322,7 +343,7 @@ export const dashboardView: ViewModule = {
       bannerRoot.innerHTML = `
         <div class="dashboard-status">
           <div class="dashboard-status__progress">
-            <p class="dashboard-status__caption">Setup progress</p>
+            <p class="dashboard-status__caption">${escapeHtml(i18n.t("dashboard.banner.caption.label"))}</p>
             <ol class="dashboard-tracker dashboard-tracker--wide">${wideSteps}</ol>
             <p class="dashboard-tracker dashboard-tracker--narrow">${narrowText}</p>
           </div>
@@ -345,40 +366,44 @@ export const dashboardView: ViewModule = {
       // "!" marker + "(N)" suffix the in-progress tracker above uses for its
       // Member Review step (see renderBanner's wideSteps).
       const needsReview = d.toReview > 0;
-      const reviewLabel = `${countLabel(d.toReview, "member")} still to review`;
+      const reviewLabel = i18n.t("dashboard.setupComplete.reviewPending.count", d.toReview);
 
       // name / detail (may hold trusted markup) / where the step's secondary
       // button goes / that button's label / whether it renders as a warning.
       // Friendly, non-technical wording.
       const steps: { name: string; detail: string; href: string; action: string; warn?: boolean }[] = [
         {
-          name: "Setup",
-          detail: `Selected: <strong>${escapeHtml(d.profileLabel)}</strong>`,
+          name: i18n.t("common.appShell.nav.setup.label"),
+          detail: i18n.t("dashboard.setupComplete.step.setup.detail", [escapeHtml(d.profileLabel)]),
           href: "#setup",
-          action: "Change Profile",
+          action: i18n.t("dashboard.setupComplete.step.setup.action"),
         },
         {
-          name: "Sync Data",
-          detail:
-            `Club Central: ${escapeHtml(countLabel(d.clubCentralMembers, "member"))} &nbsp;|&nbsp; ` +
-            `Basecamp: ${escapeHtml(countLabel(d.basecampMembers, "member"))} &nbsp;|&nbsp; ` +
-            `EasySpeak: ${escapeHtml(countLabel(d.easyspeakMembers, "member"))}`,
+          name: i18n.t("common.appShell.nav.syncData.label"),
+          detail: i18n.t("dashboard.setupComplete.step.syncData.detail", [
+            escapeHtml(memberCountLabel(d.clubCentralMembers)),
+            escapeHtml(memberCountLabel(d.basecampMembers)),
+            escapeHtml(memberCountLabel(d.easyspeakMembers)),
+          ]),
           href: "#syncData",
-          action: "Refresh Data",
+          action: i18n.t("dashboard.setupComplete.step.syncData.action"),
         },
         {
-          name: "Club Review",
-          detail: `${escapeHtml(countLabel(d.clubCount, "club"))} connected across both platforms`,
+          name: i18n.t("common.appShell.nav.clubReview.label"),
+          detail: i18n.t("dashboard.setupComplete.step.clubReview.detail", [escapeHtml(clubCountLabel(d.clubCount))]),
           href: "#clubReview",
-          action: "Check Clubs",
+          action: i18n.t("dashboard.setupComplete.step.clubReview.action"),
         },
         {
-          name: "Member Review",
+          name: i18n.t("common.appShell.nav.members.label"),
           detail: needsReview
-            ? `${escapeHtml(countLabel(d.matchedMembers, "member"))} matched &middot; ${escapeHtml(reviewLabel)}`
-            : `${escapeHtml(countLabel(d.matchedMembers, "member"))} matched across both platforms`,
+            ? i18n.t("dashboard.setupComplete.step.members.detailWithReview", [
+                escapeHtml(memberCountLabel(d.matchedMembers)),
+                escapeHtml(reviewLabel),
+              ])
+            : i18n.t("dashboard.setupComplete.step.members.detailNoReview", [escapeHtml(memberCountLabel(d.matchedMembers))]),
           href: "#members",
-          action: "Audit Member List",
+          action: i18n.t("dashboard.setupComplete.step.members.action"),
           warn: needsReview,
         },
       ];
@@ -391,7 +416,7 @@ export const dashboardView: ViewModule = {
             <li class="setup-steps__row${s.warn ? " is-warning" : ""}">
               <span class="setup-steps__marker" aria-hidden="true">${marker}</span>
               <div class="setup-steps__text">
-                <p class="setup-steps__name">${escapeHtml(`Step ${i + 1} — ${s.name}${nameSuffix}`)}</p>
+                <p class="setup-steps__name">${escapeHtml(i18n.t("dashboard.setupComplete.step.heading.sentence", [String(i + 1), s.name]))}${escapeHtml(nameSuffix)}</p>
                 <p class="setup-steps__detail">${s.detail}</p>
               </div>
               <a href="${s.href}" class="btn btn-secondary btn-sm setup-steps__action">${escapeHtml(s.action)}</a>
@@ -402,27 +427,25 @@ export const dashboardView: ViewModule = {
       const headMarker = needsReview ? "!" : "&#10003;";
       const subLine = needsReview
         ? escapeHtml(reviewLabel)
-        : d.syncRelative
-          ? `Last sync: ${escapeHtml(d.syncRelative)}`
-          : `Last sync: ${escapeHtml(d.syncAbsolute)}`;
+        : escapeHtml(i18n.t("dashboard.setupComplete.lastSync.sentence", [d.syncRelative ?? d.syncAbsolute]));
 
       bannerRoot.innerHTML = `
         <div class="setup-complete${setupDetailsOpen ? " is-open" : ""}${needsReview ? " has-review" : ""}">
           <div class="setup-complete__bar">
             <span class="setup-complete__check" aria-hidden="true">${headMarker}</span>
             <div class="setup-complete__headline">
-              <p class="setup-complete__title">Setup Complete (${pipeline.completedSteps}/${pipeline.totalSteps} Steps)</p>
+              <p class="setup-complete__title">${escapeHtml(i18n.t("dashboard.setupComplete.title.sentence", [String(pipeline.completedSteps), String(pipeline.totalSteps)]))}</p>
               <p class="setup-complete__sub">${subLine}</p>
             </div>
             <div class="setup-complete__actions">
               <button type="button" id="setupDetailsToggle" class="btn btn-secondary btn-sm setup-complete__toggle"
                       aria-expanded="${setupDetailsOpen}" aria-controls="setupDetailsPanel">
-                View Setup Details <span class="setup-complete__chevron" aria-hidden="true">&#9662;</span>
+                ${escapeHtml(i18n.t("dashboard.setupComplete.viewDetails.button"))} <span class="setup-complete__chevron" aria-hidden="true">&#9662;</span>
               </button>
-              <a href="#syncData" class="btn btn-primary btn-sm setup-complete__refresh">Refresh Data</a>
+              <a href="#syncData" class="btn btn-primary btn-sm setup-complete__refresh">${escapeHtml(i18n.t("dashboard.banner.ready.button"))}</a>
             </div>
           </div>
-          <div class="setup-complete__details" id="setupDetailsPanel" role="region" aria-label="Setup details">
+          <div class="setup-complete__details" id="setupDetailsPanel" role="region" aria-label="${escapeAttr(i18n.t("dashboard.setupComplete.detailsRegion.ariaLabel"))}">
             <div class="setup-complete__details-inner">
               <ol class="setup-steps">${rows}</ol>
             </div>
@@ -434,36 +457,36 @@ export const dashboardView: ViewModule = {
     function renderFeatures(featuresUnlocked: boolean, clubCentralImported: boolean) {
       const cards: FeatureCard[] = [
         {
-          title: "Pathways Onboarding Helper",
-          description: "Find paid-up members who haven't started a Pathways path yet.",
+          title: i18n.t("dashboard.feature.onboarding.title"),
+          description: i18n.t("dashboard.feature.onboarding.description"),
           accent: "amber",
           iconHtml: ICON_APPROVAL,
-          ctaLabel: "Open Helper →",
+          ctaLabel: i18n.t("dashboard.feature.onboarding.cta"),
           href: "#onboarding",
           locked: !clubCentralImported,
-          lockLabel: "Requires Club Central roster",
+          lockLabel: i18n.t("dashboard.feature.onboarding.lockLabel"),
         },
         {
-          title: "Club Progress Report",
-          description: "See who is ready to level up and review discrepancies between systems.",
+          title: i18n.t("dashboard.feature.report.title"),
+          description: i18n.t("dashboard.feature.report.description"),
           accent: "indigo",
           iconHtml: ICON_PROGRESS,
-          ctaLabel: "Open Report →",
+          ctaLabel: i18n.t("dashboard.feature.report.cta"),
           href: "#report",
           locked: !featuresUnlocked,
         },
         {
-          title: "Download Excel Spreadsheet",
-          description: "Export member progress and path history to an Excel workbook.",
+          title: i18n.t("exporter.page.title.title"),
+          description: i18n.t("dashboard.feature.exporter.description"),
           accent: "emerald",
           iconHtml: ICON_SPREADSHEET,
-          ctaLabel: "Create Spreadsheet →",
+          ctaLabel: i18n.t("dashboard.feature.exporter.cta"),
           href: "#exporter",
           locked: !featuresUnlocked,
         },
         {
-          title: "Save or Restore Club Settings",
-          description: "Save a backup file of your member links or restore a saved file.",
+          title: i18n.t("dashboard.feature.backup.title"),
+          description: i18n.t("dashboard.feature.backup.description"),
           accent: "slate",
           iconHtml: ICON_BACKUP,
           backup: true,
@@ -494,15 +517,15 @@ export const dashboardView: ViewModule = {
         const statusClass = restoreStatus?.kind === "error" ? " is-error" : "";
         footer = `
           <div class="dashboard-tile__actions">
-            <button type="button" class="btn btn-secondary" id="dashboardSaveBackupBtn" title="Downloads a .json file">Save File</button>
-            <button type="button" class="btn btn-secondary" id="dashboardLoadBackupBtn" title="Choose a .json backup file">Load File</button>
+            <button type="button" class="btn btn-secondary" id="dashboardSaveBackupBtn" title="${escapeAttr(i18n.t("dashboard.action.saveFile.tooltip"))}">${escapeHtml(i18n.t("dashboard.action.saveFile.button"))}</button>
+            <button type="button" class="btn btn-secondary" id="dashboardLoadBackupBtn" title="${escapeAttr(i18n.t("dashboard.action.loadFile.tooltip"))}">${escapeHtml(i18n.t("dashboard.action.loadFile.button"))}</button>
           </div>
           <p class="help-text dashboard-tile__status${statusClass}" aria-live="polite">${restoreStatus ? escapeHtml(restoreStatus.text) : ""}</p>
         `;
       } else if (card.locked) {
         footer = `
           <span class="btn btn-primary dashboard-tile__cta" aria-disabled="true">${escapeHtml(card.ctaLabel ?? "")}</span>
-          <span class="badge badge-soft dashboard-tile__lock">&#128274; ${escapeHtml(card.lockLabel ?? "Requires imported data")}</span>
+          <span class="badge badge-soft dashboard-tile__lock">&#128274; ${escapeHtml(card.lockLabel ?? i18n.t("dashboard.action.lockDefault.label"))}</span>
         `;
       } else {
         footer = `<a href="${card.href}" class="btn btn-primary dashboard-tile__cta">${escapeHtml(card.ctaLabel ?? "")}</a>`;
@@ -526,9 +549,12 @@ export const dashboardView: ViewModule = {
       try {
         await downloadBackup();
         if (disposed) return;
-        restoreStatus = { kind: "ok", text: "Backup file saved." };
+        restoreStatus = { kind: "ok", text: i18n.t("dashboard.backup.saved.body") };
       } catch (err) {
-        restoreStatus = { kind: "error", text: `Could not save backup: ${err instanceof Error ? err.message : String(err)}` };
+        restoreStatus = {
+          kind: "error",
+          text: i18n.t("dashboard.backup.saveFailed.error", [err instanceof Error ? err.message : String(err)]),
+        };
       }
       await render();
     }
@@ -550,10 +576,9 @@ export const dashboardView: ViewModule = {
       if (disposed) return;
 
       const confirmed = await confirmModal({
-        title: "Replace all current data?",
-        body: "Loading this backup file will overwrite your current profiles, imported data, matches, and settings. This can't be undone.",
-        confirmLabel: "Load Backup",
-        cancelLabel: "Cancel",
+        title: i18n.t("dashboard.backup.confirmModal.title"),
+        body: i18n.t("dashboard.backup.confirmModal.body"),
+        confirmLabel: i18n.t("dashboard.backup.confirmModal.confirmLabel"),
         danger: true,
         signal: restoreAbort.signal,
       });
@@ -562,9 +587,12 @@ export const dashboardView: ViewModule = {
       try {
         await restoreBackup(backup);
         if (disposed) return;
-        restoreStatus = { kind: "ok", text: "Backup restored." };
+        restoreStatus = { kind: "ok", text: i18n.t("dashboard.backup.restored.body") };
       } catch (err) {
-        restoreStatus = { kind: "error", text: `Restore failed: ${err instanceof Error ? err.message : String(err)}` };
+        restoreStatus = {
+          kind: "error",
+          text: i18n.t("dashboard.backup.restoreFailed.error", [err instanceof Error ? err.message : String(err)]),
+        };
       }
       await render();
     }

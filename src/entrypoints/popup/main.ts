@@ -13,11 +13,14 @@
 
 import { renderVerticalStepper } from "../../shared/app-shell";
 import { escapeHtml } from "../../shared/dom-utils";
+import { applyI18n } from "../../shared/i18n-dom";
 import { appRouteUrl, whatsNewUrl } from "../../shared/pages";
 import { sendMessage } from "../../shared/send-message";
 import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
 import { computeStepperInfo } from "../../shared/stepper-info";
 import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, openUpdateRelease } from "../../shared/update-store";
+
+applyI18n();
 
 const stepperRoot = document.getElementById("popupStepperRoot")!;
 const updateBannerRoot = document.getElementById("updateBannerRoot")!;
@@ -84,10 +87,10 @@ function applyUpdateBanner(update: Awaited<ReturnType<typeof loadUpdateBannerDat
 
   updateBannerRoot.innerHTML = `
     <div role="alert" class="alert alert-info alert-soft mb-3">
-      <span>Update available: v${escapeHtml(update.latestVersion)}</span>
+      <span>${i18n.t("common.updateBanner.available.sentence", { version: escapeHtml(update.latestVersion) })}</span>
       <div class="flex gap-2 shrink-0">
-        <button id="updateDownloadBtn" class="btn btn-sm btn-primary">Download</button>
-        <button id="updateDismissBtn" class="btn btn-sm btn-secondary">Dismiss</button>
+        <button id="updateDownloadBtn" class="btn btn-sm btn-primary">${i18n.t("common.updateBanner.download.button")}</button>
+        <button id="updateDismissBtn" class="btn btn-sm btn-secondary">${i18n.t("common.updateBanner.dismiss.button")}</button>
       </div>
     </div>
   `;
@@ -116,9 +119,9 @@ function applySelfUpdateBanner(pending: Awaited<ReturnType<typeof getPendingSelf
 
   selfUpdateBannerRoot.innerHTML = `
     <div role="alert" class="alert alert-info alert-soft mb-3">
-      <span>Update ready: v${escapeHtml(pending.version)}</span>
+      <span>${i18n.t("common.selfUpdateBanner.ready.sentence", { version: escapeHtml(pending.version) })}</span>
       <div class="flex gap-2 shrink-0">
-        <button id="selfUpdateApplyBtn" class="btn btn-sm btn-primary">Update now</button>
+        <button id="selfUpdateApplyBtn" class="btn btn-sm btn-primary">${i18n.t("common.selfUpdateBanner.applyNow.button")}</button>
       </div>
     </div>
   `;

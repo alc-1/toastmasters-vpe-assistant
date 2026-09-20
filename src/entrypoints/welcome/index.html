@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Toastmasters VPE Assistant — Welcome</title>
+  <title data-i18n="welcome.meta.title.label"></title>
   <link rel="icon" type="image/png" href="/icons/default/32.png">
   <link rel="stylesheet" href="../../shared/styles.css">
 </head>
@@ -12,31 +12,27 @@
     <div class="app-header__brand">
       <img class="app-header__logo" src="/icons/default/48.png" width="48" height="48" alt="" />
       <div class="app-header__text">
-        <div class="app-header__title">Toastmasters VPE Assistant</div>
-        <div class="app-header__subtitle">Get a clear view of your club's progress by bringing EasySpeak and Basecamp data together in one place.</div>
+        <div class="app-header__title" data-i18n="common.brand.title.label"></div>
+        <div class="app-header__subtitle" data-i18n="common.tagline.default.body"></div>
       </div>
     </div>
   </header>
 
   <div class="welcome-card">
-    <h1>You're all set — the extension is installed</h1>
-    <p class="welcome-intro">
-      Toastmasters VPE Assistant now lives in your browser toolbar. Chrome
-      hides newly installed extensions behind the puzzle-piece icon by
-      default — pin it so it's one click away whenever you need it.
-    </p>
+    <h1 data-i18n="welcome.card.heading.title"></h1>
+    <p class="welcome-intro" data-i18n="welcome.card.intro.body"></p>
 
     <div class="pin-guide">
       <div class="pin-guide__mockup" id="pinMockup"></div>
       <ol class="pin-guide__steps">
-        <li>Click the puzzle-piece icon in the toolbar, next to the address bar.</li>
-        <li>Find "Toastmasters VPE Assistant" in the list.</li>
-        <li>Click its pin icon to keep it visible in the toolbar.</li>
+        <li data-i18n="welcome.pinGuide.step1.label"></li>
+        <li data-i18n="welcome.pinGuide.step2.label"></li>
+        <li data-i18n="welcome.pinGuide.step3.label"></li>
       </ol>
     </div>
 
     <div class="welcome-actions">
-      <button id="getStartedBtn" class="btn btn-primary">Get started</button>
+      <button id="getStartedBtn" class="btn btn-primary" data-i18n="welcome.action.getStarted.button"></button>
     </div>
   </div>
 

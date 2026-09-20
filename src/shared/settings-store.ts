@@ -15,13 +15,24 @@
 // the actual decisions that need this (which server URL to hit, whether to
 // skip the real scrape entirely) happen in the service worker.
 
+import { t } from "./i18n-pure";
 import { local } from "./storage";
 import type { EasySpeakServer, EasySpeakServerId, ProfileId } from "./types";
 
+// Uses the local, browser-free t() (shared/i18n-pure.ts), not the ambient
+// i18n.t() global — this array is a module-top-level const, and
+// shared/stepper-info.ts (a pure, Vitest-tested module) imports it purely
+// for `.region`, so eager evaluation must not depend on #i18n existing (see
+// CLAUDE.md's "Internationalization (i18n)" section for the NAV_ITEMS bug
+// this exact pattern caused once already).
 export const EASYSPEAK_SERVERS: EasySpeakServer[] = [
-  { id: "tmclub.eu", label: "Continental Europe (tmclub.eu)", region: "Continental Europe" },
-  { id: "toastmasterclub.org", label: "UK & Ireland (toastmasterclub.org)", region: "UK & Ireland" },
-  { id: "easy-speak.org", label: "Rest of the World (easy-speak.org)", region: "Rest of the World" },
+  { id: "tmclub.eu", label: t("common.easyspeakServer.tmclubEu.label"), region: t("common.easyspeakServer.tmclubEu.region") },
+  {
+    id: "toastmasterclub.org",
+    label: t("common.easyspeakServer.toastmasterclubOrg.label"),
+    region: t("common.easyspeakServer.toastmasterclubOrg.region"),
+  },
+  { id: "easy-speak.org", label: t("common.easyspeakServer.easySpeakOrg.label"), region: t("common.easyspeakServer.easySpeakOrg.region") },
 ];
 
 export const DEFAULT_EASYSPEAK_SERVER: EasySpeakServerId = "tmclub.eu";
@@ -33,8 +44,8 @@ export const DEFAULT_EASYSPEAK_SERVER: EasySpeakServerId = "tmclub.eu";
  * "Club data:" banner line (entrypoints/app/views/dashboard.ts).
  */
 export function formatProfileLabel(profileId: ProfileId | null): string {
-  if (!profileId) return "No profile selected yet";
-  if (profileId === "demo") return "Demo";
+  if (!profileId) return t("common.profile.noneSelected.label");
+  if (profileId === "demo") return t("common.profile.demo.label");
   return EASYSPEAK_SERVERS.find((s) => s.id === profileId)?.label ?? profileId;
 }
 

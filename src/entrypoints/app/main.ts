@@ -17,18 +17,25 @@ import { resolveRoute } from "./router";
 import { VIEWS } from "./views";
 import type { AppRoute } from "../../shared/pages";
 
-const ROUTE_TITLE: Record<AppRoute, string> = {
-  dashboard: "Home",
-  setup: "Setup",
-  syncData: "Sync Data",
-  clubReview: "Club Review",
-  members: "Member Review",
-  report: "Club Progress",
-  exporter: "Download Spreadsheet",
-  onboarding: "Onboarding Helper",
-  globalSettings: "Global Settings",
-  whatsNew: "What's New",
-};
+// A function, not a module-top-level const — every string here goes through
+// i18n.t(), which depends on the WXT-auto-imported #i18n global; deferring
+// evaluation keeps this module import-safe regardless of what might ever
+// import it (see shared/app-shell.ts's NAV_ITEMS for the same reasoning).
+function routeTitle(route: AppRoute): string {
+  const titles: Record<AppRoute, string> = {
+    dashboard: i18n.t("common.appShell.routeTitle.dashboard.label"),
+    setup: i18n.t("common.appShell.nav.setup.label"),
+    syncData: i18n.t("common.appShell.nav.syncData.label"),
+    clubReview: i18n.t("common.appShell.nav.clubReview.label"),
+    members: i18n.t("common.appShell.nav.members.label"),
+    report: i18n.t("report.page.title.title"),
+    exporter: i18n.t("common.appShell.routeTitle.exporter.label"),
+    onboarding: i18n.t("common.appShell.routeTitle.onboarding.label"),
+    globalSettings: i18n.t("common.appShell.routeTitle.globalSettings.label"),
+    whatsNew: i18n.t("common.appShell.whatsNew.default.label"),
+  };
+  return titles[route];
+}
 
 // The four steps that render the wizard chrome (highlighted stepper item +
 // Previous/Next footer + markStepVisited). dashboard/exporter/globalSettings
@@ -184,7 +191,7 @@ async function renderChrome(
 ) {
   const isWizardStep = (WIZARD_ROUTES as readonly string[]).includes(route);
   if (isWizardStep) await markStepVisited(route as AppShellPage);
-  document.title = `Toastmasters VPE Assistant — ${ROUTE_TITLE[route]}`;
+  document.title = i18n.t("common.appShell.documentTitle.sentence", [i18n.t("common.brand.title.label"), routeTitle(route)]);
   appShellRoot.innerHTML = renderAppShell({
     active: isWizardStep ? (route as AppShellPage) : null,
     info,
@@ -226,9 +233,9 @@ async function renderSelfUpdateBanner(): Promise<void> {
   }
   selfUpdateBannerRoot.innerHTML = `
     <div role="alert" class="alert alert-info alert-soft mb-3">
-      <span>Update ready: v${escapeHtml(pending.version)}</span>
+      <span>${i18n.t("common.selfUpdateBanner.ready.sentence", { version: escapeHtml(pending.version) })}</span>
       <div class="flex gap-2 shrink-0">
-        <button id="selfUpdateApplyBtn" class="btn btn-sm btn-primary">Update now</button>
+        <button id="selfUpdateApplyBtn" class="btn btn-sm btn-primary">${escapeHtml(i18n.t("common.selfUpdateBanner.applyNow.button"))}</button>
       </div>
     </div>
   `;

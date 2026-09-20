@@ -5,6 +5,7 @@
 // the merged app's horizontal one (shared/app-shell.ts), so neither has to
 // duplicate the storage reads + buildReport() call this requires.
 
+import { t } from "./i18n-pure";
 import { loadResolutionData } from "./resolution-store";
 import { EASYSPEAK_SERVERS, getActiveProfile, getEasySpeakServer, getMockMode } from "./settings-store";
 import { local } from "./storage";
@@ -53,11 +54,16 @@ export async function markSetupComplete(): Promise<void> {
 // wizard/nav labels (shared/app-shell.ts) so a step is called the same thing
 // on every screen — the banner tracker, the top nav, the popup stepper, and
 // each view's own <h1>.
+// Labels reuse the exact same common.appShell.nav.* keys shared/app-shell.ts's
+// NAV_ITEMS resolves via the ambient i18n.t() — this file uses the local,
+// browser-free t() from shared/i18n-pure.ts instead (this is a pure,
+// Vitest-tested module), but both read the same src/locales/en.yml key, so a
+// step is still called the same thing on every screen.
 export const SETUP_STEPS = [
-  { key: "setup", label: "Setup" },
-  { key: "syncData", label: "Sync Data" },
-  { key: "clubReview", label: "Club Review" },
-  { key: "members", label: "Member Review" },
+  { key: "setup", label: t("common.appShell.nav.setup.label") },
+  { key: "syncData", label: t("common.appShell.nav.syncData.label") },
+  { key: "clubReview", label: t("common.appShell.nav.clubReview.label") },
+  { key: "members", label: t("common.appShell.nav.members.label") },
 ] as const satisfies readonly { key: AppShellPage; label: string }[];
 
 /** Whether a setup step should render as "complete" (a checked box) in the
@@ -173,7 +179,7 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
   const isLocked = (key: AppShellPage): boolean =>
     NAV_ITEMS.findIndex((item) => item.key === key) > 0 && !visited.includes(key);
 
-  const setupInfo = activeProfile === null ? "Select your profile" : await formatSetupInfo();
+  const setupInfo = activeProfile === null ? t("stepperInfo.status.selectProfile.label") : await formatSetupInfo();
   const basecampData = cached.basecampData ?? null;
   const easyspeakData = cached.easyspeakData ?? null;
   const noProfile = activeProfile === null;
@@ -256,29 +262,30 @@ export async function computeStepperInfo(): Promise<StepperInfo> {
 }
 
 async function formatSetupInfo(): Promise<string> {
-  if (await getMockMode()) return "Profile: Demo";
+  if (await getMockMode()) return t("stepperInfo.status.profile.sentence", [t("common.profile.demo.label")]);
   const serverId = await getEasySpeakServer();
   const region = EASYSPEAK_SERVERS.find((s) => s.id === serverId)?.region ?? serverId;
-  return `Profile: ${region}`;
+  return t("stepperInfo.status.profile.sentence", [region]);
 }
 
 function formatOldestSync(basecampScrapedAt?: number, easyspeakScrapedAt?: number): string {
-  if (typeof basecampScrapedAt !== "number" || typeof easyspeakScrapedAt !== "number") return "Start the data retrieval";
-  return `Updated ${formatRelativeTime(Math.min(basecampScrapedAt, easyspeakScrapedAt))}`;
+  if (typeof basecampScrapedAt !== "number" || typeof easyspeakScrapedAt !== "number")
+    return t("stepperInfo.status.startRetrieval.label");
+  return t("stepperInfo.status.updated.sentence", [formatRelativeTime(Math.min(basecampScrapedAt, easyspeakScrapedAt))]);
 }
 
 // Granularity intentionally caps at weeks — a sync this stale is a "go
 // re-extract" situation regardless of whether it's 3 weeks or 3 months old.
 function formatRelativeTime(timestamp: number): string {
   const diffMinutes = Math.floor((Date.now() - timestamp) / 60_000);
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+  if (diffMinutes < 1) return t("stepperInfo.status.justNow.label");
+  if (diffMinutes < 60) return t("stepperInfo.status.minutesAgo.count", diffMinutes);
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  if (diffHours < 24) return t("stepperInfo.status.hoursAgo.count", diffHours);
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  if (diffDays < 7) return t("stepperInfo.status.daysAgo.count", diffDays);
   const diffWeeks = Math.floor(diffDays / 7);
-  return `${diffWeeks} week${diffWeeks === 1 ? "" : "s"} ago`;
+  return t("stepperInfo.status.weeksAgo.count", diffWeeks);
 }
 
 interface ReportStepInfo {
@@ -303,8 +310,8 @@ function computeReportInfo(report: ReportResult): ReportStepInfo {
     .reduce((count, club) => count + club.members.filter((member) => !isMemberResolved(member)).length, 0);
 
   return {
-    clubs: `${clubCount} club${clubCount === 1 ? "" : "s"} followed`,
-    members: `${total} member${total === 1 ? "" : "s"} · ${toReview} to review`,
+    clubs: t("stepperInfo.status.clubsFollowed.count", clubCount),
+    members: t("stepperInfo.status.membersToReview.count", total, [String(total), String(toReview)]),
     toReview,
   };
 }

@@ -6,6 +6,7 @@
 // (missing speeches, discrepancies, pending-validation flags, "next level"
 // summaries). No chrome.* dependency — same reasoning as conflicts.ts.
 
+import { t } from "../i18n-pure";
 import {
   matchClubs,
   matchMembers,
@@ -128,7 +129,7 @@ export function groupEasySpeakMembers(members: EasySpeakMemberRow[]): EasySpeakP
     person.paths.push({ path: member.path, levels: member.levels });
   }
   for (const person of byMemberId.values()) {
-    if (!person.name) person.name = `EasySpeak member ${person.memberId}`;
+    if (!person.name) person.name = t("report.member.fallbackName.sentence", [person.memberId]);
   }
   return Array.from(byMemberId.values());
 }
@@ -411,10 +412,6 @@ function buildClubPairReport(
 // level-by-level table per path to work them out by hand.
 // ---------------------------------------------------------------------------
 
-function speechWord(n: number): string {
-  return n === 1 ? "speech" : "speeches";
-}
-
 // Rank order backing LevelSummaryCore.statusSortRank — the default (asc) sort
 // order for the Status column.
 const STATUS_SORT_RANK: Record<LevelUpStatus, number> = {
@@ -431,13 +428,13 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
     return {
       currentLevel: null,
       currentLevelSortValue: null,
-      currentLevelLabel: "Not in Basecamp",
-      nextLevelLabel: "—",
+      currentLevelLabel: t("report.levelSummary.notInBasecamp.label"),
+      nextLevelLabel: t("report.levelSummary.none.label"),
       theoreticalMissing: null,
       unreportedInBasecamp: null,
       realMissing: null,
       status: "not-tracked",
-      statusDetail: "Only in EasySpeak, not yet in Basecamp",
+      statusDetail: t("report.levelSummary.easyspeakOnly.sentence"),
       statusSortRank: STATUS_SORT_RANK["not-tracked"],
     };
   }
@@ -460,18 +457,18 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
       // Above both a plain Level 5 in progress (5) and a Level 5 with only
       // Path Completion pending (5.5), so a finished path always sorts last.
       currentLevelSortValue: 6,
-      currentLevelLabel: "Completed",
-      nextLevelLabel: "—",
+      currentLevelLabel: t("report.levelSummary.completed.label"),
+      nextLevelLabel: t("report.levelSummary.none.label"),
       theoreticalMissing: null,
       unreportedInBasecamp: null,
       realMissing: null,
       status: "completed",
-      statusDetail: "Path completed",
+      statusDetail: t("report.levelSummary.pathCompleted.sentence"),
       statusSortRank: STATUS_SORT_RANK.completed,
     };
   }
 
-  const currentLevelLabel = `Level ${workingLevel}`;
+  const currentLevelLabel = t("report.levelSummary.level.label", [String(workingLevel)]);
 
   if (highestApprovedLevel === 5) {
     // Level 5 approved but Path Completion itself isn't done yet — Path
@@ -481,7 +478,9 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
     const theoreticalMissing = path.pathCompletion?.missing ?? 0;
     const status: LevelUpStatus = theoreticalMissing === 0 ? "ready" : "in-progress";
     const statusDetail =
-      theoreticalMissing === 0 ? "All requirements reported" : `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining`;
+      theoreticalMissing === 0
+        ? t("report.levelSummary.allReported.sentence")
+        : t("report.levelSummary.speechesRemaining.count", theoreticalMissing);
     return {
       currentLevel: 5,
       // Half a rank above a main-branch row whose workingLevel is also 5, so
@@ -489,7 +488,7 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
       // same rationale as "Completed" sitting at 6.
       currentLevelSortValue: 5.5,
       currentLevelLabel,
-      nextLevelLabel: "Path Completion",
+      nextLevelLabel: t("report.levelSummary.pathCompletion.label"),
       theoreticalMissing,
       unreportedInBasecamp: 0,
       realMissing: theoreticalMissing,
@@ -521,16 +520,22 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
   // reported.
   const statusDetail =
     status === "ready"
-      ? "All requirements reported"
+      ? t("report.levelSummary.allReported.sentence")
       : unreportedInBasecamp > 0
-        ? `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining → ${realMissing} if reported`
-        : `${theoreticalMissing} ${speechWord(theoreticalMissing)} remaining`;
+        ? t("report.levelSummary.speechesRemainingIfReported.count", theoreticalMissing, [
+            String(theoreticalMissing),
+            String(realMissing),
+          ])
+        : t("report.levelSummary.speechesRemaining.count", theoreticalMissing);
 
   return {
     currentLevel: workingLevel,
     currentLevelSortValue: workingLevel,
     currentLevelLabel,
-    nextLevelLabel: workingLevel < 5 ? `Level ${workingLevel + 1}` : "Path Completion",
+    nextLevelLabel:
+      workingLevel < 5
+        ? t("report.levelSummary.level.label", [String(workingLevel + 1)])
+        : t("report.levelSummary.pathCompletion.label"),
     theoreticalMissing,
     unreportedInBasecamp,
     realMissing,

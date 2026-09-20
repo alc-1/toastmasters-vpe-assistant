@@ -6,3 +6,4 @@ dist/
 test-results/
 playwright-report/
 public/changelog.json
+src/locales/generated/

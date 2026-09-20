@@ -16,13 +16,14 @@ import type { ClubPairReport, LevelDiff, LevelSummaryRow, LevelUpStatus, MemberR
 import type { ViewModule } from "../../../shared/view";
 
 // Opposing diagonal arrows for the Expand All / Collapse All controls
-// (Lucide maximize-2 / minimize-2). Defined before SHELL_HTML so the toolbar
+// (Lucide maximize-2 / minimize-2). Defined before shellHtml() so the toolbar
 // markup there can interpolate them.
 const ICON_EXPAND = `<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
 const ICON_COLLAPSE = `<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
 
-const SHELL_HTML = `
-  <h1 class="page-title">Club Progress</h1>
+function shellHtml(): string {
+  return `
+  <h1 class="page-title">${escapeHtml(i18n.t("report.page.title.title"))}</h1>
   <div class="meta" id="reportMeta"></div>
   <div class="anonymize-indicator" id="anonymizeIndicator"></div>
 
@@ -30,34 +31,32 @@ const SHELL_HTML = `
   <div id="conflictWarning" aria-live="polite"></div>
   <div id="kpiRoot" class="kpi-grid"></div>
 
-  <h2 class="section-header section-header--first">Next Level Summary</h2>
+  <h2 class="section-header section-header--first">${escapeHtml(i18n.t("report.section.nextLevelSummary.title"))}</h2>
   <p class="help-text summary-help-text--wide">
-    One row is displayed per member per path. Click a column header to sort (click again to reverse).
-    Click a row to reveal its level-by-level detail.
+    ${escapeHtml(i18n.t("report.section.nextLevelSummary.helpWide"))}
   </p>
   <p class="help-text summary-help-text--narrow">
-    One card is displayed per member per path. Click a card to reveal its level-by-level detail.
+    ${escapeHtml(i18n.t("report.section.nextLevelSummary.helpNarrow"))}
   </p>
 
   <div class="summary-toolbar">
-    <input type="text" id="summarySearch" class="input input-sm summary-toolbar__search" placeholder="Search by member or path name…">
+    <input type="text" id="summarySearch" class="input input-sm summary-toolbar__search" placeholder="${escapeAttr(i18n.t("report.toolbar.search.placeholder"))}">
     <div class="summary-expand-controls">
-      <button type="button" class="btn btn-sm btn-secondary" data-expand-all>${ICON_EXPAND}Expand All</button>
-      <button type="button" class="btn btn-sm btn-secondary" data-collapse-all>${ICON_COLLAPSE}Collapse All</button>
+      <button type="button" class="btn btn-sm btn-secondary" data-expand-all>${ICON_EXPAND}${escapeHtml(i18n.t("report.toolbar.expandAll.button"))}</button>
+      <button type="button" class="btn btn-sm btn-secondary" data-collapse-all>${ICON_COLLAPSE}${escapeHtml(i18n.t("report.toolbar.collapseAll.button"))}</button>
     </div>
   </div>
   <div id="summaryTableRoot"></div>
 
   <div id="pendingReviewSection">
-    <h2 class="section-header">Pending review</h2>
+    <h2 class="section-header">${escapeHtml(i18n.t("report.section.pendingReview.title"))}</h2>
     <p class="help-text">
-      Members whose Basecamp/EasySpeak match still needs a decision in
-      <a href="#members">Member Review</a> — numbers here may be incomplete
-      until that's resolved, so they're kept separate from Next Level Summary.
+      ${i18n.t("report.section.pendingReview.help")}
     </p>
     <div id="pendingReviewTableRoot"></div>
   </div>
 `;
+}
 
 interface SummaryColumn {
   key: keyof LevelSummaryRow;
@@ -65,13 +64,15 @@ interface SummaryColumn {
   colClass: string;
 }
 
-const SUMMARY_COLUMNS: SummaryColumn[] = [
-  { key: "memberName", label: "Member", colClass: "col-member" },
-  { key: "pathName", label: "Path", colClass: "col-path" },
-  { key: "currentLevelSortValue", label: "Level", colClass: "col-level" },
-  { key: "statusSortRank", label: "Status", colClass: "col-status" },
-  { key: "statusDetail", label: "Detail", colClass: "col-detail" },
-];
+function summaryColumns(): SummaryColumn[] {
+  return [
+    { key: "memberName", label: i18n.t("report.column.member.label"), colClass: "col-member" },
+    { key: "pathName", label: i18n.t("report.column.path.label"), colClass: "col-path" },
+    { key: "currentLevelSortValue", label: i18n.t("report.column.level.label"), colClass: "col-level" },
+    { key: "statusSortRank", label: i18n.t("report.column.status.label"), colClass: "col-status" },
+    { key: "statusDetail", label: i18n.t("report.column.detail.label"), colClass: "col-detail" },
+  ];
+}
 
 const ICON_CHECKMARK = `<svg class="status-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 const ICON_LIGHTNING = `<svg class="status-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
@@ -83,24 +84,46 @@ interface StatusBadgeInfo {
   description: string;
 }
 
-const STATUS_BADGE: Record<LevelUpStatus, StatusBadgeInfo> = {
-  ready: { label: "Ready", tone: "badge-soft badge-success", icon: ICON_CHECKMARK, description: "All requirements reported, the level can be taken now." },
-  "ready-if-reported": {
-    label: "Ready if reported",
-    tone: "badge-soft badge-warning",
-    icon: ICON_LIGHTNING,
-    description: "Done in EasySpeak, just needs reporting in Basecamp to be ready.",
-  },
-  "in-progress": { label: "On track", tone: "badge-soft badge-info", icon: "", description: "Still working through the level's speeches." },
-  "needs-reporting": {
-    label: "Needs reporting",
-    tone: "badge-soft badge-warning",
-    icon: "",
-    description: "Some speeches done in EasySpeak aren't yet reported in Basecamp.",
-  },
-  completed: { label: "Completed", tone: "badge-soft badge-success", icon: "", description: "Path completed." },
-  "not-tracked": { label: "Not tracked", tone: "badge-soft", icon: "", description: "Only in EasySpeak, not yet in Basecamp." },
-};
+function statusBadges(): Record<LevelUpStatus, StatusBadgeInfo> {
+  return {
+    ready: {
+      label: i18n.t("report.status.ready.label"),
+      tone: "badge-soft badge-success",
+      icon: ICON_CHECKMARK,
+      description: i18n.t("report.status.ready.description"),
+    },
+    "ready-if-reported": {
+      label: i18n.t("report.status.readyIfReported.label"),
+      tone: "badge-soft badge-warning",
+      icon: ICON_LIGHTNING,
+      description: i18n.t("report.status.readyIfReported.description"),
+    },
+    "in-progress": {
+      label: i18n.t("report.status.inProgress.label"),
+      tone: "badge-soft badge-info",
+      icon: "",
+      description: i18n.t("report.status.inProgress.description"),
+    },
+    "needs-reporting": {
+      label: i18n.t("report.status.needsReporting.label"),
+      tone: "badge-soft badge-warning",
+      icon: "",
+      description: i18n.t("report.status.needsReporting.description"),
+    },
+    completed: {
+      label: i18n.t("report.status.completed.label"),
+      tone: "badge-soft badge-success",
+      icon: "",
+      description: i18n.t("report.status.completed.description"),
+    },
+    "not-tracked": {
+      label: i18n.t("report.status.notTracked.label"),
+      tone: "badge-soft",
+      icon: "",
+      description: i18n.t("report.status.notTracked.description"),
+    },
+  };
+}
 
 interface ClubSection {
   clubKey: string;
@@ -137,23 +160,27 @@ const NULL_LEVEL_DIFF = (level: number): LevelDiff => ({
   pendingValidation: false,
 });
 
-const LEVEL5_NOTE_TITLE = "Easyspeak Level 5 counts toward both Basecamp Level 5 and Path Completion.";
-const APPROVED_CHECK = approvedCheckIconHtml("Approved");
+function level5NoteTitle(): string {
+  return i18n.t("report.level5Note.tooltip");
+}
+function approvedCheck(): string {
+  return approvedCheckIconHtml(i18n.t("report.approvedCheck.tooltip"));
+}
 
 export const reportView: ViewModule = {
   async mount(root) {
-    root.innerHTML = SHELL_HTML;
+    root.innerHTML = shellHtml();
 
     const mainTable: SummaryTableState = {
       rootId: "summaryTableRoot",
-      emptyMessage: "No Pathways paths found.",
+      emptyMessage: i18n.t("report.emptyState.noPaths.body"),
       rows: [],
       sort: { key: "statusSortRank", direction: "asc" },
       expandedRowKeys: new Set<string>(),
     };
     const pendingTable: SummaryTableState = {
       rootId: "pendingReviewTableRoot",
-      emptyMessage: "No members pending review.",
+      emptyMessage: i18n.t("report.emptyState.noPendingReview.body"),
       rows: [],
       sort: { key: "statusSortRank", direction: "asc" },
       expandedRowKeys: new Set<string>(),
@@ -181,9 +208,7 @@ export const reportView: ViewModule = {
         getRoot("conflictWarning").innerHTML = "";
         getRoot("kpiRoot").innerHTML = "";
         getRoot("clubTabs").innerHTML = "";
-        getRoot("summaryTableRoot").innerHTML =
-          '<p class="empty-state">Basecamp data is needed to build this report. ' +
-          "Click the extension's toolbar icon and run the Basecamp extraction first.</p>";
+        getRoot("summaryTableRoot").innerHTML = `<p class="empty-state">${escapeHtml(i18n.t("report.emptyState.needsBasecamp.body"))}</p>`;
         (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "none";
         setToolbarVisible(false);
         return;
@@ -206,7 +231,7 @@ export const reportView: ViewModule = {
       if (disposed) return;
       if (anonymize) report = anonymizeReport(report, buildAnonymizationMaps(report));
       getRoot("anonymizeIndicator").innerHTML = anonymize
-        ? '<span class="badge badge-soft badge-warning" title="Turn off in Global Settings to see real names">Anonymized</span>'
+        ? `<span class="badge badge-soft badge-warning" title="${escapeAttr(i18n.t("report.anonymizeIndicator.tooltip"))}">${escapeHtml(i18n.t("report.anonymizeIndicator.label"))}</span>`
         : "";
 
       const summaryGroups = buildLevelSummary(report);
@@ -234,12 +259,11 @@ export const reportView: ViewModule = {
       // in Member Review" message below would be both guaranteed to fire and
       // not actionable there. Explain the situation instead.
       if (clubPair.clubOrphaned) {
-        const side = clubPair.basecampClubId ? "Basecamp" : "EasySpeak";
+        const side = clubPair.basecampClubId ? i18n.t("export.type.basecamp.label") : i18n.t("export.type.easyspeak.label");
         warningRoot.innerHTML = `
           <div role="alert" class="alert alert-info alert-soft mb-4 text-base">
-            ${approvedCheckIconHtml("Acknowledged one-sided club")}
-            This club only exists in ${side} — it was acknowledged as one-sided in Club Review, so it has no
-            counterpart to match members against. <a href="#clubReview">Change in Club Review</a>
+            ${approvedCheckIconHtml(i18n.t("report.conflictWarning.orphanedClub.tooltip"))}
+            ${i18n.t("report.conflictWarning.orphanedClub.sentence", [side])}
           </div>
         `;
         return;
@@ -255,19 +279,16 @@ export const reportView: ViewModule = {
 
       const messages: string[] = [];
       if (unmatchedClub) {
-        const missingSide = clubPair.basecampClubId ? "EasySpeak" : "Basecamp";
-        messages.push(`This club has no counterpart in ${missingSide}. <a href="#clubReview">Fix in Club Review</a>`);
+        const missingSide = clubPair.basecampClubId ? i18n.t("export.type.easyspeak.label") : i18n.t("export.type.basecamp.label");
+        messages.push(i18n.t("report.conflictWarning.clubNoCounterpart.sentence", [missingSide]));
       }
       if (unmatchedMemberCount > 0) {
-        messages.push(
-          `${unmatchedMemberCount} member${unmatchedMemberCount === 1 ? "" : "s"} without a match between Basecamp and EasySpeak. ` +
-            '<a href="#members">Fix in Member Review</a>'
-        );
+        messages.push(i18n.t("report.conflictWarning.membersUnmatched.count", unmatchedMemberCount));
       }
 
       warningRoot.innerHTML = `
         <div role="alert" class="alert alert-warning alert-soft mb-4 text-base">
-          ${warningIconHtml("Conflicts found")}
+          ${warningIconHtml(i18n.t("report.conflictWarning.conflictsFound.tooltip"))}
           <div class="flex flex-col gap-1">
             ${messages.map((m) => `<div>${m}</div>`).join("")}
           </div>
@@ -296,9 +317,9 @@ export const reportView: ViewModule = {
 
       const kpis = computeKpis(clubPair);
       const cards: { label: string; value: number }[] = [
-        { label: "Members", value: kpis.members },
-        { label: "Paths", value: kpis.paths },
-        { label: "Ready to Level Up", value: kpis.readyToLevelUp },
+        { label: i18n.t("report.kpi.members.label"), value: kpis.members },
+        { label: i18n.t("report.kpi.paths.label"), value: kpis.paths },
+        { label: i18n.t("report.kpi.readyToLevelUp.label"), value: kpis.readyToLevelUp },
       ];
 
       kpiRoot.innerHTML = cards
@@ -327,7 +348,7 @@ export const reportView: ViewModule = {
         getRoot("conflictWarning").innerHTML = "";
         getRoot("kpiRoot").innerHTML = "";
         tabsRoot.innerHTML = "";
-        getRoot("summaryTableRoot").innerHTML = '<p class="empty-state">No clubs found in either data source.</p>';
+        getRoot("summaryTableRoot").innerHTML = `<p class="empty-state">${escapeHtml(i18n.t("report.emptyState.noClubs.body"))}</p>`;
         getRoot("pendingReviewTableRoot").innerHTML = "";
         (root.querySelector("#pendingReviewSection") as HTMLElement).style.display = "none";
         setToolbarVisible(false);
@@ -339,14 +360,14 @@ export const reportView: ViewModule = {
       tabsRoot.innerHTML = sections
         .map((s) => {
           const unmatched = (!s.clubPair.basecampClubId || !s.clubPair.easyspeakClubId) && !s.clubPair.clubOrphaned;
-          const warningIcon = unmatched ? warningIconHtml("No match found between Basecamp and EasySpeak for this club") : "";
+          const warningIcon = unmatched ? warningIconHtml(i18n.t("report.clubTab.noMatch.tooltip")) : "";
           const missingCount = s.clubPair.members.filter(needsAction).length;
           const countBadge = s.clubPair.clubOrphaned
-            ? '<span class="tab-badge">One-sided</span>'
+            ? `<span class="tab-badge">${escapeHtml(i18n.t("report.clubTab.oneSided.label"))}</span>`
             : missingCount > 0
               ? `<span class="tab-count">${missingCount}</span>`
               : "";
-          const fullName = s.clubName ?? "(unnamed club)";
+          const fullName = s.clubName ?? i18n.t("report.clubTab.unnamed.label");
           return `<button class="tab" data-club-key="${s.clubKey}" title="${escapeAttr(fullName)}">${warningIcon}${escapeHtml(shortenClubName(fullName))}${countBadge}</button>`;
         })
         .join("");
@@ -404,8 +425,8 @@ export const reportView: ViewModule = {
       // toggle is bound to each container (both recreated on this call, so no
       // listener leak). Sorting is desktop-only — the card list just follows
       // whatever sort the table is in.
-      const colgroupHtml = SUMMARY_COLUMNS.map((col) => `<col class="${col.colClass}">`).join("");
-      const theadHtml = SUMMARY_COLUMNS.map((col) => `<th data-key="${col.key}">${escapeHtml(col.label)}</th>`).join("");
+      const colgroupHtml = summaryColumns().map((col) => `<col class="${col.colClass}">`).join("");
+      const theadHtml = summaryColumns().map((col) => `<th data-key="${col.key}">${escapeHtml(col.label)}</th>`).join("");
       tableRoot.innerHTML = `
         <table class="data-table summary hidden lg:table"><colgroup>${colgroupHtml}</colgroup><thead><tr>${theadHtml}</tr></thead><tbody></tbody></table>
         <div class="summary-cards flex flex-col gap-2 lg:hidden"></div>
@@ -443,7 +464,7 @@ export const reportView: ViewModule = {
     function updateSummaryHeaders(state: SummaryTableState) {
       const tableRoot = getRoot(state.rootId);
       tableRoot.querySelectorAll<HTMLTableCellElement>("table.summary th").forEach((th) => {
-        const col = SUMMARY_COLUMNS.find((c) => c.key === th.dataset.key)!;
+        const col = summaryColumns().find((c) => c.key === th.dataset.key)!;
         const isActive = th.dataset.key === state.sort.key;
         const arrow = isActive ? (state.sort.direction === "asc" ? " ▲" : " ▼") : "";
         th.innerHTML = `${escapeHtml(col.label)}${arrow ? `<span class="sort-indicator">${arrow}</span>` : ""}`;
@@ -517,10 +538,10 @@ export const reportView: ViewModule = {
       const muted = row.status === "completed" || row.status === "not-tracked";
       const ready = row.status === "ready" || row.status === "ready-if-reported";
       const pathBadge = row.pathPresence === "both" ? "" : ` <span class="badge ${presenceBadgeClass(row.pathPresence)}">${presenceLabel(row.pathPresence)}</span>`;
-      const levelLabel = row.currentLevelLabel === "Not in Basecamp" ? "—" : row.currentLevelLabel;
-      const statusInfo = STATUS_BADGE[row.status];
+      const levelLabel = row.currentLevelLabel === i18n.t("report.levelSummary.notInBasecamp.label") ? i18n.t("common.cell.empty.label") : row.currentLevelLabel;
+      const statusInfo = statusBadges()[row.status];
       return `
-        <div class="summary-card rounded-md border border-base-300 bg-base-100 p-3${muted ? " opacity-70 italic" : ""}${ready ? " font-bold" : ""}" data-row-key="${escapeAttr(key)}" title="Click row to expand or collapse details">
+        <div class="summary-card rounded-md border border-base-300 bg-base-100 p-3${muted ? " opacity-70 italic" : ""}${ready ? " font-bold" : ""}" data-row-key="${escapeAttr(key)}" title="${escapeAttr(i18n.t("report.row.expandTooltip.tooltip"))}">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <div class="font-semibold">${escapeHtml(row.memberName)}</div>
@@ -553,12 +574,12 @@ export const reportView: ViewModule = {
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
         </span>
       `;
-      const statusInfo = STATUS_BADGE[row.status];
+      const statusInfo = statusBadges()[row.status];
       return `
-        <tr class="${rowClass}" data-row-key="${escapeAttr(key)}" title="Click row to expand or collapse details">
+        <tr class="${rowClass}" data-row-key="${escapeAttr(key)}" title="${escapeAttr(i18n.t("report.row.expandTooltip.tooltip"))}">
           <td>${chevron}${escapeHtml(row.memberName)}</td>
           <td>${escapeHtml(row.pathName)}${pathBadge}</td>
-          <td>${escapeHtml(row.currentLevelLabel === "Not in Basecamp" ? "-" : row.currentLevelLabel)}</td>
+          <td>${escapeHtml(row.currentLevelLabel === i18n.t("report.levelSummary.notInBasecamp.label") ? "-" : row.currentLevelLabel)}</td>
           <td><span class="badge ${statusInfo.tone}" title="${escapeAttr(statusInfo.description)}">${statusInfo.icon}${escapeHtml(statusInfo.label)}</span></td>
           <td>${renderStatusDetail(row.statusDetail)}</td>
         </tr>
@@ -574,7 +595,7 @@ export const reportView: ViewModule = {
     function renderDetailRow(row: LevelSummaryRow, isExpanded: boolean): string {
       return `
         <tr class="detail-row${isExpanded ? " expanded" : ""}">
-          <td colspan="${SUMMARY_COLUMNS.length}"><div class="detail-row-inner" data-row-detail><div>${renderRowDetail(row)}</div></div></td>
+          <td colspan="${summaryColumns().length}"><div class="detail-row-inner" data-row-detail><div>${renderRowDetail(row)}</div></div></td>
         </tr>
       `;
     }
@@ -585,11 +606,13 @@ export const reportView: ViewModule = {
       const path = member.paths.find((p) => p.canonicalKey === row.pathKey);
       if (!path) return "";
 
-      const noActivePathNote = member.easyspeakNoActivePath ? '<div class="no-active-path">No active EasySpeak path.</div>' : "";
+      const noActivePathNote = member.easyspeakNoActivePath
+        ? `<div class="no-active-path">${escapeHtml(i18n.t("report.detail.noActivePath.body"))}</div>`
+        : "";
       const pathsHtml = renderMemberPathsList(member, path.canonicalKey);
 
       if (path.nonPathway) {
-        return `${pathsHtml}${noActivePathNote}<div class="non-pathway-note">Non-Pathways activity, not compared.</div>`;
+        return `${pathsHtml}${noActivePathNote}<div class="non-pathway-note">${escapeHtml(i18n.t("report.detail.nonPathway.body"))}</div>`;
       }
 
       return `
@@ -607,13 +630,13 @@ export const reportView: ViewModule = {
           return p.canonicalKey === activePathKey ? `<strong>${label}</strong>` : label;
         })
         .join(", ");
-      return `<div class="detail-paths"><span class="detail-paths-label">Paths:</span> ${items}</div>`;
+      return `<div class="detail-paths"><span class="detail-paths-label">${escapeHtml(i18n.t("report.detail.pathsLabel.label"))}</span> ${items}</div>`;
     }
 
     function presenceLabel(presence: string): string {
-      if (presence === "both") return "In both";
-      if (presence === "basecamp-only") return "Basecamp only";
-      return "EasySpeak only";
+      if (presence === "both") return i18n.t("report.presence.both.label");
+      if (presence === "basecamp-only") return i18n.t("report.presence.basecampOnly.label");
+      return i18n.t("report.presence.easyspeakOnly.label");
     }
 
     function presenceBadgeClass(presence: string): string {
@@ -624,6 +647,14 @@ export const reportView: ViewModule = {
       return path.levels.find((l) => l.level === levelNumber) ?? NULL_LEVEL_DIFF(levelNumber);
     }
 
+    // Used both to render the dash AND (in renderLevelsTableNarrow below) as
+    // the sentinel value discrepancyContent()'s callers compare against — a
+    // single function keeps both sides consistent regardless of locale,
+    // rather than a hardcoded "—" literal at the comparison site.
+    function emptyDash(): string {
+      return i18n.t("common.cell.empty.label");
+    }
+
     function renderLevelsTable(path: PathReport): string {
       const levels = [1, 2, 3, 4, 5].map((n) => getLevel(path, n));
       return `
@@ -631,10 +662,10 @@ export const reportView: ViewModule = {
           <table class="data-table levels">
             <thead>
               <tr>
-                <th>Source</th>
-                <th>Level 1</th><th>Level 2</th><th>Level 3</th><th>Level 4</th>
-                <th>Level 5</th>
-                <th>Path Completion</th>
+                <th>${escapeHtml(i18n.t("report.levelsTable.source.label"))}</th>
+                <th>${escapeHtml(i18n.t("report.levelsTable.level.sentence", ["1"]))}</th><th>${escapeHtml(i18n.t("report.levelsTable.level.sentence", ["2"]))}</th><th>${escapeHtml(i18n.t("report.levelsTable.level.sentence", ["3"]))}</th><th>${escapeHtml(i18n.t("report.levelsTable.level.sentence", ["4"]))}</th>
+                <th>${escapeHtml(i18n.t("report.levelsTable.level.sentence", ["5"]))}</th>
+                <th>${escapeHtml(i18n.t("report.levelsTable.pathCompletion.label"))}</th>
               </tr>
             </thead>
             <tbody>
@@ -659,21 +690,31 @@ export const reportView: ViewModule = {
 
     function basecampCellContent(level: LevelDiff): { content: string; approved: boolean } {
       const approved = !!level.basecamp?.approved;
-      const content = !level.basecamp ? "—" : approved ? APPROVED_CHECK : `${level.basecamp.completed} of ${level.basecamp.total}`;
+      const content = !level.basecamp
+        ? emptyDash()
+        : approved
+          ? approvedCheck()
+          : i18n.t("report.levelsTable.of.sentence", [String(level.basecamp.completed), String(level.basecamp.total)]);
       return { content, approved };
     }
 
     function easyspeakCellContent(level: LevelDiff): string {
-      return !level.easyspeak ? "—" : level.basecamp?.approved === true ? "" : `${level.easyspeak.done} speeches done`;
+      return !level.easyspeak
+        ? emptyDash()
+        : level.basecamp?.approved === true
+          ? ""
+          : i18n.t("report.levelsTable.speechesDone.sentence", [String(level.easyspeak.done)]);
     }
 
     function discrepancyContent(level: LevelDiff): string {
-      if (!level.basecamp || !level.easyspeak || level.basecamp.approved) return "—";
-      return level.discrepancy && level.discrepancy > 0 ? `${level.discrepancy} to report` : "—";
+      if (!level.basecamp || !level.easyspeak || level.basecamp.approved) return emptyDash();
+      return level.discrepancy && level.discrepancy > 0
+        ? i18n.t("report.levelsTable.toReport.sentence", [String(level.discrepancy)])
+        : emptyDash();
     }
 
     function renderBasecampRow(levels: LevelDiff[], pathCompletion: PathReport["pathCompletion"]): string {
-      return `<tr><td>Basecamp</td>${levels.map(basecampCell).join("")}${basecampPathCompletionCell(pathCompletion)}</tr>`;
+      return `<tr><td>${escapeHtml(i18n.t("report.levelsTable.basecamp.label"))}</td>${levels.map(basecampCell).join("")}${basecampPathCompletionCell(pathCompletion)}</tr>`;
     }
 
     function basecampCell(level: LevelDiff): string {
@@ -682,12 +723,12 @@ export const reportView: ViewModule = {
     }
 
     function basecampPathCompletionCell(pathCompletion: PathReport["pathCompletion"]): string {
-      return `<td>${pathCompletion ? `${pathCompletion.completed} of ${pathCompletion.total}` : "—"}</td>`;
+      return `<td>${pathCompletion ? i18n.t("report.levelsTable.of.sentence", [String(pathCompletion.completed), String(pathCompletion.total)]) : emptyDash()}</td>`;
     }
 
     function renderEasyspeakRow(levels: LevelDiff[]): string {
       const [l1, l2, l3, l4, l5] = levels;
-      return `<tr><td>EasySpeak</td>${[l1, l2, l3, l4].map((l) => easyspeakCell(l)).join("")}${easyspeakCell(l5, 2, LEVEL5_NOTE_TITLE)}</tr>`;
+      return `<tr><td>${escapeHtml(i18n.t("report.levelsTable.easyspeak.label"))}</td>${[l1, l2, l3, l4].map((l) => easyspeakCell(l)).join("")}${easyspeakCell(l5, 2, level5NoteTitle())}</tr>`;
     }
 
     function easyspeakCell(level: LevelDiff, colspan?: number, title?: string): string {
@@ -698,7 +739,7 @@ export const reportView: ViewModule = {
 
     function renderDiscrepancyFooterRow(levels: LevelDiff[]): string {
       const [l1, l2, l3, l4, l5] = levels;
-      return `<tr><td>Reporting gap</td>${[l1, l2, l3, l4].map((l) => discrepancyCell(l)).join("")}${discrepancyCell(l5, 2)}</tr>`;
+      return `<tr><td>${escapeHtml(i18n.t("report.levelsTable.reportingGap.label"))}</td>${[l1, l2, l3, l4].map((l) => discrepancyCell(l)).join("")}${discrepancyCell(l5, 2)}</tr>`;
     }
 
     function discrepancyCell(level: LevelDiff, colspan?: number): string {
@@ -718,10 +759,10 @@ export const reportView: ViewModule = {
           const { content: bcContent, approved } = basecampCellContent(level);
           const gap = discrepancyContent(level);
           const esContent = easyspeakCellContent(level);
-          const esCombined = gap !== "—" ? `${esContent} · ${gap}` : esContent;
+          const esCombined = gap !== emptyDash() ? `${esContent} · ${gap}` : esContent;
           return `
             <tr>
-              <td>Level ${n}</td>
+              <td>${escapeHtml(i18n.t("report.levelsTable.level.sentence", [String(n)]))}</td>
               <td${cellAttr(level, approved ? "check-cell" : undefined)}>${bcContent}</td>
               <td${cellAttr(level)}>${esCombined}</td>
             </tr>
@@ -736,22 +777,22 @@ export const reportView: ViewModule = {
       const { content: bc5Content, approved: bc5Approved } = basecampCellContent(level5);
       const gap5 = discrepancyContent(level5);
       const es5Content = easyspeakCellContent(level5);
-      const es5Combined = gap5 !== "—" ? `${es5Content} · ${gap5}` : es5Content;
+      const es5Combined = gap5 !== emptyDash() ? `${es5Content} · ${gap5}` : es5Content;
 
       return `
         <table class="data-table levels-narrow">
           <thead>
-            <tr><th>Level</th><th>Basecamp</th><th>EasySpeak</th></tr>
+            <tr><th>${escapeHtml(i18n.t("report.column.level.label"))}</th><th>${escapeHtml(i18n.t("report.levelsTable.basecamp.label"))}</th><th>${escapeHtml(i18n.t("report.levelsTable.easyspeak.label"))}</th></tr>
           </thead>
           <tbody>
             ${bodyRows}
             <tr>
-              <td>Level 5</td>
+              <td>${escapeHtml(i18n.t("report.levelsTable.level.sentence", ["5"]))}</td>
               <td${cellAttr(level5, bc5Approved ? "check-cell" : undefined)}>${bc5Content}</td>
-              <td${cellAttr(level5)} rowspan="2" title="${escapeAttr(LEVEL5_NOTE_TITLE)}">${es5Combined}</td>
+              <td${cellAttr(level5)} rowspan="2" title="${escapeAttr(level5NoteTitle())}">${es5Combined}</td>
             </tr>
             <tr>
-              <td>Path Completion</td>
+              <td>${escapeHtml(i18n.t("report.levelsTable.pathCompletion.label"))}</td>
               ${basecampPathCompletionCell(path.pathCompletion)}
             </tr>
           </tbody>
@@ -760,16 +801,16 @@ export const reportView: ViewModule = {
     }
 
     function formatReportMeta(basecampScrapedAt: number | undefined, easyspeakScrapedAt: number | undefined): string {
-      if (!basecampScrapedAt) return "Report generated with incomplete data — extract Basecamp data first.";
+      if (!basecampScrapedAt) return i18n.t("report.meta.incomplete.body");
 
       const basecampDate = new Date(basecampScrapedAt).toLocaleDateString();
-      if (!easyspeakScrapedAt) return `Report generated with data extracted from Basecamp the ${basecampDate} — EasySpeak not imported`;
+      if (!easyspeakScrapedAt) return i18n.t("report.meta.basecampOnly.sentence", [basecampDate]);
 
       const easyspeakDate = new Date(easyspeakScrapedAt).toLocaleDateString();
 
       return basecampDate === easyspeakDate
-        ? `Report generated with data extracted from Basecamp & EasySpeak the ${basecampDate}`
-        : `Report generated with data extracted from Basecamp the ${basecampDate} & EasySpeak the ${easyspeakDate}`;
+        ? i18n.t("report.meta.sameDay.sentence", [basecampDate])
+        : i18n.t("report.meta.differentDays.sentence", [basecampDate, easyspeakDate]);
     }
 
     root.querySelector("#summarySearch")!.addEventListener("input", (e) => {

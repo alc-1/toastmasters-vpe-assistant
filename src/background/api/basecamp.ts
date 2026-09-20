@@ -34,7 +34,7 @@ const APPROVALS_URL = `${DASHBOARD_ROOT}/dashboard/bcm-dashboard/approvals`;
 // per-attempt client_id/state/nonce query string.
 const BASECAMP_LOGIN_ORIGIN = "https://login.toastmasters.org";
 const BASECAMP_LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
-const BASECAMP_LOGIN_TIMEOUT_MESSAGE = "Basecamp Toastmasters requires you to log in. Switch to the Basecamp tab, log in, then try again.";
+const BASECAMP_LOGIN_TIMEOUT_MESSAGE = i18n.t("background.basecamp.error.loginTimeout.error");
 // How long to wait, after first seeing the tab "complete" at APPROVALS_URL,
 // for Basecamp's own client-side auth check to possibly redirect it away to
 // BASECAMP_LOGIN_ORIGIN, before trusting that arrival as genuine. Confirmed
@@ -92,13 +92,13 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
   const roles = (await fetchJson(`${API_ROOT}/members/roles`)) as unknown;
 
   if (!Array.isArray(roles)) {
-    throw new Error("Unexpected response from /api/members/roles (not an array).");
+    throw new Error(i18n.t("background.basecamp.error.unexpectedRolesResponse.error"));
   }
 
   const bcmClubs = (roles as BasecampClubRoleEntry[]).filter((club) => (club.roles || []).some((role) => role.is_bcm));
 
   if (bcmClubs.length === 0) {
-    throw new Error("No club with a BCM role found for this account. Are you logged in with the right account?");
+    throw new Error(i18n.t("background.basecamp.error.noBcmRole.error"));
   }
 
   const result: BasecampScrape = {};
@@ -270,7 +270,7 @@ function waitForLoginRedirect(tabId: number, timeoutMs = BASECAMP_LOGIN_TIMEOUT_
 
     function onRemoved(removedTabId: number) {
       if (removedTabId === tabId) {
-        finish(() => reject(new Error("The Basecamp tab was closed before logging in.")));
+        finish(() => reject(new Error(i18n.t("background.basecamp.error.tabClosed.error"))));
       }
     }
 
@@ -311,12 +311,12 @@ async function fetchClubProgressPaginated(uuid: string, onPage?: (fetchedCount: 
     // that loops back on itself (shouldn't happen, but costs little).
     safety += 1;
     if (safety > 200) {
-      throw new Error(`Too many pages for club ${uuid} (>200) — stopping as a safety measure.`);
+      throw new Error(i18n.t("background.basecamp.error.tooManyPages.error", [uuid]));
     }
 
     const data = (await fetchJson(url)) as BasecampProgressPage;
     if (!Array.isArray(data.results)) {
-      throw new Error(`Unexpected response for ${url} (no "results" field).`);
+      throw new Error(i18n.t("background.basecamp.error.unexpectedResultsField.error", [url]));
     }
     members.push(...(data.results as BasecampMember[]).map(stripUnneededUserFields));
     if (onPage) await onPage(members.length, data.count);
@@ -355,12 +355,12 @@ async function fetchClubMemberOverviewPaginated(uuid: string): Promise<BasecampO
   while (url) {
     safety += 1;
     if (safety > 200) {
-      throw new Error(`Too many pages for club ${uuid} member overview (>200) — stopping as a safety measure.`);
+      throw new Error(i18n.t("background.basecamp.error.tooManyOverviewPages.error", [uuid]));
     }
 
     const data = (await fetchJson(url)) as BasecampOverviewPage;
     if (!Array.isArray(data.results)) {
-      throw new Error(`Unexpected response for ${url} (no "results" field).`);
+      throw new Error(i18n.t("background.basecamp.error.unexpectedResultsField.error", [url]));
     }
     members.push(...(data.results as BasecampOverviewMember[]).map(stripOverviewUserFields));
     url = data.next;
@@ -399,14 +399,11 @@ async function fetchJson(url: string, retried = false): Promise<unknown> {
 
   if (res.status === 401 || res.status === 403) {
     if (retried) {
-      throw new Error(
-        `Still not authenticated (${res.status}) on ${url} after logging in. ` +
-          "Make sure you're logging into Basecamp Toastmasters with the right account."
-      );
+      throw new Error(i18n.t("background.basecamp.error.stillNotAuthenticated.error", [String(res.status), url]));
     }
     await waitForBasecampLogin();
     return fetchJson(url, true);
   }
 
-  throw new Error(`${res.status} ${res.statusText} on ${url}`);
+  throw new Error(i18n.t("background.basecamp.error.httpError.error", [String(res.status), res.statusText, url]));
 }

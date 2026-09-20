@@ -99,8 +99,11 @@ async function checkForUpdate(): Promise<void> {
     browser.notifications.create(UPDATE_NOTIFICATION_ID, {
       type: "basic",
       iconUrl: "icons/default/128.png",
-      title: "Update available",
-      message: `Toastmasters VPE Assistant v${latestVersion} is ready — click to view the release.`,
+      title: i18n.t("background.updateChecker.notification.title.label"),
+      message: i18n.t("background.updateChecker.notification.message.sentence", [
+        i18n.t("common.brand.title.label"),
+        latestVersion,
+      ]),
     });
   }
 }

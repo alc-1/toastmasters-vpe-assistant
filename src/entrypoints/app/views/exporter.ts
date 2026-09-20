@@ -21,26 +21,32 @@ import type { ViewModule } from "../../../shared/view";
 
 const EXPORT_TYPES: ExportType[] = ["all", "basecamp", "easyspeak"];
 
-const SHELL_HTML = `
+// A function, not a module-top-level const — every string here goes through
+// i18n.t(), which (unlike shared/i18n-pure.ts's t()) depends on the
+// WXT-auto-imported #i18n global; deferring evaluation to mount() keeps this
+// module import-safe regardless of what might ever import it.
+function shellHtml(): string {
+  return `
   <div class="page-intro">
-    <h1 class="page-title">Download Excel Spreadsheet</h1>
-    <p class="page-intro__desc">Export member and path data to an Excel file.</p>
+    <h1 class="page-title">${escapeHtml(i18n.t("exporter.page.title.title"))}</h1>
+    <p class="page-intro__desc">${escapeHtml(i18n.t("exporter.page.intro.body"))}</p>
   </div>
 
   <div class="card">
-    <div class="card-header"><span class="card-header__title">Choose what to export</span></div>
+    <div class="card-header"><span class="card-header__title">${escapeHtml(i18n.t("exporter.card.chooseExport.title"))}</span></div>
     <div class="card-body">
       <div id="exporterOptionsRoot" class="export-options"></div>
       <p id="exporterAnonymizeNotice" class="help-text" aria-live="polite"></p>
-      <button id="exporterCreateBtn" class="btn btn-primary">Create Spreadsheet</button>
+      <button id="exporterCreateBtn" class="btn btn-primary">${escapeHtml(i18n.t("exporter.action.create.button"))}</button>
       <p id="exporterStatus" class="help-text" aria-live="polite"></p>
     </div>
   </div>
 `;
+}
 
 export const exporterView: ViewModule = {
   async mount(root) {
-    root.innerHTML = SHELL_HTML;
+    root.innerHTML = shellHtml();
 
     // See syncData.ts's mount() for the disposed-guard rationale.
     let disposed = false;
@@ -51,7 +57,7 @@ export const exporterView: ViewModule = {
     const notice = root.querySelector("#exporterAnonymizeNotice")!;
     const createBtn = root.querySelector("#exporterCreateBtn") as HTMLButtonElement;
     const status = root.querySelector("#exporterStatus")!;
-    const idleLabel = createBtn.textContent ?? "Create Spreadsheet";
+    const idleLabel = createBtn.textContent ?? i18n.t("exporter.action.create.button");
 
     function renderOptions() {
       optionsRoot.innerHTML = EXPORT_TYPES.map((type) => {
@@ -78,18 +84,20 @@ export const exporterView: ViewModule = {
     async function refreshNotice() {
       const anonymize = await getAnonymizeMode();
       if (disposed) return;
-      notice.textContent = anonymize ? "Privacy Mode is on — this spreadsheet will use anonymized names." : "";
+      notice.textContent = anonymize ? i18n.t("exporter.notice.privacyModeOn.body") : "";
     }
 
     createBtn.addEventListener("click", async () => {
       createBtn.disabled = true;
-      createBtn.textContent = "Generating…";
+      createBtn.textContent = i18n.t("exporter.action.generating.label");
       status.textContent = "";
       try {
         const summary = await exportToExcel(selected);
-        status.innerHTML = `✓ Downloaded <ins>${escapeHtml(summary.filename)}</ins>`;
+        status.innerHTML = i18n.t("exporter.status.downloaded.sentence", [`<ins>${escapeHtml(summary.filename)}</ins>`]);
       } catch (err) {
-        status.textContent = `Export failed: ${err instanceof Error ? err.message : String(err)}`;
+        status.textContent = i18n.t("exporter.status.exportFailed.error", [
+          err instanceof Error ? err.message : String(err),
+        ]);
       } finally {
         createBtn.disabled = false;
         createBtn.textContent = idleLabel;

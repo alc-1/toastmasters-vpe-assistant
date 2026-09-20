@@ -24,15 +24,17 @@ import { selectVisibleEntries } from "../../../shared/whats-new-filter";
 import type { ChangelogEntry } from "../../../shared/whats-new-types";
 import type { ViewModule } from "../../../shared/view";
 
-const SHELL_HTML = `
+function shellHtml(): string {
+  return `
   <div class="page-intro">
-    <h1 class="page-title">What's New</h1>
-    <p class="page-intro__desc">Notable changes to the extension.</p>
+    <h1 class="page-title">${escapeHtml(i18n.t("whatsNew.page.title.title"))}</h1>
+    <p class="page-intro__desc">${escapeHtml(i18n.t("whatsNew.page.intro.body"))}</p>
   </div>
 
   <div id="whatsNewFromRoot" class="whats-new__from"></div>
   <div id="whatsNewListRoot"></div>
 `;
+}
 
 function renderEntry(entry: ChangelogEntry): string {
   const sections = entry.sections
@@ -49,7 +51,7 @@ function renderEntry(entry: ChangelogEntry): string {
   return `
     <div class="card">
       <div class="card-header whats-new__card-header">
-        <span class="card-header__title">Version ${escapeHtml(entry.version)}</span>
+        <span class="card-header__title">${escapeHtml(i18n.t("whatsNew.entry.version.label", [entry.version]))}</span>
         <span class="whats-new__date">${escapeHtml(entry.date)}</span>
       </div>
       <div class="card-body">${sections}</div>
@@ -60,7 +62,7 @@ function renderEntry(entry: ChangelogEntry): string {
 function renderList(listRoot: Element, entries: ChangelogEntry[]): void {
   listRoot.innerHTML = entries.length
     ? entries.map(renderEntry).join("")
-    : `<p class="help-text">No changelog entries available for this version.</p>`;
+    : `<p class="help-text">${escapeHtml(i18n.t("whatsNew.list.empty.body"))}</p>`;
 }
 
 // `changelog` is newest-first already (see scripts/changelog.ts's
@@ -68,12 +70,14 @@ function renderList(listRoot: Element, entries: ChangelogEntry[]): void {
 // beginning" pinned above it as the empty-value default option.
 function renderFromSelect(fromRoot: Element, changelog: ChangelogEntry[], selected: string | null): HTMLSelectElement {
   const options = [
-    `<option value="">From the beginning</option>`,
-    ...changelog.map((e) => `<option value="${escapeAttr(e.version)}">Since v${escapeHtml(e.version)}</option>`),
+    `<option value="">${escapeHtml(i18n.t("whatsNew.fromSelect.beginning.label"))}</option>`,
+    ...changelog.map(
+      (e) => `<option value="${escapeAttr(e.version)}">${escapeHtml(i18n.t("whatsNew.fromSelect.sinceVersion.label", [e.version]))}</option>`,
+    ),
   ].join("");
 
   fromRoot.innerHTML = `
-    <label class="whats-new__from-label" for="whatsNewFromSelect">Show changes</label>
+    <label class="whats-new__from-label" for="whatsNewFromSelect">${escapeHtml(i18n.t("whatsNew.fromSelect.label.label"))}</label>
     <select id="whatsNewFromSelect" class="select select-sm appearance-none">${options}</select>
   `;
 
@@ -84,7 +88,7 @@ function renderFromSelect(fromRoot: Element, changelog: ChangelogEntry[], select
 
 export const whatsNewView: ViewModule = {
   async mount(root) {
-    root.innerHTML = SHELL_HTML;
+    root.innerHTML = shellHtml();
 
     // See syncData.ts's mount() for the disposed-guard rationale.
     let disposed = false;
