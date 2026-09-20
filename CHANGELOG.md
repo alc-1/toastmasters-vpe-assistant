@@ -8,6 +8,8 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-20
+
 ### Added
 
 - French translation — the extension now shows French automatically when the browser's own language is French.
