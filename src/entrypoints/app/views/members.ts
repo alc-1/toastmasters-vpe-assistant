@@ -469,6 +469,13 @@ export const membersView: ViewModule = {
       const orphaned = member.paths.filter((p) => p.orphaned);
       const flagged = member.paths.filter((p) => p.flagged);
       const completed = member.paths.filter((p) => p.manuallyCompleted || p.confirmedCompleted);
+      // A still-outstanding path issue always wins over any other path this
+      // member already resolved (bound/marked orphan/completed) — otherwise a
+      // member with one resolved path and one separate unreviewed one would
+      // show "Bound"/"Completed" instead of surfacing the real remaining work.
+      if (member.hasOrphanedPaths) {
+        return `<span class="badge badge-soft badge-error">${escapeHtml(i18n.t("members.pathBindCell.pathIssue.label"))}</span>`;
+      }
       if (bound.length > 0 || orphaned.length > 0) {
         const titleParts = [
           ...bound.map((p) => i18n.t("members.pathBindCell.boundPair.sentence", [p.basecampPathName ?? "", p.easyspeakPathLabel ?? ""])),
@@ -495,8 +502,7 @@ export const membersView: ViewModule = {
         );
         return `<span class="badge badge-soft badge-info" title="${escapeAttr(titleParts.join("; "))}">${escapeHtml(i18n.t("members.pathBindCell.completedBadge.label"))}</span>`;
       }
-      if (!member.hasOrphanedPaths) return `<span class="muted-text">${escapeHtml(i18n.t("common.cell.empty.label"))}</span>`;
-      return `<span class="badge badge-soft badge-error">${escapeHtml(i18n.t("members.pathBindCell.pathIssue.label"))}</span>`;
+      return `<span class="muted-text">${escapeHtml(i18n.t("common.cell.empty.label"))}</span>`;
     }
 
     function renderActionsCell(member: MemberReport): string {

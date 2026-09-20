@@ -13,6 +13,10 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 - French translation — the extension now shows French automatically when the browser's own language is French.
 - Language can now be set as English or French from the Global Settings.
 
+### Fixed
+
+- Member Review's "Path bind" now shows "Path issue" for a member until all unresolved EasySpeak paths are handled.
+
 ## [2.1.0] - 2026-09-02
 
 ### Added
