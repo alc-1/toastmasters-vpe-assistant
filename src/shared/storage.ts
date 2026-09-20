@@ -33,6 +33,7 @@ import type {
   EasySpeakScrape,
   EasySpeakServerId,
   IconStatuses,
+  LocalePreference,
   MemberLink,
   MemberOrphan,
   MemberPathCompletion,
@@ -125,6 +126,13 @@ export interface LocalSchema {
   // baseline. Not profile-scoped, same reasoning as updateCheck/anonymizeMode
   // above — which build's notes you've read is unrelated to the active profile.
   lastViewedVersion: string;
+  // Global Settings' "Interface Language" card (shared/settings-store.ts's
+  // getPreferredLocale()/setPreferredLocale(), shared/i18n-override.ts).
+  // Not profile-scoped, same reasoning as anonymizeMode above: a display
+  // preference, not "data" — it must survive switching profiles. Absent
+  // (undefined) means "system" (defer to the browser's own UI language),
+  // the pre-existing default behavior.
+  preferredLocale: LocalePreference;
 }
 
 export interface SessionSchema {

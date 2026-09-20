@@ -57,12 +57,17 @@
 // guaranteed compatibility everywhere; a typo here only surfaces at runtime
 // (a console.warn, same as createI18n()'s own missing-key behavior) or via
 // the Vitest assertions already covering these 5 modules' output.
+//
+// resolveMessage() (the locale-parameterized core, with t() a thin
+// auto-detecting wrapper around it) is also reused by shared/i18n-override.ts
+// to serve an explicit user-picked locale (Global Settings' "Interface
+// Language" card) instead of only ever auto-detecting one — see that file.
 
 import enMessages from "../locales/generated/en.pure-generated.json";
 import frMessages from "../locales/generated/fr.pure-generated.json";
+import type { SupportedLocale } from "./types";
 
 type ChromeMessage = { message: string };
-type SupportedLocale = "en" | "fr";
 
 const DEFAULT_LOCALE: SupportedLocale = "en";
 
@@ -105,14 +110,17 @@ function isNamedSubstitutions(value: unknown): value is Record<string, string | 
 }
 
 /**
- * PURE. Mirrors @wxt-dev/i18n's createI18n().t() call shape:
- *   t("some.key")
- *   t("some.count.key", count)                 // pluralized, numeric-keyed in en.yml
- *   t("some.key", ["substituted value"])        // positional $1/$2/...
- *   t("some.key", { name: "Ada" })              // named {name}
- *   t("some.count.key", count, ["extra"])       // plural + positional together
+ * PURE. Mirrors @wxt-dev/i18n's createI18n().t() call shape, against an
+ * explicit locale rather than auto-detecting one — see t() below for the
+ * auto-detecting wrapper most callers want instead:
+ *   resolveMessage("fr", "some.key")
+ *   resolveMessage("fr", "some.count.key", count)            // pluralized, numeric-keyed in en.yml
+ *   resolveMessage("fr", "some.key", ["substituted value"])  // positional $1/$2/...
+ *   resolveMessage("fr", "some.key", { name: "Ada" })        // named {name}
+ *   resolveMessage("fr", "some.count.key", count, ["extra"]) // plural + positional together
  */
-export function t(
+export function resolveMessage(
+  locale: SupportedLocale,
   key: string,
   ...args: Array<number | string[] | Record<string, string | number> | undefined>
 ): string {
@@ -136,7 +144,6 @@ export function t(
 
   if (count != null && sub == null) sub = [String(count)];
 
-  const locale = resolveLocale();
   const dictKey = key.replaceAll(".", "_");
   // Falls back to the default locale for a key missing from a non-default
   // one — mirrors native browser.i18n.getMessage()'s own default_locale
@@ -168,4 +175,12 @@ export function t(
 
   if (sub?.length) message = applyPositionalSubstitutions(message, sub);
   return namedSub == null ? message : applyNamedSubstitutions(message, namedSub);
+}
+
+/** Auto-detecting wrapper around resolveMessage() — see its own doc comment for the call shapes. */
+export function t(
+  key: string,
+  ...args: Array<number | string[] | Record<string, string | number> | undefined>
+): string {
+  return resolveMessage(resolveLocale(), key, ...args);
 }

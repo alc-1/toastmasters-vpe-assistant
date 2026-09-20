@@ -11,6 +11,7 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 ### Added
 
 - French translation — the extension now shows French automatically when the browser's own language is French.
+- Language can now be set as English or French from the Global Settings.
 
 ## [2.1.0] - 2026-09-02
 

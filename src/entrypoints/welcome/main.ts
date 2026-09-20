@@ -8,8 +8,10 @@
 // second one.
 
 import { applyI18n } from "../../shared/i18n-dom";
+import { initLocaleOverride } from "../../shared/i18n-override";
 import { appRouteUrl } from "../../shared/pages";
 
+await initLocaleOverride();
 applyI18n();
 
 document.getElementById("pinMockup")!.innerHTML = renderPinMockup();

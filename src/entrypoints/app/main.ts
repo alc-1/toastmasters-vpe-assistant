@@ -9,6 +9,7 @@
 
 import { renderAppFooter, renderAppShell, renderStepFooter, type AppShellPage, type StepperInfo } from "../../shared/app-shell";
 import { escapeHtml } from "../../shared/dom-utils";
+import { initLocaleOverride } from "../../shared/i18n-override";
 import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
 import { formatProfileLabel, getActiveProfile, getAnonymizeMode, setAnonymizeMode } from "../../shared/settings-store";
 import { computeStepperInfo, markSetupComplete, markStepVisited } from "../../shared/stepper-info";
@@ -265,6 +266,13 @@ browser.storage.onChanged.addListener((changes, area) => {
   // route resolution re-run.
   if (area === "session" && currentRoute) void renderSelfUpdateBanner();
 });
+
+// Awaited before the first render so routeTitle()/renderChrome()'s i18n.t()
+// calls (and every mounted view's own) already reflect a picked language
+// override — see shared/i18n-override.ts. Also registers this context's own
+// storage.onChanged listener for keeping that preference fresh, which must
+// be in place before any view mounts and adds its own listener below.
+await initLocaleOverride();
 
 window.addEventListener("hashchange", () => navigate(location.hash));
 navigate(location.hash);

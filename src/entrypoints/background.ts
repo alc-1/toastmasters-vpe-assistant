@@ -55,10 +55,19 @@
 
 import { registerMessageHandlers } from "../background/messaging";
 import { registerSelfUpdateWatcher } from "../background/self-update";
+import { initLocaleOverride } from "../shared/i18n-override";
 import { PAGES, pageUrl } from "../shared/pages";
 import { getLastViewedVersion, markVersionViewed } from "../shared/whats-new-badge";
 
 export default defineBackground(() => {
+  // Fire-and-forget: registerMessageHandlers() below must stay synchronous so
+  // no message is ever missed on a cold service-worker wake — see that
+  // function's own bullet in CLAUDE.md. Worst case, a message handled in the
+  // sub-millisecond window before this resolves gets a background-authored
+  // error string in the browser's language rather than the picked-override
+  // one; negligible and self-corrects on the very next message.
+  void initLocaleOverride();
+
   browser.runtime.onInstalled.addListener(async (details) => {
     console.log("[Toastmasters VPE Assistant] Extension installed.");
     if (details.reason === "install") {

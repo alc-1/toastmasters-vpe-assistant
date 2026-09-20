@@ -254,6 +254,20 @@ globalSettings:
       title: "Paramètres généraux"
     intro:
       body: "Préférences qui s'appliquent à toute l'extension, pas seulement à une étape de l'assistant."
+  locale:
+    card:
+      title: "Langue de l'interface"
+    help:
+      body: "Contrôle la langue d'affichage de l'extension. Par défaut, celle de votre navigateur."
+    select:
+      ariaLabel: "Langue de l'interface"
+    option:
+      system:
+        label: "Automatique (langue du navigateur)"
+      en:
+        label: "English"
+      fr:
+        label: "Français"
   anonymize:
     card:
       title: "Mode confidentialité"

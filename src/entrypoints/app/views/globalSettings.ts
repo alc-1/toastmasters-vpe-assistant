@@ -4,17 +4,26 @@
 // shared/app-shell.ts's AppShellPage), so this view renders no step-footer
 // content itself (the shell already renders an empty #stepFooter for the
 // "globalSettings" route — see entrypoints/app/main.ts). Hosts cross-cutting
-// preferences: the Anonymize Mode toggle (shared/settings-store.ts's
+// preferences: the Interface Language card (shared/settings-store.ts's
+// getPreferredLocale()/setPreferredLocale(), shared/i18n-override.ts — see
+// that file for how "en"/"fr" actually override native WebExtension i18n at
+// runtime), the Anonymize Mode toggle (shared/settings-store.ts's
 // getAnonymizeMode()/setAnonymizeMode()), and the path-name lookup table
 // (moved here from Club Review — a global alias table, not a per-scrape
 // reconciliation concern, and isn't name-based so it stays usable
 // regardless of Anonymize Mode).
 
-import { getAnonymizeMode, setAnonymizeMode } from "../../../shared/settings-store";
+import { getAnonymizeMode, getPreferredLocale, setAnonymizeMode, setPreferredLocale } from "../../../shared/settings-store";
 import { getPathLookup, setPathAliases, deletePathCanonical } from "../../../shared/resolution-store";
 import { escapeAttr, escapeHtml } from "../../../shared/dom-utils";
-import type { PathLookup } from "../../../shared/types";
+import type { LocalePreference, PathLookup } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
+
+const LOCALE_OPTIONS: LocalePreference[] = ["system", "en", "fr"];
+
+function localeOptionLabel(locale: LocalePreference): string {
+  return i18n.t(`globalSettings.locale.option.${locale}.label`);
+}
 
 function shellHtml(): string {
   return `
@@ -22,6 +31,8 @@ function shellHtml(): string {
     <h1 class="page-title">${escapeHtml(i18n.t("globalSettings.page.title.title"))}</h1>
     <p class="page-intro__desc">${escapeHtml(i18n.t("globalSettings.page.intro.body"))}</p>
   </div>
+
+  <div id="localeSectionRoot"></div>
 
   <div id="anonymizeSectionRoot"></div>
 
@@ -36,6 +47,27 @@ export const globalSettingsView: ViewModule = {
     // Set true by the disposer — see syncData.ts's mount() for the full
     // writeup of why an in-flight async refresh needs this guard.
     let disposed = false;
+
+    function renderLocaleCard(preferredLocale: LocalePreference) {
+      const sectionRoot = root.querySelector("#localeSectionRoot")!;
+      const options = LOCALE_OPTIONS.map(
+        (locale) =>
+          `<option value="${escapeAttr(locale)}"${locale === preferredLocale ? " selected" : ""}>${escapeHtml(localeOptionLabel(locale))}</option>`,
+      ).join("");
+      sectionRoot.innerHTML = `
+        <div class="card">
+          <div class="card-header"><span class="card-header__title">${escapeHtml(i18n.t("globalSettings.locale.card.title"))}</span></div>
+          <div class="card-body">
+            <p class="help-text">${escapeHtml(i18n.t("globalSettings.locale.help.body"))}</p>
+            <select id="localeSelect" class="select select-sm appearance-none" aria-label="${escapeAttr(i18n.t("globalSettings.locale.select.ariaLabel"))}">${options}</select>
+          </div>
+        </div>
+      `;
+
+      root.querySelector("#localeSelect")!.addEventListener("change", async (e) => {
+        await setPreferredLocale((e.target as HTMLSelectElement).value as LocalePreference);
+      });
+    }
 
     function renderAnonymizeCard(anonymize: boolean) {
       const sectionRoot = root.querySelector("#anonymizeSectionRoot")!;
@@ -149,8 +181,9 @@ export const globalSettingsView: ViewModule = {
     }
 
     async function init() {
-      const anonymize = await getAnonymizeMode();
+      const [preferredLocale, anonymize] = await Promise.all([getPreferredLocale(), getAnonymizeMode()]);
       if (disposed) return;
+      renderLocaleCard(preferredLocale);
       renderAnonymizeCard(anonymize);
       await refreshPathLookup();
     }

@@ -14,12 +14,17 @@
 import { renderVerticalStepper } from "../../shared/app-shell";
 import { escapeHtml } from "../../shared/dom-utils";
 import { applyI18n } from "../../shared/i18n-dom";
+import { initLocaleOverride } from "../../shared/i18n-override";
 import { appRouteUrl, whatsNewUrl } from "../../shared/pages";
 import { sendMessage } from "../../shared/send-message";
 import { applyPendingSelfUpdate, getPendingSelfUpdate, maybeNudgeUpdateCheck } from "../../shared/self-update-store";
 import { computeStepperInfo } from "../../shared/stepper-info";
 import { dismissUpdate, getDismissedUpdateVersion, getUpdateCheck, openUpdateRelease } from "../../shared/update-store";
 
+// Awaited before applyI18n()/init() so a picked language override
+// (Global Settings, shared/i18n-override.ts) is already in effect the first
+// time this fresh-per-open popup renders any text.
+await initLocaleOverride();
 applyI18n();
 
 const stepperRoot = document.getElementById("popupStepperRoot")!;

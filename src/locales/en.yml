@@ -245,6 +245,20 @@ globalSettings:
       title: "Global Settings"
     intro:
       body: "Preferences that apply across the whole extension, not just one step of the wizard."
+  locale:
+    card:
+      title: "Interface Language"
+    help:
+      body: "Controls the language the extension displays in. Defaults to your browser's own language."
+    select:
+      ariaLabel: "Interface language"
+    option:
+      system:
+        label: "Automatic (browser language)"
+      en:
+        label: "English"
+      fr:
+        label: "Français"
   anonymize:
     card:
       title: "Privacy Mode"

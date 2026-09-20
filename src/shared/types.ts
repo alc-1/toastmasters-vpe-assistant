@@ -443,6 +443,22 @@ export interface EasySpeakServer {
  */
 export type ProfileId = "demo" | EasySpeakServerId;
 
+/**
+ * A locale this extension ships translations for (src/locales/<lang>.yml) —
+ * see shared/i18n-pure.ts/shared/i18n-override.ts.
+ */
+export type SupportedLocale = "en" | "fr";
+
+/**
+ * The Global Settings "Interface Language" preference (entrypoints/app/views/
+ * globalSettings.ts) — "system" defers to the browser's own UI language via
+ * native WebExtension i18n (the pre-existing, still-default behavior);
+ * picking a SupportedLocale explicitly overrides it via
+ * shared/i18n-override.ts, which native browser.i18n.getMessage() has no API
+ * to do on its own.
+ */
+export type LocalePreference = "system" | SupportedLocale;
+
 export type SourceKey = "basecamp" | "easyspeak" | "clubcentral";
 export type SourceStatus = "idle" | "loading" | "success" | "error";
 export type IconStatuses = Record<SourceKey, SourceStatus>;

@@ -17,7 +17,7 @@
 
 import { t } from "./i18n-pure";
 import { local } from "./storage";
-import type { EasySpeakServer, EasySpeakServerId, ProfileId } from "./types";
+import type { EasySpeakServer, EasySpeakServerId, LocalePreference, ProfileId } from "./types";
 
 // Uses the local, browser-free t() (shared/i18n-pure.ts), not the ambient
 // i18n.t() global — this array is a module-top-level const, and
@@ -125,4 +125,19 @@ export async function getAnonymizeMode(): Promise<boolean> {
 
 export async function setAnonymizeMode(value: boolean): Promise<void> {
   await local.set({ anonymizeMode: value });
+}
+
+/**
+ * Global Settings' "Interface Language" preference — see shared/types.ts's
+ * LocalePreference and shared/i18n-override.ts for how "en"/"fr" actually
+ * override the extension's display language at runtime. Defaults to
+ * "system" (defer to the browser's own UI language), the pre-existing
+ * behavior. Not profile-scoped, same reasoning as anonymizeMode above.
+ */
+export async function getPreferredLocale(): Promise<LocalePreference> {
+  return (await local.value("preferredLocale")) ?? "system";
+}
+
+export async function setPreferredLocale(value: LocalePreference): Promise<void> {
+  await local.set({ preferredLocale: value });
 }
