@@ -21,7 +21,7 @@
 import { local } from "../../shared/storage";
 import { pageUrl } from "../../shared/pages";
 import { resolveActiveProfile } from "../../shared/settings-store";
-import { MOCK_BASECAMP_DATA } from "../../shared/mock/mockData";
+import { MOCK_BASECAMP_DATA, MOCK_BASECAMP_PENDING_LEVEL_REQUESTS } from "../../shared/mock/mockData";
 import { setScrapeProgress } from "../scrape-progress";
 import type {
   BasecampMember,
@@ -110,11 +110,15 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
     // every options page behave identically regardless of data origin. No
     // demo member-overview data exists yet, so this is an empty map — every
     // demo path falls back to the manual "Mark as completed" flag instead.
+    // basecampPendingLevelRequests is the demo's one pending approval
+    // (mockData.ts's MOCK_BASECAMP_PENDING_LEVEL_REQUESTS) rather than an
+    // empty array, so the Level Approval Helper has something to show out of
+    // the box.
     await local.setForProfile(profileId, {
       basecampData: MOCK_BASECAMP_DATA,
       basecampScrapedAt: Date.now(),
       basecampCompletedPaths: {},
-      basecampPendingLevelRequests: [],
+      basecampPendingLevelRequests: MOCK_BASECAMP_PENDING_LEVEL_REQUESTS,
     });
     return MOCK_BASECAMP_DATA;
   }

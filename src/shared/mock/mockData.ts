@@ -11,7 +11,7 @@
 // scrape, so nothing here is UI-aware.
 //
 // Fully fabricated: no real names, emails, or club data. One club-sized
-// roster (12 members per side, 15 distinct name strings across both) so the
+// roster (13 members per side, 16 distinct name strings across both) so the
 // demo feels like a real club rather than a handful of toy rows. Each member
 // below is deliberately built to hit one specific case worth showing off in
 // the Comparison Report / Members review UI — see the per-member comments.
@@ -21,7 +21,7 @@
 // meant to read as "could plausibly be the same person" to a human skimming
 // the unmatched list.
 
-import type { BasecampScrape, ClubCentralScrape, EasySpeakScrape } from "../types";
+import type { BasecampPendingLevelRequest, BasecampScrape, ClubCentralScrape, EasySpeakScrape } from "../types";
 
 const CLUB_NAME = "Metro Toastmasters";
 const BASECAMP_CLUB_UUID = "11111111-1111-1111-1111-111111111111";
@@ -199,13 +199,44 @@ export const MOCK_BASECAMP_DATA: BasecampScrape = {
         // Exact match. Basecamp says 2 more Level 2 speeches are needed
         // ("To next level" > 0), but EasySpeak (see below) shows all 4
         // already done -> the unreported speeches fully cover what's
-        // missing on paper, so the *real* remaining count is 0.
+        // missing on paper, so the *real* remaining count is 0, unlike Owen
+        // Fitzgerald above. Deliberately NOT given a pending Basecamp
+        // approval request: those speeches are only reported in EasySpeak,
+        // not yet logged in Basecamp at all, so there's nothing there for
+        // her to have submitted for approval yet — see Derek Simmons below
+        // for the demo member who actually has one.
         user: { id: 2012, name: "Priya Chandrasekaran" },
         path_name: "Presentation Mastery",
         progression: {
           "Level 1": { completed: 2, total: 2, approved: true },
           "Level 2": { completed: 2, total: 4, approved: false },
           "Level 3": { completed: 0, total: 4, approved: false },
+          "Level 4": { completed: 0, total: 4, approved: false },
+          "Level 5": { completed: 0, total: 2, approved: false },
+          "Path Completion": { completed: 0, total: 1 },
+        },
+      },
+      {
+        // Exact match, all speeches for Level 3 fully logged AND approved-
+        // pending in Basecamp itself (completed === total on both sides, no
+        // "unreported speeches" gimmick like Priya/Owen above) -> working
+        // level 3, realMissing 0 -> isMemberReadyForNextLevel() flags him in
+        // Club Progress's "Ready to Level Up" KPI. He's also the demo's one
+        // pending Basecamp "Level" approval request
+        // (MOCK_BASECAMP_PENDING_LEVEL_REQUESTS below), for that same Level
+        // 3 completion -> the Home dashboard's Level Approval Helper tile
+        // shows a "1 pending approval" attention badge. The two features
+        // point at the same person and the same, realistic story: he
+        // finished and reported all of Level 3's speeches, submitted the
+        // level for approval, and it's now sitting in Basecamp Manager
+        // waiting on the BCM — unlike Priya/Owen, there's no reporting gap
+        // left to flag.
+        user: { id: 2013, name: "Derek Simmons" },
+        path_name: "Engaging Humor",
+        progression: {
+          "Level 1": { completed: 2, total: 2, approved: true },
+          "Level 2": { completed: 2, total: 2, approved: true },
+          "Level 3": { completed: 4, total: 4, approved: false },
           "Level 4": { completed: 0, total: 4, approved: false },
           "Level 5": { completed: 0, total: 2, approved: false },
           "Path Completion": { completed: 0, total: 1 },
@@ -371,6 +402,21 @@ export const MOCK_EASYSPEAK_DATA: EasySpeakScrape = {
           { level: 5, needed: 2, done: 0 },
         ],
       },
+      {
+        // Exact match, mirrors the Basecamp side exactly (done === completed
+        // at every level, no reporting gap) — see the fuller comment on the
+        // Basecamp side above.
+        memberId: "3013",
+        name: "Derek Simmons",
+        path: "Engaging Humor",
+        levels: [
+          { level: 1, needed: 2, done: 2 },
+          { level: 2, needed: 2, done: 2 },
+          { level: 3, needed: 4, done: 4 },
+          { level: 4, needed: 4, done: 0 },
+          { level: 5, needed: 2, done: 0 },
+        ],
+      },
     ],
   },
 };
@@ -396,9 +442,33 @@ export const MOCK_CLUBCENTRAL_DATA: ClubCentralScrape = {
       { name: "Nathaniel Brooks", memberNumber: "PN-00000009", crmId: "aaaa0009-0000-0000-0000-000000000009", pathwaysEnrolled: false, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
       { name: "Owen Fitzgerald", memberNumber: "PN-00000011", crmId: "aaaa0011-0000-0000-0000-000000000011", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
       { name: "Priya Chandrasekaran", memberNumber: "PN-00000012", crmId: "aaaa0012-0000-0000-0000-000000000012", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
+      { name: "Derek Simmons", memberNumber: "PN-00000015", crmId: "aaaa0015-0000-0000-0000-000000000015", pathwaysEnrolled: true, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
       { name: "Tobias Lindqvist", memberNumber: "PN-00000013", crmId: "aaaa0013-0000-0000-0000-000000000013", pathwaysEnrolled: false, paymentStatus: "Paid", paidUntil: "September 30, 2026", position: "" },
       { name: "Rachel Osei", memberNumber: "PN-00000014", crmId: "aaaa0014-0000-0000-0000-000000000014", pathwaysEnrolled: false, paymentStatus: "Paid", paidUntil: "March 31, 2027", position: "Treasurer" },
       { name: "Dmitri Volkov", memberNumber: null, crmId: null, pathwaysEnrolled: false, paymentStatus: "Membership Pending", paidUntil: null, position: "" },
     ],
   },
 };
+
+// The demo's one pending Basecamp "Level" approval request — Derek Simmons
+// (see the matching comment on his Basecamp/EasySpeak entries above), the
+// same member Club Progress's "Ready to Level Up" KPI already flags via
+// isMemberReadyForNextLevel(), so the Home dashboard's Level Approval Helper
+// attention badge and Club Progress's own "ready" badge point at the same,
+// realistic story: he actually logged all of Level 3's speeches in Basecamp
+// and submitted the level for approval, which is now waiting on the BCM in
+// Basecamp Manager. Deliberately not Priya/Owen above — their "ready"
+// status only comes from speeches reported in EasySpeak but not yet even
+// logged in Basecamp, so neither of them could have a pending Basecamp
+// approval request at all.
+export const MOCK_BASECAMP_PENDING_LEVEL_REQUESTS: BasecampPendingLevelRequest[] = [
+  {
+    usageKey: "demo-usage-key-derek-level-3",
+    requesterName: "Derek Simmons",
+    courseDisplayName: "Engaging Humor",
+    blockDisplayName: "Level 3",
+    levelNumber: 3,
+    created: "2026-09-25T14:32:00Z",
+    modified: "2026-09-25T14:32:00Z",
+  },
+];
