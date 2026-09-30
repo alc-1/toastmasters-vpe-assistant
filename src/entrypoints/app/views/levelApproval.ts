@@ -7,6 +7,13 @@
 // unlike onboarding.ts this renders one flat table rather than per-club
 // cards — oldest request first, since that's the one that's waited longest.
 //
+// Read-only, on purpose: there's no Basecamp API to actually approve/reject
+// a request, only to list them, so approving still requires the officer to
+// act directly in Basecamp Manager's own Approvals page — the persistent
+// notice below (shown regardless of whether anything is pending) links
+// straight there rather than leaving that as a thing the user has to know
+// or go find themselves.
+//
 // Reached from the Home dashboard's feature grid (#levelApproval). Gated by
 // entrypoints/app/router.ts the same way #report/#exporter are (redirected
 // to the dashboard until Basecamp data is imported) — unlike #onboarding,
@@ -16,11 +23,21 @@
 // and syncData.ts's mount() for the disposed-guard rationale.
 
 import { anonymizePendingLevelRequests } from "../../../shared/anonymize";
-import { escapeHtml } from "../../../shared/dom-utils";
+import { escapeAttr, escapeHtml, ideaBulbIconHtml } from "../../../shared/dom-utils";
 import { getAnonymizeMode } from "../../../shared/settings-store";
 import { local } from "../../../shared/storage";
 import type { BasecampPendingLevelRequest } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
+
+// The Basecamp Manager page where a BCM actually approves/rejects a level
+// request — this extension has no way to do that itself (see the header
+// comment above). Mirrors background/api/basecamp.ts's own APPROVALS_URL
+// constant, used there for the tab-navigation login flow; duplicated rather
+// than imported since shared/** and views should never depend on
+// background/** (see CLAUDE.md's layering rule) and this is a single, plain
+// literal, not any of that module's actual navigation logic. Keep both in
+// sync if Basecamp ever moves this page.
+const BASECAMP_APPROVALS_URL = "https://apps.basecamp.toastmasters.org/dashboard/bcm-dashboard/approvals";
 
 function shellHtml(): string {
   return `
@@ -29,6 +46,15 @@ function shellHtml(): string {
     <p class="page-intro__desc">
       ${escapeHtml(i18n.t("levelApproval.page.intro.body"))}
     </p>
+  </div>
+  <div role="alert" class="alert alert-info alert-soft mb-4 text-base">
+    ${ideaBulbIconHtml(i18n.t("levelApproval.notice.approveInBasecamp.tooltip"))}
+    <div class="flex flex-col items-start gap-2">
+      <div>${escapeHtml(i18n.t("levelApproval.notice.approveInBasecamp.body"))}</div>
+      <a href="${escapeAttr(BASECAMP_APPROVALS_URL)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+        ${escapeHtml(i18n.t("levelApproval.action.openBasecampApprovals.button"))}
+      </a>
+    </div>
   </div>
   <p id="levelApprovalAnonymizeNotice" class="help-text" aria-live="polite"></p>
   <div id="levelApprovalRoot"></div>

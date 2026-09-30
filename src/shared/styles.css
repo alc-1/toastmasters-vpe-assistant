@@ -2537,6 +2537,16 @@
     display: block;
   }
 
+  .idea-bulb-icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .idea-bulb-icon svg {
+    display: block;
+  }
+
   /* The conflict / one-sided-club banners are daisyUI `alert alert-warning
      alert-soft` (or `alert-info`) in markup — links inside get the app's
      bold-underline treatment so they read as actions, not banner text. */

@@ -49,6 +49,22 @@ export function approvedCheckIconHtml(title: string): string {
   `;
 }
 
+// An "idea bulb" used to mark a plain informational alert-info banner (e.g.
+// levelApproval.ts's read-only notice) — a lightbulb reads as "here's a
+// useful thing to know" rather than approvedCheckIconHtml's "this succeeded"
+// checkmark, which those banners were only reusing for lack of a dedicated
+// info glyph. stroke="currentColor" (like documentIconHtml above, unlike
+// approvedCheckIconHtml's fixed green fill) so it automatically tints with
+// whatever text color the containing `alert-info` already sets, with no
+// extra CSS override needed per caller.
+export function ideaBulbIconHtml(title: string): string {
+  return `
+    <span class="idea-bulb-icon" role="img" aria-label="${escapeAttr(title)}" title="${escapeAttr(title)}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.5 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
+    </span>
+  `;
+}
+
 // Club tabs (report.ts and members.ts) show a shortened name — every club
 // here is a Toastmasters club, so the words "Toastmasters"/"Club" are
 // implied and just eat horizontal space in an already-tight tab strip.

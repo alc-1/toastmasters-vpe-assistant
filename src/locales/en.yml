@@ -273,6 +273,12 @@ levelApproval:
   notice:
     privacyModeOn:
       body: "Privacy Mode is on — requester names are anonymized."
+    approveInBasecamp:
+      tooltip: "This list is read-only"
+      body: "This list is read-only. To approve or reject a request, you must do it directly in Basecamp Manager."
+  action:
+    openBasecampApprovals:
+      button: "Open Base Camp Manager ↗"
 
 globalSettings:
   page:
