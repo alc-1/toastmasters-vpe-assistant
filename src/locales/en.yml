@@ -331,6 +331,30 @@ globalSettings:
     emptyState:
       noAliases:
         body: "No path aliases configured."
+  backup:
+    card:
+      title: "Save or Restore Club Settings"
+    help:
+      body: "Save a backup file of your member links or restore a saved file."
+    action:
+      saveFile:
+        button: "Save File"
+        tooltip: "Downloads a .json file"
+      loadFile:
+        button: "Load File"
+        tooltip: "Choose a .json backup file"
+    saved:
+      body: "Backup file saved."
+    saveFailed:
+      error: "Could not save backup: $1"
+    restored:
+      body: "Backup restored."
+    restoreFailed:
+      error: "Restore failed: $1"
+    confirmModal:
+      title: "Replace all current data?"
+      body: "Loading this backup file will overwrite your current profiles, imported data, matches, and settings. This can't be undone."
+      confirmLabel: "Load Backup"
 
 setup:
   page:
@@ -615,31 +639,9 @@ dashboard:
     exporter:
       description: "Export member progress and path history to an Excel workbook."
       cta: "Create Spreadsheet →"
-    backup:
-      title: "Save or Restore Club Settings"
-      description: "Save a backup file of your member links or restore a saved file."
   action:
-    saveFile:
-      button: "Save File"
-      tooltip: "Downloads a .json file"
-    loadFile:
-      button: "Load File"
-      tooltip: "Choose a .json backup file"
     lockDefault:
       label: "Requires imported data"
-  backup:
-    saved:
-      body: "Backup file saved."
-    saveFailed:
-      error: "Could not save backup: $1"
-    restored:
-      body: "Backup restored."
-    restoreFailed:
-      error: "Restore failed: $1"
-    confirmModal:
-      title: "Replace all current data?"
-      body: "Loading this backup file will overwrite your current profiles, imported data, matches, and settings. This can't be undone."
-      confirmLabel: "Load Backup"
 
 report:
   page:

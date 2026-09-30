@@ -340,6 +340,30 @@ globalSettings:
     emptyState:
       noAliases:
         body: "Aucun alias de parcours configuré."
+  backup:
+    card:
+      title: "Sauvegarde & restauration des données"
+    help:
+      body: "Enregistrez un fichier de sauvegarde de vos associations de membres pour les restaurer en cas de besoin."
+    action:
+      saveFile:
+        button: "Faire une sauvegarde"
+        tooltip: "Télécharge un fichier .json"
+      loadFile:
+        button: "Restaurer les données"
+        tooltip: "Choisissez un fichier de sauvegarde .json"
+    saved:
+      body: "Fichier de sauvegarde enregistré."
+    saveFailed:
+      error: "Impossible d'enregistrer la sauvegarde : $1"
+    restored:
+      body: "Sauvegarde restaurée."
+    restoreFailed:
+      error: "Échec de la restauration : $1"
+    confirmModal:
+      title: "Remplacer toutes les données actuelles ?"
+      body: "Le chargement de ce fichier de sauvegarde écrasera vos profils actuels, les données importées, les correspondances et les paramètres. Cette action est irréversible."
+      confirmLabel: "Charger la sauvegarde"
 
 setup:
   page:
@@ -624,31 +648,9 @@ dashboard:
     exporter:
       description: "Exportez la progression des membres et l'historique des parcours vers un fichier Excel."
       cta: "Créer la feuille de calcul →"
-    backup:
-      title: "Sauvegarde & restauration des données"
-      description: "Enregistrez un fichier de sauvegarde de vos associations de membres pour les restaurer en cas de besoin."
   action:
-    saveFile:
-      button: "Faire une sauvegarde"
-      tooltip: "Télécharge un fichier .json"
-    loadFile:
-      button: "Restaurer les données"
-      tooltip: "Choisissez un fichier de sauvegarde .json"
     lockDefault:
       label: "Nécessite des données importées"
-  backup:
-    saved:
-      body: "Fichier de sauvegarde enregistré."
-    saveFailed:
-      error: "Impossible d'enregistrer la sauvegarde : $1"
-    restored:
-      body: "Sauvegarde restaurée."
-    restoreFailed:
-      error: "Échec de la restauration : $1"
-    confirmModal:
-      title: "Remplacer toutes les données actuelles ?"
-      body: "Le chargement de ce fichier de sauvegarde écrasera vos profils actuels, les données importées, les correspondances et les paramètres. Cette action est irréversible."
-      confirmLabel: "Charger la sauvegarde"
 
 report:
   page:

@@ -12,6 +12,10 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 - Level Approval Helper — a quick view on Basecamp's pending Pathways level-completion approval requests.
 
+### Changed
+
+- "Save or Restore Club Settings" moved from the Home dashboard to the Settings pages.
+
 ## [2.2.0] - 2026-09-20
 
 ### Added

@@ -4,11 +4,13 @@
 // resolves an empty/unknown hash here) and its hub: a "Club Data Status" hero
 // banner tracking the four setup steps (its badge + CTA adapt to how far the
 // user has got — see renderBanner()), and a two-column grid of feature tiles
-// (the Pathways Onboarding Helper, Club Progress, the standalone Excel
-// Exporter, and Save/Restore backup, in that order).
+// (the Pathways Onboarding Helper, the Level Approval Helper, Club Progress,
+// and the standalone Excel Exporter, in that order).
 //
 // Privacy Mode and the active-profile chip live in the shared header now
 // (shared/app-shell.ts, wired by entrypoints/app/main.ts) — not on this view.
+// Save/Restore backup lives on the Global Settings view now (#globalSettings)
+// — not one of this hub's feature tiles.
 //
 // Standalone, not a wizard step: entrypoints/app/main.ts renders this route
 // with showStepper:false (header only, no horizontal stepper) and no step
@@ -24,8 +26,6 @@ import {
   type SetupBannerState,
   type SetupPipelineState,
 } from "../../../shared/stepper-info";
-import { downloadBackup, parseBackup, restoreBackup } from "../../../shared/backup";
-import { confirmModal } from "../../../shared/modal";
 import { escapeAttr, escapeHtml } from "../../../shared/dom-utils";
 import { formatProfileLabel, getActiveProfile } from "../../../shared/settings-store";
 import { loadResolutionData } from "../../../shared/resolution-store";
@@ -90,7 +90,6 @@ function tileIcon(paths: string): string {
 const ICON_PROGRESS = tileIcon('<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>');
 const ICON_SPREADSHEET = tileIcon('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>');
 const ICON_APPROVAL = tileIcon('<path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M9 2h6v4H9z"/><path d="M9 14l2 2 4-4"/>');
-const ICON_BACKUP = tileIcon('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h7"/>');
 const ICON_LEVEL_APPROVAL = tileIcon('<circle cx="12" cy="8" r="5"/><path d="M8.5 12.5 7 21l5-3 5 3-1.5-8.5"/>');
 
 interface FeatureCard {
@@ -98,7 +97,6 @@ interface FeatureCard {
   description: string;
   accent: TileAccent;
   iconHtml: string;
-  /** The single-CTA label. Omitted for the `backup` tile (two buttons). */
   ctaLabel?: string;
   href?: string;
   /** Rendered but inert with a "Requires imported data" badge + a disabled
@@ -108,11 +106,7 @@ interface FeatureCard {
    *  badge — e.g. the Onboarding Helper needs the Club Central roster, not
    *  Basecamp data. */
   lockLabel?: string;
-  /** The Save/Restore tile: two buttons + a status line instead of one CTA. */
-  backup?: boolean;
 }
-
-type RestoreStatus = { kind: "ok" | "error"; text: string } | null;
 
 // Per-step figures shown inside the "Setup Complete" accordion's expanded
 // panel (see renderSetupCompletePanel). Only computed — and the accordion
@@ -184,9 +178,6 @@ export const dashboardView: ViewModule = {
     // resuming after the view was navigated away from must not write into
     // the #viewRoot node a different view now owns.
     let disposed = false;
-    // Tears down a still-open restore confirm modal if the user navigates
-    // away mid-decision.
-    const restoreAbort = new AbortController();
 
     const bannerRoot = root.querySelector("#dashboardBannerRoot")!;
     const featuresRoot = root.querySelector("#dashboardFeaturesRoot")!;
@@ -222,19 +213,6 @@ export const dashboardView: ViewModule = {
       if (href?.startsWith("#")) location.hash = href.slice(1);
     }
     featuresRoot.addEventListener("click", onFeatureCardClick);
-
-    // Persisted across render() calls so a "Restored" / error message
-    // survives the storage.onChanged-triggered re-render that a successful
-    // restore itself causes.
-    let restoreStatus: RestoreStatus = null;
-
-    // One hidden file input, reused for every "Load File" click.
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = "application/json,.json";
-    fileInput.hidden = true;
-    root.appendChild(fileInput);
-    fileInput.addEventListener("change", onBackupFileChosen);
 
     function renderBanner(info: StepperInfo, details: SetupDetails | null) {
       const pipeline = evaluateSetupPipeline(info);
@@ -483,21 +461,9 @@ export const dashboardView: ViewModule = {
           href: "#exporter",
           locked: !featuresUnlocked,
         },
-        {
-          title: i18n.t("dashboard.feature.backup.title"),
-          description: i18n.t("dashboard.feature.backup.description"),
-          accent: "slate",
-          iconHtml: ICON_BACKUP,
-          backup: true,
-        },
       ];
 
       featuresRoot.innerHTML = cards.map(renderFeatureCard).join("");
-
-      const saveBtn = featuresRoot.querySelector("#dashboardSaveBackupBtn");
-      const loadBtn = featuresRoot.querySelector("#dashboardLoadBackupBtn");
-      if (saveBtn) saveBtn.addEventListener("click", onSaveBackup);
-      if (loadBtn) loadBtn.addEventListener("click", () => fileInput.click());
     }
 
     function renderFeatureCard(card: FeatureCard): string {
@@ -507,21 +473,10 @@ export const dashboardView: ViewModule = {
       // article follows its CTA link on click. The CTA stays a real
       // <a href="#route"> so keyboard activation and hashchange routing are
       // unchanged.
-      const interactive = !inert && !card.backup;
+      const interactive = !inert;
 
       let footer: string;
-      if (card.backup) {
-        // Save/Load are utility actions — bordered secondary buttons, clearly
-        // subordinate to the primary CTAs on the other cards.
-        const statusClass = restoreStatus?.kind === "error" ? " is-error" : "";
-        footer = `
-          <div class="dashboard-tile__actions">
-            <button type="button" class="btn btn-secondary" id="dashboardSaveBackupBtn" title="${escapeAttr(i18n.t("dashboard.action.saveFile.tooltip"))}">${escapeHtml(i18n.t("dashboard.action.saveFile.button"))}</button>
-            <button type="button" class="btn btn-secondary" id="dashboardLoadBackupBtn" title="${escapeAttr(i18n.t("dashboard.action.loadFile.tooltip"))}">${escapeHtml(i18n.t("dashboard.action.loadFile.button"))}</button>
-          </div>
-          <p class="help-text dashboard-tile__status${statusClass}" aria-live="polite">${restoreStatus ? escapeHtml(restoreStatus.text) : ""}</p>
-        `;
-      } else if (card.locked) {
+      if (card.locked) {
         footer = `
           <span class="btn btn-primary dashboard-tile__cta" aria-disabled="true">${escapeHtml(card.ctaLabel ?? "")}</span>
           <span class="badge badge-soft dashboard-tile__lock">&#128274; ${escapeHtml(card.lockLabel ?? i18n.t("dashboard.action.lockDefault.label"))}</span>
@@ -541,59 +496,6 @@ export const dashboardView: ViewModule = {
           <div class="dashboard-tile__footer">${footer}</div>
         </article>
       `;
-    }
-
-    async function onSaveBackup() {
-      restoreStatus = null;
-      try {
-        await downloadBackup();
-        if (disposed) return;
-        restoreStatus = { kind: "ok", text: i18n.t("dashboard.backup.saved.body") };
-      } catch (err) {
-        restoreStatus = {
-          kind: "error",
-          text: i18n.t("dashboard.backup.saveFailed.error", [err instanceof Error ? err.message : String(err)]),
-        };
-      }
-      await render();
-    }
-
-    async function onBackupFileChosen() {
-      const file = fileInput.files?.[0];
-      fileInput.value = ""; // allow re-picking the same file later
-      if (!file) return;
-
-      restoreStatus = null;
-      let backup;
-      try {
-        backup = parseBackup(await file.text());
-      } catch (err) {
-        restoreStatus = { kind: "error", text: err instanceof Error ? err.message : String(err) };
-        await render();
-        return;
-      }
-      if (disposed) return;
-
-      const confirmed = await confirmModal({
-        title: i18n.t("dashboard.backup.confirmModal.title"),
-        body: i18n.t("dashboard.backup.confirmModal.body"),
-        confirmLabel: i18n.t("dashboard.backup.confirmModal.confirmLabel"),
-        danger: true,
-        signal: restoreAbort.signal,
-      });
-      if (!confirmed || disposed) return;
-
-      try {
-        await restoreBackup(backup);
-        if (disposed) return;
-        restoreStatus = { kind: "ok", text: i18n.t("dashboard.backup.restored.body") };
-      } catch (err) {
-        restoreStatus = {
-          kind: "error",
-          text: i18n.t("dashboard.backup.restoreFailed.error", [err instanceof Error ? err.message : String(err)]),
-        };
-      }
-      await render();
     }
 
     async function render() {
@@ -620,7 +522,6 @@ export const dashboardView: ViewModule = {
 
     return () => {
       disposed = true;
-      restoreAbort.abort();
       featuresRoot.removeEventListener("click", onFeatureCardClick);
       bannerRoot.removeEventListener("click", onBannerClick);
       browser.storage.onChanged.removeListener(onStorageChanged);

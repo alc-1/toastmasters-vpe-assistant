@@ -8,13 +8,17 @@
 // getPreferredLocale()/setPreferredLocale(), shared/i18n-override.ts — see
 // that file for how "en"/"fr" actually override native WebExtension i18n at
 // runtime), the Anonymize Mode toggle (shared/settings-store.ts's
-// getAnonymizeMode()/setAnonymizeMode()), and the path-name lookup table
+// getAnonymizeMode()/setAnonymizeMode()), the path-name lookup table
 // (moved here from Club Review — a global alias table, not a per-scrape
 // reconciliation concern, and isn't name-based so it stays usable
-// regardless of Anonymize Mode).
+// regardless of Anonymize Mode), and Save/Restore Club Settings (moved here
+// from the Home dashboard's feature-tile grid, which now holds only its four
+// remaining tiles).
 
 import { getAnonymizeMode, getPreferredLocale, setAnonymizeMode, setPreferredLocale } from "../../../shared/settings-store";
 import { getPathLookup, setPathAliases, deletePathCanonical } from "../../../shared/resolution-store";
+import { downloadBackup, parseBackup, restoreBackup } from "../../../shared/backup";
+import { confirmModal } from "../../../shared/modal";
 import { escapeAttr, escapeHtml } from "../../../shared/dom-utils";
 import type { LocalePreference, PathLookup } from "../../../shared/types";
 import type { ViewModule } from "../../../shared/view";
@@ -37,8 +41,12 @@ function shellHtml(): string {
   <div id="anonymizeSectionRoot"></div>
 
   <div id="pathLookupSectionRoot"></div>
+
+  <div id="backupSectionRoot"></div>
 `;
 }
+
+type RestoreStatus = { kind: "ok" | "error"; text: string } | null;
 
 export const globalSettingsView: ViewModule = {
   async mount(root) {
@@ -47,6 +55,97 @@ export const globalSettingsView: ViewModule = {
     // Set true by the disposer — see syncData.ts's mount() for the full
     // writeup of why an in-flight async refresh needs this guard.
     let disposed = false;
+    // Tears down a still-open restore confirm modal if the user navigates
+    // away mid-decision.
+    const restoreAbort = new AbortController();
+
+    // Persisted across renderBackupCard() calls so a "Restored" / error
+    // message survives the storage.onChanged-triggered re-render that a
+    // successful restore itself causes.
+    let restoreStatus: RestoreStatus = null;
+
+    // One hidden file input, reused for every "Load File" click.
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "application/json,.json";
+    fileInput.hidden = true;
+    root.appendChild(fileInput);
+    fileInput.addEventListener("change", onBackupFileChosen);
+
+    function renderBackupCard() {
+      const sectionRoot = root.querySelector("#backupSectionRoot")!;
+      const statusClass = restoreStatus?.kind === "error" ? " is-error" : "";
+      sectionRoot.innerHTML = `
+        <div class="card">
+          <div class="card-header"><span class="card-header__title">${escapeHtml(i18n.t("globalSettings.backup.card.title"))}</span></div>
+          <div class="card-body">
+            <p class="help-text">${escapeHtml(i18n.t("globalSettings.backup.help.body"))}</p>
+            <div class="dashboard-tile__actions">
+              <button type="button" class="btn btn-secondary" id="settingsSaveBackupBtn" title="${escapeAttr(i18n.t("globalSettings.backup.action.saveFile.tooltip"))}">${escapeHtml(i18n.t("globalSettings.backup.action.saveFile.button"))}</button>
+              <button type="button" class="btn btn-secondary" id="settingsLoadBackupBtn" title="${escapeAttr(i18n.t("globalSettings.backup.action.loadFile.tooltip"))}">${escapeHtml(i18n.t("globalSettings.backup.action.loadFile.button"))}</button>
+            </div>
+            <p class="help-text dashboard-tile__status${statusClass}" aria-live="polite">${restoreStatus ? escapeHtml(restoreStatus.text) : ""}</p>
+          </div>
+        </div>
+      `;
+
+      sectionRoot.querySelector("#settingsSaveBackupBtn")!.addEventListener("click", onSaveBackup);
+      sectionRoot.querySelector("#settingsLoadBackupBtn")!.addEventListener("click", () => fileInput.click());
+    }
+
+    async function onSaveBackup() {
+      restoreStatus = null;
+      try {
+        await downloadBackup();
+        if (disposed) return;
+        restoreStatus = { kind: "ok", text: i18n.t("globalSettings.backup.saved.body") };
+      } catch (err) {
+        restoreStatus = {
+          kind: "error",
+          text: i18n.t("globalSettings.backup.saveFailed.error", [err instanceof Error ? err.message : String(err)]),
+        };
+      }
+      renderBackupCard();
+    }
+
+    async function onBackupFileChosen() {
+      const file = fileInput.files?.[0];
+      fileInput.value = ""; // allow re-picking the same file later
+      if (!file) return;
+
+      restoreStatus = null;
+      let backup;
+      try {
+        backup = parseBackup(await file.text());
+      } catch (err) {
+        restoreStatus = { kind: "error", text: err instanceof Error ? err.message : String(err) };
+        renderBackupCard();
+        return;
+      }
+      if (disposed) return;
+
+      const confirmed = await confirmModal({
+        title: i18n.t("globalSettings.backup.confirmModal.title"),
+        body: i18n.t("globalSettings.backup.confirmModal.body"),
+        confirmLabel: i18n.t("globalSettings.backup.confirmModal.confirmLabel"),
+        danger: true,
+        signal: restoreAbort.signal,
+      });
+      if (!confirmed || disposed) return;
+
+      try {
+        await restoreBackup(backup);
+        if (disposed) return;
+        restoreStatus = { kind: "ok", text: i18n.t("globalSettings.backup.restored.body") };
+      } catch (err) {
+        restoreStatus = {
+          kind: "error",
+          text: i18n.t("globalSettings.backup.restoreFailed.error", [err instanceof Error ? err.message : String(err)]),
+        };
+      }
+      if (disposed) return;
+      renderBackupCard();
+    }
 
     function renderLocaleCard(preferredLocale: LocalePreference) {
       const sectionRoot = root.querySelector("#localeSectionRoot")!;
@@ -185,6 +284,7 @@ export const globalSettingsView: ViewModule = {
       if (disposed) return;
       renderLocaleCard(preferredLocale);
       renderAnonymizeCard(anonymize);
+      renderBackupCard();
       await refreshPathLookup();
     }
 
@@ -197,6 +297,7 @@ export const globalSettingsView: ViewModule = {
 
     return () => {
       disposed = true;
+      restoreAbort.abort();
       browser.storage.onChanged.removeListener(onStorageChanged);
     };
   },
