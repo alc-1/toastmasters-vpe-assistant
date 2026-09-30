@@ -2066,6 +2066,18 @@
     opacity: 0.75;
   }
 
+  /* A pending count that needs immediate attention (currently only the
+     Level Approval Helper's pending Basecamp requests) flags the whole tile
+     with the same amber "!" vocabulary the setup banner/tracker use above,
+     so it's visible without opening the tool. */
+  .dashboard-tile.has-attention {
+    border-color: var(--warning);
+  }
+
+  .dashboard-tile.has-attention.dashboard-tile--link:hover {
+    border-color: var(--warning);
+  }
+
   .dashboard-tile__icon {
     width: 40px;
     height: 40px;
@@ -2118,6 +2130,11 @@
     min-width: 0;
     margin: 0;
     font-weight: 600;
+  }
+
+  .dashboard-tile__attention-badge {
+    margin-left: auto;
+    flex-shrink: 0;
   }
 
   .dashboard-tile__desc {

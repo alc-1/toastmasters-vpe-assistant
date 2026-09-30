@@ -639,6 +639,10 @@ dashboard:
     exporter:
       description: "Export member progress and path history to an Excel workbook."
       cta: "Create Spreadsheet →"
+    attentionBadge:
+      count:
+        1: "$1 pending approval"
+        n: "$1 pending approvals"
   action:
     lockDefault:
       label: "Requires imported data"

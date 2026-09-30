@@ -106,6 +106,11 @@ interface FeatureCard {
    *  badge — e.g. the Onboarding Helper needs the Club Central roster, not
    *  Basecamp data. */
   lockLabel?: string;
+  /** A count needing immediate attention (currently only the Level Approval
+   *  Helper's pending Basecamp requests). Rendered as a warning badge next
+   *  to the title and flags the tile itself, so a pending approval is
+   *  visible without opening the tool — never shown while `locked`. */
+  attentionCount?: number;
 }
 
 // Per-step figures shown inside the "Setup Complete" accordion's expanded
@@ -422,7 +427,7 @@ export const dashboardView: ViewModule = {
       `;
     }
 
-    function renderFeatures(featuresUnlocked: boolean, clubCentralImported: boolean) {
+    function renderFeatures(featuresUnlocked: boolean, clubCentralImported: boolean, pendingLevelApprovals: number) {
       const cards: FeatureCard[] = [
         {
           title: i18n.t("dashboard.feature.onboarding.title"),
@@ -442,6 +447,9 @@ export const dashboardView: ViewModule = {
           ctaLabel: i18n.t("dashboard.feature.levelApproval.cta"),
           href: "#levelApproval",
           locked: !featuresUnlocked,
+          // Only meaningful once unlocked — while locked there's no Basecamp
+          // data to have fetched a pending-requests count from at all.
+          attentionCount: featuresUnlocked ? pendingLevelApprovals : 0,
         },
         {
           title: i18n.t("dashboard.feature.report.title"),
@@ -468,6 +476,7 @@ export const dashboardView: ViewModule = {
 
     function renderFeatureCard(card: FeatureCard): string {
       const inert = !!card.locked;
+      const needsAttention = !inert && !!card.attentionCount && card.attentionCount > 0;
       // A single-CTA active card becomes one big click target (see
       // onFeatureCardClick() in mount()): the whole `.dashboard-tile--link`
       // article follows its CTA link on click. The CTA stays a real
@@ -485,12 +494,21 @@ export const dashboardView: ViewModule = {
         footer = `<a href="${card.href}" class="btn btn-primary dashboard-tile__cta">${escapeHtml(card.ctaLabel ?? "")}</a>`;
       }
 
-      const articleClass = `dashboard-tile${inert ? " is-locked" : ""}${interactive ? " dashboard-tile--link" : ""}`;
+      // A pending count that needs immediate attention (currently only the
+      // Level Approval Helper) shows as a warning badge next to the title
+      // and flags the whole tile (amber border) — same "!" vocabulary the
+      // setup banner/tracker use elsewhere on this view for "action needed".
+      const attentionBadge = needsAttention
+        ? `<span class="badge badge-soft badge-warning dashboard-tile__attention-badge">${escapeHtml(i18n.t("dashboard.feature.attentionBadge.count", card.attentionCount!))}</span>`
+        : "";
+
+      const articleClass = `dashboard-tile${inert ? " is-locked" : ""}${interactive ? " dashboard-tile--link" : ""}${needsAttention ? " has-attention" : ""}`;
       return `
         <article class="${articleClass}">
           <div class="dashboard-tile__head">
             <span class="dashboard-tile__icon ${ACCENT_ICON_CLASS[card.accent]}" aria-hidden="true">${card.iconHtml}</span>
             <h2 class="dashboard-tile__title">${escapeHtml(card.title)}</h2>
+            ${attentionBadge}
           </div>
           <p class="dashboard-tile__desc">${escapeHtml(card.description)}</p>
           <div class="dashboard-tile__footer">${footer}</div>
@@ -506,11 +524,14 @@ export const dashboardView: ViewModule = {
       const details =
         evaluateSetupPipeline(info).bannerState === "ready" ? await computeSetupDetails(info) : null;
       if (disposed) return;
-      const { clubCentralData } = await local.get(["clubCentralData"]);
+      const { clubCentralData, basecampPendingLevelRequests } = await local.get([
+        "clubCentralData",
+        "basecampPendingLevelRequests",
+      ]);
       if (disposed) return;
       const clubCentralImported = !!clubCentralData && Object.keys(clubCentralData).length > 0;
       renderBanner(info, details);
-      renderFeatures(areFeaturesUnlocked(info), clubCentralImported);
+      renderFeatures(areFeaturesUnlocked(info), clubCentralImported, basecampPendingLevelRequests?.length ?? 0);
     }
 
     const onStorageChanged = (_changes: unknown, area: string) => {

@@ -648,6 +648,10 @@ dashboard:
     exporter:
       description: "Exportez la progression des membres et l'historique des parcours vers un fichier Excel."
       cta: "Créer la feuille de calcul →"
+    attentionBadge:
+      count:
+        1: "$1 approbation en attente"
+        n: "$1 approbations en attente"
   action:
     lockDefault:
       label: "Nécessite des données importées"
