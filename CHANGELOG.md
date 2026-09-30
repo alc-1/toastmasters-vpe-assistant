@@ -8,6 +8,8 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-30
+
 ### Added
 
 - Level Approval Helper — a quick view on Basecamp's pending Pathways level-completion approval requests.
