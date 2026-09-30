@@ -32,6 +32,7 @@ function routeTitle(route: AppRoute): string {
     report: i18n.t("report.page.title.title"),
     exporter: i18n.t("common.appShell.routeTitle.exporter.label"),
     onboarding: i18n.t("common.appShell.routeTitle.onboarding.label"),
+    levelApproval: i18n.t("common.appShell.routeTitle.levelApproval.label"),
     globalSettings: i18n.t("common.appShell.routeTitle.globalSettings.label"),
     whatsNew: i18n.t("common.appShell.whatsNew.default.label"),
   };
@@ -198,13 +199,14 @@ async function renderChrome(
     info,
     settingsActive: route === "globalSettings",
     // The Home dashboard, the Excel Exporter, Club Progress, the Onboarding
-    // Helper, Global Settings and What's New are all outside the wizard flow
-    // — header-only, no stepper.
+    // Helper, the Level Approval Helper, Global Settings and What's New are
+    // all outside the wizard flow — header-only, no stepper.
     showStepper:
       route !== "dashboard" &&
       route !== "exporter" &&
       route !== "report" &&
       route !== "onboarding" &&
+      route !== "levelApproval" &&
       route !== "globalSettings" &&
       route !== "whatsNew",
     // The profile chip + Privacy toggle show on every route.

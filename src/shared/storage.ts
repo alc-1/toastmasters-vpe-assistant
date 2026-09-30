@@ -25,6 +25,7 @@ import type { Browser } from "wxt/browser";
 import type { AppShellPage } from "./app-shell";
 import type {
   BasecampOverviewScrape,
+  BasecampPendingLevelRequest,
   BasecampScrape,
   ClubCentralScrape,
   ClubLookupEntry,
@@ -66,6 +67,11 @@ export interface LocalSchema {
   // fetchClubMemberOverviewPaginated()) — a separate Basecamp endpoint
   // fetched alongside basecampData, feeding PathReport.confirmedCompleted.
   basecampCompletedPaths: BasecampOverviewScrape;
+  // From GET /api/requests/view (background/api/basecamp.ts's
+  // fetchPendingLevelRequests()) — page 1 only, filtered to status
+  // "Pending" and type "Level": the club's outstanding manager-approval
+  // requests. Feeds a future Manager Requests view, not buildReport().
+  basecampPendingLevelRequests: BasecampPendingLevelRequest[];
   easyspeakData: EasySpeakScrape;
   easyspeakScrapedAt: number;
   // From toastmasters.org Club Central (background/api/clubcentral.ts) — the
@@ -152,6 +158,7 @@ const PROFILE_SCOPED_KEYS = [
   "basecampData",
   "basecampScrapedAt",
   "basecampCompletedPaths",
+  "basecampPendingLevelRequests",
   "easyspeakData",
   "easyspeakScrapedAt",
   "clubCentralData",

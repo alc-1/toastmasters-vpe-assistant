@@ -93,6 +93,8 @@ common:
         label: "Download Spreadsheet"
       onboarding:
         label: "Onboarding Helper"
+      levelApproval:
+        label: "Level Approval Helper"
       globalSettings:
         label: "Global Settings"
     documentTitle:
@@ -238,6 +240,39 @@ onboarding:
   notice:
     privacyModeOn:
       body: "Privacy Mode is on — member names are anonymized."
+
+levelApproval:
+  page:
+    title:
+      title: "Level Approval Helper"
+    intro:
+      body: "Pathways level-completion requests waiting for your approval in Basecamp."
+  card:
+    title:
+      title: "Pending Level Approvals"
+    requestCount:
+      count:
+        1: "$1 request"
+        n: "$1 requests"
+  table:
+    requester:
+      label: "Requester"
+    path:
+      label: "Path"
+    level:
+      label: "Level"
+    submitted:
+      label: "Submitted"
+    updated:
+      label: "Last updated"
+  emptyState:
+    noData:
+      sentence: "Import your Basecamp data first to see pending level approvals. <a href=\"#syncData\">Go to Sync Data</a>."
+    allDone:
+      body: "🎉 No pending level approval requests!"
+  notice:
+    privacyModeOn:
+      body: "Privacy Mode is on — requester names are anonymized."
 
 globalSettings:
   page:
@@ -569,6 +604,10 @@ dashboard:
       description: "Find paid-up members who haven't started a Pathways path yet."
       cta: "Open Helper →"
       lockLabel: "Requires Club Central roster"
+    levelApproval:
+      title: "Level Approval Helper"
+      description: "Review Pathways level-completion requests waiting for your approval."
+      cta: "Open Helper →"
     report:
       title: "Club Progress Report"
       description: "See who is ready to level up and review discrepancies between systems."

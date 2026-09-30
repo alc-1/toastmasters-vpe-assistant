@@ -12,6 +12,7 @@ import { syncDataView } from "./syncData";
 import { clubReviewView } from "./clubReview";
 import { exporterView } from "./exporter";
 import { onboardingView } from "./onboarding";
+import { levelApprovalView } from "./levelApproval";
 import { globalSettingsView } from "./globalSettings";
 import { whatsNewView } from "./whatsNew";
 
@@ -24,6 +25,7 @@ export const VIEWS: Record<AppRoute, ViewModule> = {
   clubReview: clubReviewView,
   exporter: exporterView,
   onboarding: onboardingView,
+  levelApproval: levelApprovalView,
   globalSettings: globalSettingsView,
   whatsNew: whatsNewView,
 };

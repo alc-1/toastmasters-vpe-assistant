@@ -169,6 +169,8 @@
   --tile-amber-bg: #fffbeb;
   --tile-slate: #475569;
   --tile-slate-bg: #f1f5f9;
+  --tile-rose: #be123c;
+  --tile-rose-bg: #fff1f2;
 }
 
 @layer app {
@@ -2097,6 +2099,11 @@
   .dashboard-tile__icon--slate {
     background: var(--tile-slate-bg);
     color: var(--tile-slate);
+  }
+
+  .dashboard-tile__icon--rose {
+    background: var(--tile-rose-bg);
+    color: var(--tile-rose);
   }
 
   .dashboard-tile__head {

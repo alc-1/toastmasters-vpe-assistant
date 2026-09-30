@@ -62,6 +62,24 @@ export interface BasecampClubOverview {
 
 export type BasecampOverviewScrape = Record<string /* club uuid */, BasecampClubOverview>;
 
+/**
+ * One pending "Level" approval request from GET /api/requests/view (only
+ * page 1 is fetched — see background/api/basecamp.ts's
+ * fetchPendingLevelRequests()), already filtered to status "Pending" and
+ * type "Level" and reshaped to just the fields the Manager Requests view
+ * needs. usageKey is kept even though nothing reads it yet — it's the id a
+ * future per-request detail/approval call will need.
+ */
+export interface BasecampPendingLevelRequest {
+  usageKey: string;
+  requesterName: string;
+  courseDisplayName: string;
+  blockDisplayName: string;
+  levelNumber: number | null;
+  created: string;
+  modified: string;
+}
+
 // ---------------------------------------------------------------------------
 // EasySpeak raw scrape + parser I/O shapes
 // ---------------------------------------------------------------------------

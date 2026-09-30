@@ -102,6 +102,8 @@ common:
         label: "Télécharger la feuille de calcul"
       onboarding:
         label: "Assistant d'inscription"
+      levelApproval:
+        label: "Assistant d'approbation de niveau"
       globalSettings:
         label: "Paramètres généraux"
     documentTitle:
@@ -247,6 +249,39 @@ onboarding:
   notice:
     privacyModeOn:
       body: "Le mode confidentialité est activé — les noms des membres sont anonymisés."
+
+levelApproval:
+  page:
+    title:
+      title: "Assistant d'approbation de niveau"
+    intro:
+      body: "Demandes d'achèvement de niveau Pathways en attente de votre approbation dans Basecamp."
+  card:
+    title:
+      title: "Approbations de niveau en attente"
+    requestCount:
+      count:
+        1: "$1 demande"
+        n: "$1 demandes"
+  table:
+    requester:
+      label: "Demandeur"
+    path:
+      label: "Parcours"
+    level:
+      label: "Niveau"
+    submitted:
+      label: "Soumise"
+    updated:
+      label: "Dernière mise à jour"
+  emptyState:
+    noData:
+      sentence: "Importez d'abord vos données Basecamp pour voir les approbations de niveau en attente. <a href=\"#syncData\">Aller à Synchronisation des données</a>."
+    allDone:
+      body: "🎉 Aucune demande d'approbation de niveau en attente !"
+  notice:
+    privacyModeOn:
+      body: "Le mode confidentialité est activé — les noms des demandeurs sont anonymisés."
 
 globalSettings:
   page:
@@ -578,6 +613,10 @@ dashboard:
       description: "Trouvez les membres qui n'ont pas été enrollés dans Pathways."
       cta: "Ouvrir l'assistant →"
       lockLabel: "Nécessite le registre Club Central"
+    levelApproval:
+      title: "Assistant d'approbation de niveau"
+      description: "Examinez les demandes d'achèvement de niveau Pathways en attente de votre approbation."
+      cta: "Ouvrir l'assistant →"
     report:
       title: "Rapport de progression du club"
       description: "Découvrez qui est prêt à passer au niveau supérieur et examinez les écarts entre les systèmes."

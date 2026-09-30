@@ -19,6 +19,7 @@ const VALID_ROUTES: AppRoute[] = [
   "report",
   "exporter",
   "onboarding",
+  "levelApproval",
   "globalSettings",
   "whatsNew",
 ];
@@ -32,8 +33,10 @@ function isAppRoute(value: string): value is AppRoute {
  * hash defaults to "dashboard" (the Home screen); a recognized but
  * currently-disabled wizard step (e.g. a bookmarked #members saved before
  * setup was finished) is redirected back to "setup"; the hub features
- * #exporter and #report are redirected to "dashboard" until Basecamp data
- * is imported (EasySpeak optional — see areFeaturesUnlocked()).
+ * #exporter, #report and #levelApproval are redirected to "dashboard" until
+ * Basecamp data is imported (EasySpeak optional — see areFeaturesUnlocked())
+ * — #levelApproval is Basecamp-only data (basecampPendingLevelRequests,
+ * fetched alongside basecampData), same gate as the other two.
  * "dashboard", "globalSettings", "whatsNew" and "onboarding" are never
  * gated here — #onboarding depends on the independent Club Central roster,
  * not Basecamp, so it shows its own "import the roster first" empty state
@@ -43,7 +46,9 @@ export function resolveRoute(rawHash: string, info: StepperInfo | null): AppRout
   const key = rawHash.replace(/^#/, "");
   const route = isAppRoute(key) ? key : "dashboard";
   if (route === "dashboard" || route === "globalSettings" || route === "whatsNew" || route === "onboarding") return route;
-  if (route === "exporter" || route === "report") return info && areFeaturesUnlocked(info) ? route : "dashboard";
+  if (route === "exporter" || route === "report" || route === "levelApproval") {
+    return info && areFeaturesUnlocked(info) ? route : "dashboard";
+  }
   if (info?.[route]?.disabled) return "setup";
   return route;
 }

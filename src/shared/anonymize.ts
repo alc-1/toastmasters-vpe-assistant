@@ -14,7 +14,15 @@
 
 import { t } from "./i18n-pure";
 import { memberKey } from "./sync/delta";
-import type { BasecampScrape, ClubCentralScrape, ClubPairReport, EasySpeakScrape, MemberReport, ReportResult } from "./types";
+import type {
+  BasecampPendingLevelRequest,
+  BasecampScrape,
+  ClubCentralScrape,
+  ClubPairReport,
+  EasySpeakScrape,
+  MemberReport,
+  ReportResult,
+} from "./types";
 
 const FALLBACK_CLUB_LABEL = t("anonymize.fallback.unknownClub.label");
 const FALLBACK_MEMBER_LABEL = t("anonymize.fallback.unknownMember.label");
@@ -165,6 +173,25 @@ export function anonymizeEasySpeakScrape(data: EasySpeakScrape, maps?: Anonymiza
 // number / CRM id do identify a person, but they're opaque ids kept for
 // possible future matching — mirrors how anonymizeEasySpeakScrape keeps
 // memberId).
+// The BCM requests queue (background/api/basecamp.ts's
+// fetchPendingLevelRequests()) has no matched ReportResult to derive labels
+// from either (it's account-wide, not club-scoped) — same no-`maps`
+// self-numbering as anonymizeClubCentralScrape above, keyed on the raw
+// requester name so the same person's several pending requests collapse to
+// one label.
+export function anonymizePendingLevelRequests(data: BasecampPendingLevelRequest[]): BasecampPendingLevelRequest[] {
+  const seen = new Map<string, string>();
+  let nextIndex = 1;
+  return data.map((request) => {
+    let label = seen.get(request.requesterName);
+    if (!label) {
+      label = t("anonymize.numbered.member.label", [String(nextIndex++)]);
+      seen.set(request.requesterName, label);
+    }
+    return { ...request, requesterName: label };
+  });
+}
+
 export function anonymizeClubCentralScrape(data: ClubCentralScrape): ClubCentralScrape {
   const out: ClubCentralScrape = {};
   Object.entries(data).forEach(([clubId, club], clubIndex) => {

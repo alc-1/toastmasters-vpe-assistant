@@ -67,7 +67,7 @@ function bannerCopy(): Record<SetupBannerState, { dot: string; label: string; ct
   };
 }
 
-type TileAccent = "indigo" | "emerald" | "amber" | "slate";
+type TileAccent = "indigo" | "emerald" | "amber" | "slate" | "rose";
 
 // Full class names spelled out as literals (not built by interpolation) so
 // Tailwind's content scanner keeps the matching `.dashboard-tile__icon--*`
@@ -77,6 +77,7 @@ const ACCENT_ICON_CLASS: Record<TileAccent, string> = {
   emerald: "dashboard-tile__icon--emerald",
   amber: "dashboard-tile__icon--amber",
   slate: "dashboard-tile__icon--slate",
+  rose: "dashboard-tile__icon--rose",
 };
 
 // One distinct glyph per tile — inline stroke="currentColor" SVGs (same
@@ -90,6 +91,7 @@ const ICON_PROGRESS = tileIcon('<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6
 const ICON_SPREADSHEET = tileIcon('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>');
 const ICON_APPROVAL = tileIcon('<path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/><path d="M9 2h6v4H9z"/><path d="M9 14l2 2 4-4"/>');
 const ICON_BACKUP = tileIcon('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h7"/>');
+const ICON_LEVEL_APPROVAL = tileIcon('<circle cx="12" cy="8" r="5"/><path d="M8.5 12.5 7 21l5-3 5 3-1.5-8.5"/>');
 
 interface FeatureCard {
   title: string;
@@ -453,6 +455,15 @@ export const dashboardView: ViewModule = {
           href: "#onboarding",
           locked: !clubCentralImported,
           lockLabel: i18n.t("dashboard.feature.onboarding.lockLabel"),
+        },
+        {
+          title: i18n.t("dashboard.feature.levelApproval.title"),
+          description: i18n.t("dashboard.feature.levelApproval.description"),
+          accent: "rose",
+          iconHtml: ICON_LEVEL_APPROVAL,
+          ctaLabel: i18n.t("dashboard.feature.levelApproval.cta"),
+          href: "#levelApproval",
+          locked: !featuresUnlocked,
         },
         {
           title: i18n.t("dashboard.feature.report.title"),

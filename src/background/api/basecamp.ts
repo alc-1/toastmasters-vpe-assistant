@@ -23,7 +23,13 @@ import { pageUrl } from "../../shared/pages";
 import { resolveActiveProfile } from "../../shared/settings-store";
 import { MOCK_BASECAMP_DATA } from "../../shared/mock/mockData";
 import { setScrapeProgress } from "../scrape-progress";
-import type { BasecampMember, BasecampOverviewMember, BasecampOverviewScrape, BasecampScrape } from "../../shared/types";
+import type {
+  BasecampMember,
+  BasecampOverviewMember,
+  BasecampOverviewScrape,
+  BasecampPendingLevelRequest,
+  BasecampScrape,
+} from "../../shared/types";
 
 const API_ROOT = "https://basecamp.toastmasters.org/api";
 const DASHBOARD_ROOT = "https://apps.basecamp.toastmasters.org";
@@ -69,6 +75,25 @@ interface BasecampOverviewPage {
   next: string | null;
 }
 
+interface BasecampRequestEntry {
+  usage_key?: string;
+  type?: string;
+  status?: string;
+  requester_name?: string;
+  course_display_name?: string;
+  block_display_name?: string;
+  level_number?: number | null;
+  created?: string;
+  modified?: string;
+  [key: string]: unknown;
+}
+
+interface BasecampRequestsPage {
+  count: number;
+  results: unknown[];
+  next: string | null;
+}
+
 /**
  * Entry point: lists the user's "BCM" clubs, then fetches the full progress
  * for each club.
@@ -85,7 +110,12 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
     // every options page behave identically regardless of data origin. No
     // demo member-overview data exists yet, so this is an empty map — every
     // demo path falls back to the manual "Mark as completed" flag instead.
-    await local.setForProfile(profileId, { basecampData: MOCK_BASECAMP_DATA, basecampScrapedAt: Date.now(), basecampCompletedPaths: {} });
+    await local.setForProfile(profileId, {
+      basecampData: MOCK_BASECAMP_DATA,
+      basecampScrapedAt: Date.now(),
+      basecampCompletedPaths: {},
+      basecampPendingLevelRequests: [],
+    });
     return MOCK_BASECAMP_DATA;
   }
 
@@ -128,12 +158,19 @@ export async function scrapeAllClubs(): Promise<BasecampScrape> {
     overviewResult[club.uuid] = { members: await fetchClubMemberOverviewPaginated(club.uuid) };
   }
 
+  const pendingLevelRequests = await fetchPendingLevelRequests();
+
   // Persist directly rather than leaving it to the popup: if the popup
   // closes before the response comes back (e.g. the user clicks away
   // mid-scrape), the result would otherwise be lost even though the scrape
   // itself succeeded. popup/index.ts's init() reads from storage on open, so
   // this is picked up regardless of whether the popup survives.
-  await local.setForProfile(profileId, { basecampData: result, basecampScrapedAt: Date.now(), basecampCompletedPaths: overviewResult });
+  await local.setForProfile(profileId, {
+    basecampData: result,
+    basecampScrapedAt: Date.now(),
+    basecampCompletedPaths: overviewResult,
+    basecampPendingLevelRequests: pendingLevelRequests,
+  });
 
   return result;
 }
@@ -380,6 +417,34 @@ function stripOverviewUserFields(member: BasecampOverviewMember): BasecampOvervi
   delete user.member_photo_url;
   delete user.email;
   return { ...member, user: user as BasecampOverviewMember["user"] };
+}
+
+/**
+ * Fetches page 1 of GET /api/requests/view — the BCM's manager-approval
+ * request queue, account-wide (not club-scoped, unlike progress/overview
+ * above) — and reshapes it down to the pending "Level" requests: those are
+ * the ones requiring a manager action, and the only ones a future Manager
+ * Requests view needs. Only page 1 is fetched — the page size (100)
+ * comfortably covers a club's realistic pending-request volume.
+ */
+async function fetchPendingLevelRequests(): Promise<BasecampPendingLevelRequest[]> {
+  const url = `${API_ROOT}/requests/view?page=1`;
+  const data = (await fetchJson(url)) as BasecampRequestsPage;
+  if (!Array.isArray(data.results)) {
+    throw new Error(i18n.t("background.basecamp.error.unexpectedResultsField.error", [url]));
+  }
+
+  return (data.results as BasecampRequestEntry[])
+    .filter((entry) => entry.status === "Pending" && entry.type === "Level")
+    .map((entry) => ({
+      usageKey: entry.usage_key ?? "",
+      requesterName: entry.requester_name ?? "",
+      courseDisplayName: entry.course_display_name ?? "",
+      blockDisplayName: entry.block_display_name ?? "",
+      levelNumber: entry.level_number ?? null,
+      created: entry.created ?? "",
+      modified: entry.modified ?? "",
+    }));
 }
 
 /**

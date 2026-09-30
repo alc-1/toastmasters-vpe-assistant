@@ -37,6 +37,7 @@ export type AppRoute =
   | "clubReview"
   | "exporter"
   | "onboarding"
+  | "levelApproval"
   | "globalSettings"
   | "whatsNew";
 
