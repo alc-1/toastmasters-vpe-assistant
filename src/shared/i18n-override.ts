@@ -21,8 +21,19 @@
 // that context — see the call sites in entrypoints/background.ts,
 // entrypoints/app/main.ts, entrypoints/popup/main.ts, and the static
 // interstitial pages' main.ts files.
+//
+// The monkey-patch above only reaches the AMBIENT #i18n singleton — it does
+// nothing for shared/i18n-pure.ts's own t(), used by the handful of pure/
+// Vitest-tested modules (shared/sync/delta.ts, shared/export/rows.ts,
+// shared/backup.ts, shared/stepper-info.ts, shared/anonymize.ts), since that
+// module has no #i18n object to patch at all. This was a real, shipped bug:
+// those modules' strings kept following the browser's own UI language even
+// after a user picked an explicit "Interface Language" override, while every
+// ambient-path string right next to them correctly obeyed it. Fixed by also
+// calling shared/i18n-pure.ts's setPureLocaleOverride() below, alongside the
+// ambient patch — see that file's header comment for the fuller writeup.
 
-import { resolveMessage } from "./i18n-pure";
+import { resolveMessage, setPureLocaleOverride } from "./i18n-pure";
 import { getPreferredLocale } from "./settings-store";
 import type { LocalePreference } from "./types";
 
@@ -56,10 +67,12 @@ function patchAmbientT(): void {
 export async function initLocaleOverride(): Promise<void> {
   currentPreference = await getPreferredLocale();
   patchAmbientT();
+  setPureLocaleOverride(currentPreference);
 
   browser.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && "preferredLocale" in changes) {
       currentPreference = (changes.preferredLocale.newValue as LocalePreference | undefined) ?? "system";
+      setPureLocaleOverride(currentPreference);
     }
   });
 }

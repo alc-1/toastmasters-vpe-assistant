@@ -16,6 +16,10 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 - "Save or Restore Club Settings" moved from the Home dashboard to the Settings pages.
 
+### Fixed
+
+- All the Club Progress/Member Review texts are now translated based on the user selected language.
+
 ## [2.2.0] - 2026-09-20
 
 ### Added

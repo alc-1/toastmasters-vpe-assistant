@@ -62,10 +62,26 @@
 // auto-detecting wrapper around it) is also reused by shared/i18n-override.ts
 // to serve an explicit user-picked locale (Global Settings' "Interface
 // Language" card) instead of only ever auto-detecting one — see that file.
+//
+// OVERRIDE AWARENESS: t()'s auto-detection normally stops at
+// browser.i18n.getUILanguage(), same as the ambient #i18n path — but the
+// ambient path additionally gets monkey-patched by
+// shared/i18n-override.ts's initLocaleOverride() to consult the user's
+// explicit "Interface Language" preference first. Without an equivalent
+// hook here, this pure t() (used by shared/sync/delta.ts,
+// shared/export/rows.ts, shared/backup.ts, shared/stepper-info.ts,
+// shared/anonymize.ts) would silently keep following the browser's own UI
+// language even after a user picks a different explicit preference — a
+// real, shipped bug: e.g. report.ts's "Next Level Summary" heading (ambient
+// i18n.t(), override-aware) correctly showed the user's chosen language
+// while shared/sync/delta.ts's own strings (this pure t(), override-BLIND)
+// kept following the browser's UI language regardless. setPureLocaleOverride()
+// below is called by shared/i18n-override.ts's initLocaleOverride() (and its
+// storage.onChanged listener) so both paths always agree.
 
 import enMessages from "../locales/generated/en.pure-generated.json";
 import frMessages from "../locales/generated/fr.pure-generated.json";
-import type { SupportedLocale } from "./types";
+import type { LocalePreference, SupportedLocale } from "./types";
 
 type ChromeMessage = { message: string };
 
@@ -81,8 +97,21 @@ const MESSAGES: Record<SupportedLocale, Record<string, ChromeMessage>> = {
 };
 
 let cachedLocale: SupportedLocale | undefined;
+let localeOverride: LocalePreference = "system";
+
+/**
+ * Called by shared/i18n-override.ts's initLocaleOverride() (and its
+ * storage.onChanged listener) to keep this pure path's locale in sync with
+ * the same user-picked "Interface Language" preference the ambient i18n.t()
+ * path honors — see this file's header comment for the bug this fixes.
+ * "system" (the default) restores plain browser-UI-language auto-detection.
+ */
+export function setPureLocaleOverride(preference: LocalePreference): void {
+  localeOverride = preference;
+}
 
 function resolveLocale(): SupportedLocale {
+  if (localeOverride !== "system") return localeOverride;
   if (cachedLocale) return cachedLocale;
   let uiLanguage: string | undefined;
   if (typeof browser !== "undefined" && typeof browser.i18n?.getUILanguage === "function") {
