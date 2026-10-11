@@ -132,7 +132,7 @@ describe("diffLevel", () => {
 });
 
 describe("matchPaths", () => {
-  it("cumulates Basecamp's Level 5 and Path Completion entries when comparing against EasySpeak's Level 5", () => {
+  it("treats Level 5 exactly like every other level — no Path Completion cumulation", () => {
     const basecampPerson = {
       userId: 1,
       name: "Test Member",
@@ -155,15 +155,56 @@ describe("matchPaths", () => {
     const { paths } = matchPaths(basecampPerson, easyspeakPerson);
     const level5 = paths[0].levels[4];
 
-    // Cumulated for the comparison: 1 (Level 5) + 1 (Path Completion) = 2/3.
-    expect(level5.basecamp).toEqual({ completed: 2, total: 3, approved: false });
+    // basecamp/basecampMissing/discrepancy/pendingValidation are all derived
+    // from Level 5's own raw progression entry alone — Path Completion is a
+    // separate, later Basecamp approval step and must never fold into or
+    // gate Level 5's own numbers (that was a real, shipped bug twice over:
+    // first Level 5 showed 2/3 instead of 1/2 on display, then — after fixing
+    // the display — a follow-up still cumulated the totals just to compare
+    // against EasySpeak, which kept a fully-done Level 5 from being flagged
+    // "ready for approval" for as long as Path Completion wasn't done yet).
+    expect(level5.basecamp).toEqual({ completed: 1, total: 2, approved: false });
     expect(level5.easyspeak).toEqual({ needed: 3, done: 2 });
-    expect(level5.discrepancy).toBe(0);
     expect(level5.basecampMissing).toBe(1);
+    expect(level5.discrepancy).toBe(1); // easyspeak.done(2) - basecamp.completed(1)
+    expect(level5.pendingValidation).toBe(true); // easyspeak.done(2) >= basecamp.total(2)
 
-    // The raw, un-cumulated Path Completion entry is still reported
-    // separately for its own Basecamp-only display.
+    // The raw Path Completion entry is still reported separately for its
+    // own Basecamp-only display, untouched by any of the above.
     expect(paths[0].pathCompletion).toEqual({ completed: 1, total: 1, missing: 0 });
+  });
+
+  it("flags Level 5 as ready for approval once Basecamp's own total is met, even if Path Completion hasn't started", () => {
+    // The exact reported scenario: Basecamp shows Level 5 fully done (3 of 3
+    // projects — 2 of which require a speech, 1 of which doesn't, though we
+    // have no visibility into that split), not yet approved. EasySpeak only
+    // tracks the 2 actual speeches given. Path Completion hasn't been
+    // started at all. Level 5 must still be flagged ready for approval —
+    // Path Completion is a wholly separate, later step.
+    const basecampPerson = {
+      userId: 1,
+      name: "Test Member",
+      paths: [
+        {
+          path_name: "Dynamic Leadership",
+          progression: {
+            "Level 5": { completed: 3, total: 3, approved: false },
+            "Path Completion": { completed: 0, total: 1 },
+          },
+        },
+      ],
+    };
+    const easyspeakPerson = {
+      memberId: "e1",
+      name: "Test Member",
+      paths: [{ path: "Dynamic Leadership", levels: [{ level: 5, needed: 2, done: 2 }] }],
+    };
+
+    const { paths } = matchPaths(basecampPerson, easyspeakPerson);
+    const level5 = paths[0].levels[4];
+
+    expect(level5.basecampMissing).toBe(0);
+    expect(level5.pendingValidation).toBe(true);
   });
 
   it("flags a genuine mismatch (real remaining work on both sides) as an actionable orphan", () => {

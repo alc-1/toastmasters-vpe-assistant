@@ -481,6 +481,27 @@ function buildPathCompletion(bc: BasecampPersonPath | null): PathCompletion | nu
   };
 }
 
+// Basecamp tracks progress by *project* (each worth 0, 1, or 2 speeches —
+// which isn't exposed by the API), EasySpeak tracks it by *speech*, and the
+// two are never reconciled here: Basecamp's own per-level completed/total
+// (and its approved flag) are always authoritative, for every level
+// including 5. EasySpeak's done-count is only ever used as a secondary
+// signal ("EasySpeak already shows enough speeches logged, go check
+// Basecamp") — never to override or gate what Basecamp itself reports.
+// This also means Level 5 gets no special-casing against Path Completion
+// (see diffLevels below): Path Completion is Basecamp's own separate,
+// later approval step (own `approved`-less progression entry, own
+// PathReport.pathCompletion field, own completion check in
+// computeLevelSummary()'s highestApprovedLevel===5 branch in delta.ts) and
+// must never gate Level 5's own readiness — a member fully done with
+// Level 5 (completed>=total) but not yet started on Path Completion is
+// still ready for Level 5 to be approved. An earlier version of this
+// function cumulated Level 5 + Path Completion's totals to fairly compare
+// against EasySpeak's own Level 5 figure (which, with no separate bucket of
+// its own, already counts path-completion speeches alongside Level 5's
+// own) — that was a real, shipped bug: it blocked the "ready for approval"
+// highlight on a fully-done Level 5 for as long as Path Completion itself
+// wasn't done yet.
 export function diffLevel(level: number, esLevel: EasySpeakLevel | null, bcLevel: { completed: number; total: number; approved?: boolean } | null): LevelDiff {
   const easyspeak = esLevel ? { needed: esLevel.needed, done: esLevel.done } : null;
   const basecamp = bcLevel ? { completed: bcLevel.completed, total: bcLevel.total, approved: !!bcLevel.approved } : null;
@@ -489,13 +510,6 @@ export function diffLevel(level: number, esLevel: EasySpeakLevel | null, bcLevel
   const basecampMissing = basecamp ? Math.max(0, basecamp.total - basecamp.completed) : null;
   const discrepancy = easyspeak && basecamp ? easyspeak.done - basecamp.completed : null;
 
-  // Basecamp is the source of truth for how many speeches a level needs —
-  // EasySpeak's own needed-count (esLevel.needed) is never trusted to decide
-  // "done". Instead, EasySpeak's done-count is compared against Basecamp's
-  // own total: if EasySpeak already has at least as many speeches logged as
-  // Basecamp requires, the level is pending validation even before Basecamp
-  // catches up, since it's Basecamp's requirement that's authoritative, not
-  // EasySpeak's idea of what's needed.
   const basecampDone = basecamp ? basecamp.completed >= basecamp.total : false;
   const easyspeakMeetsBasecampRequirement = basecamp && easyspeak ? easyspeak.done >= basecamp.total : false;
   const pendingValidation = !!(basecamp && !basecamp.approved && (basecampDone || easyspeakMeetsBasecampRequirement));
@@ -508,25 +522,7 @@ function diffLevels(esPath: EasySpeakPersonPath | null, bcPath: BasecampPersonPa
   const levels: LevelDiff[] = [];
   for (let level = 1; level <= PATHWAYS_LEVEL_COUNT; level++) {
     const es = esByLevel.get(level) ?? null;
-    let bcLevel = bcPath?.progression?.[`Level ${level}`] ?? null;
-    if (level === PATHWAYS_LEVEL_COUNT) {
-      // EasySpeak has no separate "Path Completion" bucket — its Level 5
-      // needed/done already counts the path-completion speeches alongside
-      // Level 5's own. Basecamp tracks them as two separate progression
-      // entries, so they're cumulated here purely for the comparison
-      // against EasySpeak's Level 5 (buildPathCompletion() below still
-      // reports the raw, un-cumulated Path Completion entry for its own
-      // Basecamp-only display). `approved` is carried over from the Level 5
-      // entry only — Path Completion has no approval flag of its own.
-      const completion = bcPath?.progression?.["Path Completion"] ?? null;
-      if (bcLevel || completion) {
-        bcLevel = {
-          completed: (bcLevel?.completed ?? 0) + (completion?.completed ?? 0),
-          total: (bcLevel?.total ?? 0) + (completion?.total ?? 0),
-          approved: bcLevel?.approved,
-        };
-      }
-    }
+    const bcLevel = bcPath?.progression?.[`Level ${level}`] ?? null;
     levels.push(diffLevel(level, es, bcLevel));
   }
   return levels;
