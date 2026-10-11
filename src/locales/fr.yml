@@ -814,7 +814,7 @@ report:
     pathCompletion:
       label: "Fin de parcours"
     allReported:
-      sentence: "Toutes les exigences signalées"
+      sentence: "Le niveau est prêt à être validé"
     speechesRemaining:
       count:
         1: "$1 discours restant"

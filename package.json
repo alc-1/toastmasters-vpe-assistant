@@ -26,6 +26,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:update-snapshots": "npm run build && playwright test visual --update-snapshots",
     "postinstall": "npm run generate && wxt prepare"
   },
   "devDependencies": {

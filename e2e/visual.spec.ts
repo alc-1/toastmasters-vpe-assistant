@@ -7,7 +7,7 @@
 // human — this is the only automated guard against visual regressions in the
 // big-bang rewrite (there is no other visual-diff suite and no Firefox e2e).
 //
-// Regenerate baselines: `npm run build && npx playwright test visual --update-snapshots`
+// Regenerate baselines: `npm run test:e2e:update-snapshots`
 
 import { PAGES, seedDemoData, test, expect } from "./fixtures";
 

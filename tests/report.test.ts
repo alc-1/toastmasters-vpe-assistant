@@ -844,7 +844,7 @@ describe("computeLevelSummary status", () => {
     const path = makePath({ levels: [makeLevel(1)] });
     const summary = computeLevelSummary(path);
     expect(summary.status).toBe("ready");
-    expect(summary.statusDetail).toBe("All requirements reported");
+    expect(summary.statusDetail).toBe("The level can be validated");
   });
 
   it("is 'in-progress' when EasySpeak has no progress logged for the level yet", () => {

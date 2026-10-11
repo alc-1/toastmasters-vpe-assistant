@@ -3227,8 +3227,8 @@ table.summary tbody tr[data-row-key] > td {
   border-top: 1px solid var(--color-base-300);
 }
 table.summary col.col-member { width: 15%; }
-table.summary col.col-path { width: 30%; }
-table.summary col.col-level { width: 5%; }
+table.summary col.col-path { width: 25%; }
+table.summary col.col-level { width: 10%; }
 table.summary col.col-status { width: 15%; }
 table.summary col.col-detail { width: 25%; }
 

@@ -805,7 +805,7 @@ report:
     pathCompletion:
       label: "Path Completion"
     allReported:
-      sentence: "All requirements reported"
+      sentence: "The level can be validated"
     speechesRemaining:
       count:
         1: "$1 speech remaining"
