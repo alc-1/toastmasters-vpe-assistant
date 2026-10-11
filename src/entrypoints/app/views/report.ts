@@ -104,12 +104,6 @@ function statusBadges(): Record<LevelUpStatus, StatusBadgeInfo> {
       icon: "",
       description: i18n.t("report.status.inProgress.description"),
     },
-    "needs-reporting": {
-      label: i18n.t("report.status.needsReporting.label"),
-      tone: "badge-soft badge-warning",
-      icon: "",
-      description: i18n.t("report.status.needsReporting.description"),
-    },
     completed: {
       label: i18n.t("report.status.completed.label"),
       tone: "badge-soft badge-success",
@@ -156,7 +150,7 @@ const NULL_LEVEL_DIFF = (level: number): LevelDiff => ({
   basecamp: null,
   easyspeakMissing: null,
   basecampMissing: null,
-  discrepancy: null,
+  easyspeakComplete: null,
   pendingValidation: false,
 });
 
@@ -661,10 +655,6 @@ export const reportView: ViewModule = {
       return path.levels.find((l) => l.level === levelNumber) ?? NULL_LEVEL_DIFF(levelNumber);
     }
 
-    // Used both to render the dash AND (in renderLevelsTableNarrow below) as
-    // the sentinel value discrepancyContent()'s callers compare against — a
-    // single function keeps both sides consistent regardless of locale,
-    // rather than a hardcoded "—" literal at the comparison site.
     function emptyDash(): string {
       return i18n.t("common.cell.empty.label");
     }
@@ -687,7 +677,7 @@ export const reportView: ViewModule = {
               ${renderEasyspeakRow(levels)}
             </tbody>
             <tfoot>
-              ${renderDiscrepancyFooterRow(levels)}
+              ${renderRemainingSpeechesFooterRow(levels)}
             </tfoot>
           </table>
         </div>
@@ -720,13 +710,6 @@ export const reportView: ViewModule = {
           : i18n.t("report.levelsTable.speechesDone.sentence", [String(level.easyspeak.done)]);
     }
 
-    function discrepancyContent(level: LevelDiff): string {
-      if (!level.basecamp || !level.easyspeak || level.basecamp.approved) return emptyDash();
-      return level.discrepancy && level.discrepancy > 0
-        ? i18n.t("report.levelsTable.toReport.sentence", [String(level.discrepancy)])
-        : emptyDash();
-    }
-
     function renderBasecampRow(levels: LevelDiff[], pathCompletion: PathReport["pathCompletion"]): string {
       return `<tr><td>${escapeHtml(i18n.t("report.levelsTable.basecamp.label"))}</td>${levels.map(basecampCell).join("")}${basecampPathCompletionCell(pathCompletion)}</tr>`;
     }
@@ -751,14 +734,23 @@ export const reportView: ViewModule = {
       return `<td${cellAttr(level)}${span}${titleAttr}>${easyspeakCellContent(level)}</td>`;
     }
 
-    function renderDiscrepancyFooterRow(levels: LevelDiff[]): string {
-      const [l1, l2, l3, l4, l5] = levels;
-      return `<tr><td>${escapeHtml(i18n.t("report.levelsTable.reportingGap.label"))}</td>${[l1, l2, l3, l4].map((l) => discrepancyCell(l)).join("")}${discrepancyCell(l5, 2)}</tr>`;
+    // Levels already approved in Basecamp have nothing left to flag — this
+    // only ever surfaces EasySpeak's own remaining-speech count
+    // (easyspeakMissing) for a level still awaiting approval, never
+    // Basecamp's own count and never a cross-source comparison.
+    function remainingSpeechesContent(level: LevelDiff): string {
+      if (!level.easyspeak || level.basecamp?.approved) return emptyDash();
+      return i18n.t("report.levelsTable.speechesRemaining.sentence", [String(level.easyspeakMissing ?? 0)]);
     }
 
-    function discrepancyCell(level: LevelDiff, colspan?: number): string {
+    function renderRemainingSpeechesFooterRow(levels: LevelDiff[]): string {
+      const [l1, l2, l3, l4, l5] = levels;
+      return `<tr><td>${escapeHtml(i18n.t("report.levelsTable.remainingSpeeches.label"))}</td>${[l1, l2, l3, l4].map((l) => remainingSpeechesCell(l)).join("")}${remainingSpeechesCell(l5, 2)}</tr>`;
+    }
+
+    function remainingSpeechesCell(level: LevelDiff, colspan?: number): string {
       const span = colspan ? ` colspan="${colspan}"` : "";
-      return `<td${span}>${discrepancyContent(level)}</td>`;
+      return `<td${span}>${remainingSpeechesContent(level)}</td>`;
     }
 
     // Phone-width companion to renderLevelsTable(): the same per-level data,
@@ -771,7 +763,7 @@ export const reportView: ViewModule = {
         .map((n) => {
           const level = levels[n - 1];
           const { content: bcContent, approved } = basecampCellContent(level);
-          const gap = discrepancyContent(level);
+          const gap = remainingSpeechesContent(level);
           const esContent = easyspeakCellContent(level);
           const esCombined = gap !== emptyDash() ? `${esContent} · ${gap}` : esContent;
           return `
@@ -789,7 +781,7 @@ export const reportView: ViewModule = {
       // cell — since EasySpeak has no completion metric distinct from Level 5.
       const level5 = levels[4];
       const { content: bc5Content, approved: bc5Approved } = basecampCellContent(level5);
-      const gap5 = discrepancyContent(level5);
+      const gap5 = remainingSpeechesContent(level5);
       const es5Content = easyspeakCellContent(level5);
       const es5Combined = gap5 !== emptyDash() ? `${es5Content} · ${gap5}` : es5Content;
 

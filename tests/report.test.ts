@@ -122,7 +122,16 @@ describe("diffLevel", () => {
   it("flags pendingValidation when both sides consider the level done but Basecamp hasn't approved it", () => {
     const diff = diffLevel(1, { level: 1, needed: 2, done: 2 }, { completed: 2, total: 2, approved: false });
     expect(diff.pendingValidation).toBe(true);
-    expect(diff.discrepancy).toBe(0);
+    expect(diff.easyspeakComplete).toBe(true);
+  });
+
+  it("flags pendingValidation from EasySpeak's own completeness alone, even with a different Basecamp count", () => {
+    // EasySpeak's needed/done (speeches) and Basecamp's completed/total
+    // (projects) are never compared to each other — only each side's own
+    // ratio is checked for completeness.
+    const diff = diffLevel(1, { level: 1, needed: 2, done: 2 }, { completed: 1, total: 4, approved: false });
+    expect(diff.easyspeakComplete).toBe(true);
+    expect(diff.pendingValidation).toBe(true);
   });
 
   it("does not flag pendingValidation once Basecamp has approved it", () => {
@@ -155,19 +164,20 @@ describe("matchPaths", () => {
     const { paths } = matchPaths(basecampPerson, easyspeakPerson);
     const level5 = paths[0].levels[4];
 
-    // basecamp/basecampMissing/discrepancy/pendingValidation are all derived
-    // from Level 5's own raw progression entry alone — Path Completion is a
-    // separate, later Basecamp approval step and must never fold into or
-    // gate Level 5's own numbers (that was a real, shipped bug twice over:
-    // first Level 5 showed 2/3 instead of 1/2 on display, then — after fixing
-    // the display — a follow-up still cumulated the totals just to compare
-    // against EasySpeak, which kept a fully-done Level 5 from being flagged
-    // "ready for approval" for as long as Path Completion wasn't done yet).
+    // basecamp/basecampMissing/easyspeakComplete/pendingValidation are all
+    // derived from Level 5's own raw progression entry alone — Path
+    // Completion is a separate, later Basecamp approval step and must never
+    // fold into or gate Level 5's own numbers (that was a real, shipped bug
+    // twice over: first Level 5 showed 2/3 instead of 1/2 on display, then —
+    // after fixing the display — a follow-up still cumulated the totals just
+    // to compare against EasySpeak, which kept a fully-done Level 5 from
+    // being flagged "ready for approval" for as long as Path Completion
+    // wasn't done yet).
     expect(level5.basecamp).toEqual({ completed: 1, total: 2, approved: false });
     expect(level5.easyspeak).toEqual({ needed: 3, done: 2 });
     expect(level5.basecampMissing).toBe(1);
-    expect(level5.discrepancy).toBe(1); // easyspeak.done(2) - basecamp.completed(1)
-    expect(level5.pendingValidation).toBe(true); // easyspeak.done(2) >= basecamp.total(2)
+    expect(level5.easyspeakComplete).toBe(false); // easyspeak.done(2) < easyspeak.needed(3) — checked against itself, never against basecamp
+    expect(level5.pendingValidation).toBe(false); // neither side's own ratio is complete
 
     // The raw Path Completion entry is still reported separately for its
     // own Basecamp-only display, untouched by any of the above.
@@ -735,64 +745,53 @@ describe("compareLevelSummaryRows", () => {
       currentLevelLabel: "Level 1",
       nextLevelLabel: "Level 2",
       theoreticalMissing: 1,
-      unreportedInBasecamp: 0,
-      realMissing: 1,
+      easyspeakMissing: 1,
       status: "in-progress",
       statusDetail: "1 speech remaining",
-      statusSortRank: 3,
+      statusSortRank: 2,
       ...overrides,
     };
   }
 
   it("groups both-presence rows first, then Basecamp-only, then EasySpeak-only, regardless of the sorted column's values", () => {
-    // realMissing is deliberately set so a naive column-only sort would put
-    // these in the opposite order (easyspeak-only first) — presence grouping
-    // must win regardless.
-    const bothRow = makeRow({ pathKey: "both", pathPresence: "both", realMissing: 3 });
-    const basecampOnlyRow = makeRow({ pathKey: "basecamp-only", pathPresence: "basecamp-only", realMissing: 2 });
-    const easyspeakOnlyRow = makeRow({ pathKey: "easyspeak-only", pathPresence: "easyspeak-only", realMissing: 1 });
+    // easyspeakMissing is deliberately set so a naive column-only sort would
+    // put these in the opposite order (easyspeak-only first) — presence
+    // grouping must win regardless.
+    const bothRow = makeRow({ pathKey: "both", pathPresence: "both", easyspeakMissing: 3 });
+    const basecampOnlyRow = makeRow({ pathKey: "basecamp-only", pathPresence: "basecamp-only", easyspeakMissing: 2 });
+    const easyspeakOnlyRow = makeRow({ pathKey: "easyspeak-only", pathPresence: "easyspeak-only", easyspeakMissing: 1 });
 
-    const sorted = [easyspeakOnlyRow, basecampOnlyRow, bothRow].sort((a, b) => compareLevelSummaryRows(a, b, "realMissing", "asc"));
+    const sorted = [easyspeakOnlyRow, basecampOnlyRow, bothRow].sort((a, b) => compareLevelSummaryRows(a, b, "easyspeakMissing", "asc"));
 
     expect(sorted.map((r) => r.pathPresence)).toEqual(["both", "basecamp-only", "easyspeak-only"]);
   });
 
   it("sorts by the picked column within a shared presence group", () => {
-    const rowA = makeRow({ pathKey: "a", pathPresence: "both", realMissing: 3 });
-    const rowB = makeRow({ pathKey: "b", pathPresence: "both", realMissing: 1 });
-    const rowC = makeRow({ pathKey: "c", pathPresence: "both", realMissing: 2 });
+    const rowA = makeRow({ pathKey: "a", pathPresence: "both", easyspeakMissing: 3 });
+    const rowB = makeRow({ pathKey: "b", pathPresence: "both", easyspeakMissing: 1 });
+    const rowC = makeRow({ pathKey: "c", pathPresence: "both", easyspeakMissing: 2 });
 
-    const asc = [rowA, rowB, rowC].sort((a, b) => compareLevelSummaryRows(a, b, "realMissing", "asc"));
+    const asc = [rowA, rowB, rowC].sort((a, b) => compareLevelSummaryRows(a, b, "easyspeakMissing", "asc"));
     expect(asc.map((r) => r.pathKey)).toEqual(["b", "c", "a"]);
 
-    const desc = [rowA, rowB, rowC].sort((a, b) => compareLevelSummaryRows(a, b, "realMissing", "desc"));
+    const desc = [rowA, rowB, rowC].sort((a, b) => compareLevelSummaryRows(a, b, "easyspeakMissing", "desc"));
     expect(desc.map((r) => r.pathKey)).toEqual(["a", "c", "b"]);
   });
 
   it("sorts a null value in the picked column last within its own presence group, not globally last", () => {
-    const bothWithNull = makeRow({ pathKey: "both-null", pathPresence: "both", realMissing: null });
-    const bothWithValue = makeRow({ pathKey: "both-value", pathPresence: "both", realMissing: 1 });
-    const basecampOnlyRow = makeRow({ pathKey: "basecamp-only", pathPresence: "basecamp-only", realMissing: 0 });
+    const bothWithNull = makeRow({ pathKey: "both-null", pathPresence: "both", easyspeakMissing: null });
+    const bothWithValue = makeRow({ pathKey: "both-value", pathPresence: "both", easyspeakMissing: 1 });
+    const basecampOnlyRow = makeRow({ pathKey: "basecamp-only", pathPresence: "basecamp-only", easyspeakMissing: 0 });
 
-    const sorted = [basecampOnlyRow, bothWithNull, bothWithValue].sort((a, b) => compareLevelSummaryRows(a, b, "realMissing", "asc"));
+    const sorted = [basecampOnlyRow, bothWithNull, bothWithValue].sort((a, b) => compareLevelSummaryRows(a, b, "easyspeakMissing", "asc"));
 
     expect(sorted.map((r) => r.pathKey)).toEqual(["both-value", "both-null", "basecamp-only"]);
   });
 
-  it("when sorting by Status, breaks ties among 'needs-reporting' rows by smallest remaining-count-once-reported first", () => {
-    const many = makeRow({ pathKey: "many", status: "needs-reporting", statusSortRank: 2, realMissing: 4 });
-    const few = makeRow({ pathKey: "few", status: "needs-reporting", statusSortRank: 2, realMissing: 1 });
-    const some = makeRow({ pathKey: "some", status: "needs-reporting", statusSortRank: 2, realMissing: 2 });
-
-    const sorted = [many, few, some].sort((a, b) => compareLevelSummaryRows(a, b, "statusSortRank", "asc"));
-
-    expect(sorted.map((r) => r.pathKey)).toEqual(["few", "some", "many"]);
-  });
-
   it("when sorting by Status, breaks ties among 'in-progress' rows by smallest speeches-remaining count first", () => {
-    const many = makeRow({ pathKey: "many", status: "in-progress", statusSortRank: 3, realMissing: 4 });
-    const few = makeRow({ pathKey: "few", status: "in-progress", statusSortRank: 3, realMissing: 1 });
-    const some = makeRow({ pathKey: "some", status: "in-progress", statusSortRank: 3, realMissing: 2 });
+    const many = makeRow({ pathKey: "many", status: "in-progress", statusSortRank: 2, easyspeakMissing: 4 });
+    const few = makeRow({ pathKey: "few", status: "in-progress", statusSortRank: 2, easyspeakMissing: 1 });
+    const some = makeRow({ pathKey: "some", status: "in-progress", statusSortRank: 2, easyspeakMissing: 2 });
 
     const sorted = [many, few, some].sort((a, b) => compareLevelSummaryRows(a, b, "statusSortRank", "asc"));
 
@@ -815,7 +814,7 @@ describe("computeLevelSummary status", () => {
       basecamp: null,
       easyspeakMissing: null,
       basecampMissing: null,
-      discrepancy: null,
+      easyspeakComplete: null,
       pendingValidation: false,
       ...overrides,
     };
@@ -848,14 +847,33 @@ describe("computeLevelSummary status", () => {
     expect(summary.statusDetail).toBe("All requirements reported");
   });
 
-  it("is 'in-progress' when speeches remain and nothing else is flagged", () => {
-    const path = makePath({ levels: [makeLevel(1, { basecamp: { completed: 2, total: 5, approved: false }, basecampMissing: 3 })] });
+  it("is 'in-progress' when EasySpeak has no progress logged for the level yet", () => {
+    const path = makePath({
+      levels: [
+        makeLevel(1, {
+          easyspeak: { needed: 3, done: 0 },
+          basecamp: { completed: 2, total: 5, approved: false },
+          easyspeakMissing: 3,
+          basecampMissing: 3,
+          easyspeakComplete: false,
+        }),
+      ],
+    });
     const summary = computeLevelSummary(path);
     expect(summary.status).toBe("in-progress");
+    // The number shown is EasySpeak's own remaining count (3), not
+    // Basecamp's missing-project count — they happen to coincide here.
     expect(summary.statusDetail).toBe("3 speeches remaining");
   });
 
-  it("is 'needs-reporting' when EasySpeak is ahead of Basecamp but a real gap remains", () => {
+  it("falls back to the no-data dash when there's no EasySpeak record for this level at all", () => {
+    const path = makePath({ levels: [makeLevel(1, { basecamp: { completed: 2, total: 5, approved: false }, basecampMissing: 3 })] });
+    const summary = computeLevelSummary(path);
+    expect(summary.status).toBe("in-progress");
+    expect(summary.statusDetail).toBe("—");
+  });
+
+  it("is 'in-progress' (not a separate status) when EasySpeak shows some but not all of the level's speeches done", () => {
     const path = makePath({
       levels: [
         makeLevel(1, {
@@ -863,16 +881,16 @@ describe("computeLevelSummary status", () => {
           basecamp: { completed: 1, total: 5, approved: false },
           easyspeakMissing: 2,
           basecampMissing: 4,
-          discrepancy: 2,
+          easyspeakComplete: false,
         }),
       ],
     });
     const summary = computeLevelSummary(path);
-    expect(summary.status).toBe("needs-reporting");
-    expect(summary.statusDetail).toBe("4 speeches remaining → 2 if reported");
+    expect(summary.status).toBe("in-progress");
+    expect(summary.statusDetail).toBe("2 speeches remaining");
   });
 
-  it("is 'ready-if-reported' when reporting the unreported speeches would close the gap", () => {
+  it("is 'ready-if-reported' when EasySpeak's own ratio shows the level fully done, regardless of Basecamp's count", () => {
     const path = makePath({
       levels: [
         makeLevel(1, {
@@ -880,13 +898,13 @@ describe("computeLevelSummary status", () => {
           basecamp: { completed: 3, total: 5, approved: false },
           easyspeakMissing: 0,
           basecampMissing: 2,
-          discrepancy: 2,
+          easyspeakComplete: true,
         }),
       ],
     });
     const summary = computeLevelSummary(path);
     expect(summary.status).toBe("ready-if-reported");
-    expect(summary.statusDetail).toBe("2 speeches remaining → 0 if reported");
+    expect(summary.statusDetail).toBe("Speeches delivered, not yet reported");
   });
 
   it("is 'completed' once Level 5 and Path Completion are both done", () => {

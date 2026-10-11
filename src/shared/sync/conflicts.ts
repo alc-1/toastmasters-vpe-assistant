@@ -482,39 +482,43 @@ function buildPathCompletion(bc: BasecampPersonPath | null): PathCompletion | nu
 }
 
 // Basecamp tracks progress by *project* (each worth 0, 1, or 2 speeches —
-// which isn't exposed by the API), EasySpeak tracks it by *speech*, and the
-// two are never reconciled here: Basecamp's own per-level completed/total
-// (and its approved flag) are always authoritative, for every level
-// including 5. EasySpeak's done-count is only ever used as a secondary
-// signal ("EasySpeak already shows enough speeches logged, go check
-// Basecamp") — never to override or gate what Basecamp itself reports.
-// This also means Level 5 gets no special-casing against Path Completion
-// (see diffLevels below): Path Completion is Basecamp's own separate,
-// later approval step (own `approved`-less progression entry, own
-// PathReport.pathCompletion field, own completion check in
-// computeLevelSummary()'s highestApprovedLevel===5 branch in delta.ts) and
-// must never gate Level 5's own readiness — a member fully done with
-// Level 5 (completed>=total) but not yet started on Path Completion is
-// still ready for Level 5 to be approved. An earlier version of this
-// function cumulated Level 5 + Path Completion's totals to fairly compare
-// against EasySpeak's own Level 5 figure (which, with no separate bucket of
-// its own, already counts path-completion speeches alongside Level 5's
-// own) — that was a real, shipped bug: it blocked the "ready for approval"
-// highlight on a fully-done Level 5 for as long as Path Completion itself
-// wasn't done yet.
+// which isn't exposed by the API), EasySpeak tracks it by *speech* — two
+// different units of the same underlying concept, so they are never
+// numerically compared against each other here (no subtraction, no
+// cross-unit >=). Instead each source's own ratio is checked for
+// completeness in isolation (basecampComplete, easyspeakComplete), and
+// those two atomic, same-source booleans are the only things combined
+// (via OR) to decide pendingValidation. Basecamp's own per-level
+// completed/total (and its approved flag) are always authoritative, for
+// every level including 5; EasySpeak's own completeness is only ever used
+// as a secondary signal ("EasySpeak already shows every speech for this
+// level logged, go check Basecamp") — never to override or gate what
+// Basecamp itself reports. This also means Level 5 gets no special-casing
+// against Path Completion (see diffLevels below): Path Completion is
+// Basecamp's own separate, later approval step (own `approved`-less
+// progression entry, own PathReport.pathCompletion field, own completion
+// check in computeLevelSummary()'s highestApprovedLevel===5 branch in
+// delta.ts) and must never gate Level 5's own readiness — a member fully
+// done with Level 5 (completed>=total) but not yet started on Path
+// Completion is still ready for Level 5 to be approved. An earlier version
+// of this function cumulated Level 5 + Path Completion's totals to fairly
+// compare against EasySpeak's own Level 5 figure (which, with no separate
+// bucket of its own, already counts path-completion speeches alongside
+// Level 5's own) — that was a real, shipped bug: it blocked the "ready for
+// approval" highlight on a fully-done Level 5 for as long as Path
+// Completion itself wasn't done yet.
 export function diffLevel(level: number, esLevel: EasySpeakLevel | null, bcLevel: { completed: number; total: number; approved?: boolean } | null): LevelDiff {
   const easyspeak = esLevel ? { needed: esLevel.needed, done: esLevel.done } : null;
   const basecamp = bcLevel ? { completed: bcLevel.completed, total: bcLevel.total, approved: !!bcLevel.approved } : null;
 
   const easyspeakMissing = easyspeak ? Math.max(0, easyspeak.needed - easyspeak.done) : null;
   const basecampMissing = basecamp ? Math.max(0, basecamp.total - basecamp.completed) : null;
-  const discrepancy = easyspeak && basecamp ? easyspeak.done - basecamp.completed : null;
+  const easyspeakComplete = easyspeak ? easyspeak.done >= easyspeak.needed : null;
 
-  const basecampDone = basecamp ? basecamp.completed >= basecamp.total : false;
-  const easyspeakMeetsBasecampRequirement = basecamp && easyspeak ? easyspeak.done >= basecamp.total : false;
-  const pendingValidation = !!(basecamp && !basecamp.approved && (basecampDone || easyspeakMeetsBasecampRequirement));
+  const basecampComplete = basecamp ? basecamp.completed >= basecamp.total : false;
+  const pendingValidation = !!(basecamp && !basecamp.approved && (basecampComplete || easyspeakComplete));
 
-  return { level, easyspeak, basecamp, easyspeakMissing, basecampMissing, discrepancy, pendingValidation };
+  return { level, easyspeak, basecamp, easyspeakMissing, basecampMissing, easyspeakComplete, pendingValidation };
 }
 
 function diffLevels(esPath: EasySpeakPersonPath | null, bcPath: BasecampPersonPath | null): LevelDiff[] {

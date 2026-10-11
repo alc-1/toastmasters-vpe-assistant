@@ -58,6 +58,17 @@ export const test = base.extend<{
         "--headless=new",
         `--disable-extensions-except=${EXTENSION_PATH}`,
         `--load-extension=${EXTENSION_PATH}`,
+        // Pins Chrome's own UI language (what browser.i18n.getUILanguage()
+        // reports, and therefore which _locales/<lang>/ the extension's
+        // native i18n auto-serves — see CLAUDE.md's "Internationalization
+        // (i18n)" section) to English regardless of the host OS/browser's
+        // own locale. Every locator below is hardcoded English text — on a
+        // non-English machine the extension would otherwise render e.g.
+        // French and every one of these locators would time out. This is a
+        // test-harness-only pin: it doesn't touch the extension's own
+        // default locale behavior for real users at all, just what locale
+        // this specific launched Chromium instance reports itself as.
+        "--lang=en-US",
       ],
     });
     await use(context);
@@ -102,9 +113,11 @@ export const expect = test.expect;
  * Drives the real UI (not a direct storage write) to get demo-profile data
  * into browser.storage.local:
  *  1. Setup → select "Try with demo data".
- *  2. Sync Data → import both sources (background short-circuits straight to
- *     shared/mock/mockData.ts's fixtures for the "demo" profile — no
- *     network/tab/login involved).
+ *  2. Sync Data → import all three sources (background short-circuits
+ *     straight to shared/mock/mockData.ts's fixtures for the "demo" profile
+ *     — no network/tab/login involved for any of them, Club Central
+ *     included — see background/api/clubcentral.ts's own `profileId ===
+ *     "demo"` short-circuit, same shape as Basecamp's/EasySpeak's).
  */
 export async function seedDemoData(page: Page, pageUrl: (page: (typeof PAGES)[keyof typeof PAGES]) => string): Promise<void> {
   await page.goto(pageUrl(PAGES.setup));
@@ -113,8 +126,10 @@ export async function seedDemoData(page: Page, pageUrl: (page: (typeof PAGES)[ke
   await page.goto(pageUrl(PAGES.syncData));
   await page.locator("#scrapeBasecampBtn").click();
   await page.locator("#scrapeEasySpeakBtn").click();
+  await page.locator("#scrapeClubCentralBtn").click();
   // Exact match matters: the not-yet-imported badge text is "Not Imported",
   // which itself contains "Imported" as a substring.
   await page.locator("#badgeBasecamp", { hasText: /^✓ Imported$/ }).waitFor();
   await page.locator("#badgeEasySpeak", { hasText: /^✓ Imported$/ }).waitFor();
+  await page.locator("#badgeClubCentral", { hasText: /^✓ Imported$/ }).waitFor();
 }

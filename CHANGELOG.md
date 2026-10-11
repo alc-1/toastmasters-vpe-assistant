@@ -8,10 +8,9 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
-### Fixed
+### Changed
 
-- Path Completion speeches are no longer double-counted inside the Level 5 total.
-- A fully completed Level 5 is now correctly flagged as ready for approval even if Path Completion hasn't been started yet.
+- Club Progress's page logic has been revamped to properly show members progress.
 
 ## [2.3.0] - 2026-09-30
 

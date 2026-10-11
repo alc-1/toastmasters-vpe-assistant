@@ -2372,8 +2372,8 @@
     font-style: italic;
   }
 
-  /* A level's requirements are already satisfied in EasySpeak but not yet
-     reported in Basecamp (realMissing === 0) — it can be taken anytime. */
+  /* A level's requirements are already satisfied in Basecamp itself
+     (status === "ready") — it can be taken anytime. */
   .data-table tr.ready-row {
     font-weight: 700;
   }
@@ -3092,8 +3092,8 @@ table.levels td:not(:first-child) {
 /* Comfortable, evenly-spaced cells with light-grey column separators — no
    heavy rules (a leaked primary-coloured border-left was the old "thick blue
    line" between columns). Row-to-row separation is the inherited .data-table
-   `border-bottom`, so Basecamp / EasySpeak / Reporting gap each read as a
-   distinct horizontal line. */
+   `border-bottom`, so Basecamp / EasySpeak / Remaining speeches each read as
+   a distinct horizontal line. */
 table.levels th,
 table.levels td,
 table.levels-narrow th,
@@ -3115,7 +3115,7 @@ table.levels-narrow tr:last-child td {
 }
 
 /* The matrix card is one uniform white surface — every body/footer cell is
-   explicitly #fff so no row (EasySpeak, Reporting gap) can pick up the
+   explicitly #fff so no row (EasySpeak, Remaining speeches) can pick up the
    .data-table zebra/hover tint and blend into the outer slate panel. The
    opaque cell background also covers the <tr>-level tints without needing to
    override each. Source rows stay separated by the inherited #e2e8f0
@@ -3130,7 +3130,7 @@ table.levels tfoot td:first-child {
   font-weight: 600;
 }
 
-/* The "Reporting gap" row is a calculated summary, set off from the data rows
+/* The "Remaining speeches" row is a calculated summary, set off from the data rows
    by a 2px top rule on the <tfoot> — otherwise it keeps the exact size,
    left-alignment, padding and (non-italic) style of the Basecamp/EasySpeak
    rows above it. */

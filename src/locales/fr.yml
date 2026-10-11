@@ -701,10 +701,7 @@ report:
       description: "Easyspeak indique que suffisament de discours ont été faits. Si Basecamp est mis à jour par le membre, il peut demander à valider son niveau."
     inProgress:
       label: "En cours"
-      description: "Encore en train de réaliser les discours du niveau."
-    needsReporting:
-      label: "Mise à jour nécessaire"
-      description: "Certains discours réalisés dans EasySpeak ne sont pas encore présents dans Basecamp."
+      description: "Encore en train de réaliser les discours du niveau, éventuellement avec certains discours déjà faits dans EasySpeak mais pas encore présents dans Basecamp."
     completed:
       label: "Terminé"
       description: "Parcours terminé."
@@ -775,17 +772,17 @@ report:
     pathCompletion:
       label: "Achèvement du parcours"
     basecamp:
-      label: "Basecamp"
+      label: "Basecamp (projets)"
     easyspeak:
-      label: "EasySpeak"
-    reportingGap:
-      label: "Écart de mise à jour"
+      label: "EasySpeak (discours)"
     of:
       sentence: "$1 sur $2"
     speechesDone:
       sentence: "$1 discours réalisés"
-    toReport:
-      sentence: "$1 à mettre à jour"
+    remainingSpeeches:
+      label: "Discours restants"
+    speechesRemaining:
+      sentence: "$1 discours restants"
   anonymizeIndicator:
     tooltip: "Désactivez dans Paramètres généraux pour voir les vrais noms"
     label: "Anonymisé"
@@ -822,10 +819,8 @@ report:
       count:
         1: "$1 discours restant"
         n: "$1 discours restants"
-    speechesRemainingIfReported:
-      count:
-        1: "$1 discours restant → $2 si mis à jour"
-        n: "$1 discours restants → $2 si mis à jour"
+    speechesDeliveredNotReported:
+      sentence: "Discours effectués, pas encore signalés"
 
 members:
   page:

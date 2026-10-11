@@ -1431,14 +1431,14 @@ speechesRemaining:
     n: "$1 speeches remaining"
 ```
 
-Called as `i18n.t("report.levelSummary.speechesRemaining.count", theoreticalMissing)` — passing a
+Called as `i18n.t("report.levelSummary.speechesRemaining.count", easyspeakMissing)` — passing a
 bare number selects the plural variant (1 vs. everything else) *and* substitutes it into that
 variant's own `$1` for free. A `0:` variant is also supported when English needs a distinct "no
 items" phrasing (not currently used here). Interpolation into a `.count`-typed key beyond the count
 itself needs an explicit substitution array too, e.g. `speechesRemainingIfReported`'s
 `"$1 speech remaining → $2 if reported"` is called as
-`i18n.t(key, theoreticalMissing, [String(theoreticalMissing), String(realMissing)])` — the count arg
-picks the plural form, the array fills every `$N`.
+`i18n.t(key, easyspeakMissing, [String(easyspeakMissing), "0"])` — the count arg picks the plural
+form, the array fills every `$N`.
 
 Non-pluralized interpolation uses either positional `$1`/`$2`/… (`i18n.t(key, [value1, value2])`) or
 named `{placeholder}` substitutions (`i18n.t(key, { placeholder: value })`) — pick whichever reads

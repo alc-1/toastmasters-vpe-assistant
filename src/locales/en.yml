@@ -691,11 +691,8 @@ report:
       label: "Ready if reported"
       description: "Done in EasySpeak, just needs reporting in Basecamp to be ready."
     inProgress:
-      label: "On track"
-      description: "Still working through the level's speeches."
-    needsReporting:
-      label: "Needs reporting"
-      description: "Some speeches done in EasySpeak aren't yet reported in Basecamp."
+      label: "In progress"
+      description: "Still working through the level's speeches, possibly with some already done in EasySpeak but not yet reported in Basecamp."
     completed:
       label: "Completed"
       description: "Path completed."
@@ -766,17 +763,17 @@ report:
     pathCompletion:
       label: "Path Completion"
     basecamp:
-      label: "Basecamp"
+      label: "Basecamp (projects)"
     easyspeak:
-      label: "EasySpeak"
-    reportingGap:
-      label: "Reporting gap"
+      label: "EasySpeak (speeches)"
     of:
       sentence: "$1 of $2"
     speechesDone:
       sentence: "$1 speeches done"
-    toReport:
-      sentence: "$1 to report"
+    remainingSpeeches:
+      label: "Remaining speeches"
+    speechesRemaining:
+      sentence: "$1 speeches remaining"
   anonymizeIndicator:
     tooltip: "Turn off in Global Settings to see real names"
     label: "Anonymized"
@@ -813,10 +810,8 @@ report:
       count:
         1: "$1 speech remaining"
         n: "$1 speeches remaining"
-    speechesRemainingIfReported:
-      count:
-        1: "$1 speech remaining → $2 if reported"
-        n: "$1 speeches remaining → $2 if reported"
+    speechesDeliveredNotReported:
+      sentence: "Speeches delivered, not yet reported"
 
 members:
   page:

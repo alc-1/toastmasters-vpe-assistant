@@ -192,7 +192,9 @@ export interface LevelDiff {
   basecamp: { completed: number; total: number; approved: boolean } | null;
   easyspeakMissing: number | null;
   basecampMissing: number | null;
-  discrepancy: number | null;
+  // EasySpeak's own needed/done ratio for this level, checked against
+  // itself only (done >= needed) — never compared to Basecamp's count.
+  easyspeakComplete: boolean | null;
   pendingValidation: boolean;
 }
 
@@ -272,21 +274,25 @@ export interface ReportResult {
   clubPairs: ClubPairReport[];
 }
 
-// One glanceable status per member+path row, replacing the raw
-// theoreticalMissing/unreportedInBasecamp/realMissing numbers in the Club
-// Progress UI (see computeLevelSummary() in shared/sync/delta.ts for the
-// derivation rules and precedence). "completed"/"not-tracked" cover paths
+// One glanceable status per member+path row, derived purely from each
+// source's own atomic completion ratio (see computeLevelSummary() in
+// shared/sync/delta.ts for the derivation rules and precedence — never a
+// cross-source numeric comparison). "completed"/"not-tracked" cover paths
 // with no active level gap at all (fully done, or EasySpeak-only).
-export type LevelUpStatus = "ready" | "ready-if-reported" | "in-progress" | "needs-reporting" | "completed" | "not-tracked";
+export type LevelUpStatus = "ready" | "ready-if-reported" | "in-progress" | "completed" | "not-tracked";
 
 export interface LevelSummaryCore {
   currentLevel: number | null;
   currentLevelSortValue: number | null;
   currentLevelLabel: string;
   nextLevelLabel: string;
+  // Basecamp's own missing-project count for the current level — only ever
+  // used to decide the "ready" status, never shown labeled as "speeches".
   theoreticalMissing: number | null;
-  unreportedInBasecamp: number | null;
-  realMissing: number | null;
+  // EasySpeak's own missing-speech count for the current level (needed -
+  // done, floored at 0) — the number behind every "speech(es) remaining"
+  // detail string, sourced from EasySpeak alone.
+  easyspeakMissing: number | null;
   status: LevelUpStatus;
   statusDetail: string;
   // Lower = more urgent — lets the Status column sort meaningfully even

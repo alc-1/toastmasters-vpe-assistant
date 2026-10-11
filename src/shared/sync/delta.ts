@@ -3,8 +3,9 @@
 // Computes the delta between the two systems: groups raw scrape rows into
 // one entry per person, hands them to shared/sync/conflicts.ts to decide
 // which records pair up, then works out what each pair's differences mean
-// (missing speeches, discrepancies, pending-validation flags, "next level"
-// summaries). No chrome.* dependency — same reasoning as conflicts.ts.
+// (missing speeches/projects per source, pending-validation flags, "next
+// level" summaries). No chrome.* dependency — same reasoning as
+// conflicts.ts.
 
 import { t } from "../i18n-pure";
 import {
@@ -417,10 +418,9 @@ function buildClubPairReport(
 const STATUS_SORT_RANK: Record<LevelUpStatus, number> = {
   ready: 0,
   "ready-if-reported": 1,
-  "needs-reporting": 2,
-  "in-progress": 3,
-  "not-tracked": 4,
-  completed: 5,
+  "in-progress": 2,
+  "not-tracked": 3,
+  completed: 4,
 };
 
 export function computeLevelSummary(path: PathReport): LevelSummaryCore {
@@ -431,8 +431,7 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
       currentLevelLabel: t("report.levelSummary.notInBasecamp.label"),
       nextLevelLabel: t("report.levelSummary.none.label"),
       theoreticalMissing: null,
-      unreportedInBasecamp: null,
-      realMissing: null,
+      easyspeakMissing: null,
       status: "not-tracked",
       statusDetail: t("report.levelSummary.easyspeakOnly.sentence"),
       statusSortRank: STATUS_SORT_RANK["not-tracked"],
@@ -460,8 +459,7 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
       currentLevelLabel: t("report.levelSummary.completed.label"),
       nextLevelLabel: t("report.levelSummary.none.label"),
       theoreticalMissing: null,
-      unreportedInBasecamp: null,
-      realMissing: null,
+      easyspeakMissing: null,
       status: "completed",
       statusDetail: t("report.levelSummary.pathCompleted.sentence"),
       statusSortRank: STATUS_SORT_RANK.completed,
@@ -472,9 +470,9 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
 
   if (highestApprovedLevel === 5) {
     // Level 5 approved but Path Completion itself isn't done yet — Path
-    // Completion has no EasySpeak equivalent to compare against at all, so
-    // there's no discrepancy/pendingValidation data to check here; status
-    // can only ever be "ready" or "in-progress".
+    // Completion has no EasySpeak equivalent at all, so there's no
+    // EasySpeak-based signal to check here; status can only ever be
+    // "ready" or "in-progress".
     const theoreticalMissing = path.pathCompletion?.missing ?? 0;
     const status: LevelUpStatus = theoreticalMissing === 0 ? "ready" : "in-progress";
     const statusDetail =
@@ -490,8 +488,7 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
       currentLevelLabel,
       nextLevelLabel: t("report.levelSummary.pathCompletion.label"),
       theoreticalMissing,
-      unreportedInBasecamp: 0,
-      realMissing: theoreticalMissing,
+      easyspeakMissing: null,
       status,
       statusDetail,
       statusSortRank: STATUS_SORT_RANK[status],
@@ -500,33 +497,44 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
 
   const nextLevel = path.levels[highestApprovedLevel]; // highestApprovedLevel is 0-4 here, levels[] is 0-indexed by level-1
   const theoreticalMissing = nextLevel.basecampMissing ?? 0;
-  const unreportedInBasecamp = nextLevel.easyspeak ? Math.max(0, nextLevel.discrepancy ?? 0) : 0;
-  const realMissing = Math.max(0, theoreticalMissing - unreportedInBasecamp);
+  // EasySpeak's own gap for this level, checked only against itself — never
+  // subtracted from or compared to Basecamp's count.
+  const easyspeakMissing = nextLevel.easyspeak ? Math.max(0, nextLevel.easyspeak.needed - nextLevel.easyspeak.done) : null;
+  const easyspeakComplete = !!nextLevel.easyspeakComplete;
 
-  // Precedence: the reporting-gap cases are checked first; plain
-  // progress/ready are the fallback.
+  // Precedence: Basecamp's own completeness wins first; otherwise EasySpeak's
+  // own ratio decides between "fully done there already" (ready-if-reported)
+  // and still-in-progress (whether or not some EasySpeak progress has been
+  // logged — "needs-reporting" and plain "in-progress" used to be separate
+  // statuses here, but a VPE treats both the same way: nothing to do yet but
+  // wait/keep working, so they're merged into one "in-progress" status).
+  // Every branch is a same-source completeness check — no cross-source
+  // arithmetic.
   let status: LevelUpStatus;
-  if (unreportedInBasecamp > 0) {
-    status = realMissing === 0 ? "ready-if-reported" : "needs-reporting";
-  } else if (theoreticalMissing === 0) {
+  if (theoreticalMissing === 0) {
     status = "ready";
+  } else if (easyspeakComplete) {
+    status = "ready-if-reported";
   } else {
     status = "in-progress";
   }
 
-  // Detail always leads with the official Basecamp-only gap
-  // (theoreticalMissing); when some of that gap is only unreported (not
-  // actually still to do), a second clause shows what's left once it's
-  // reported.
+  // "ready-if-reported" is a flat sentence, same as "ready" above — no
+  // count shown, since Basecamp's own missing-project count for this level
+  // is just the not-yet-reported mirror of what EasySpeak already shows
+  // done, not new information. "in-progress" instead shows EasySpeak's own
+  // remaining-speech count (easyspeakMissing) — never Basecamp's. When
+  // there's no EasySpeak data for this level at all (easyspeakMissing is
+  // null), fall back to the generic "—" rather than calling the pluralized
+  // key with no count.
   const statusDetail =
     status === "ready"
       ? t("report.levelSummary.allReported.sentence")
-      : unreportedInBasecamp > 0
-        ? t("report.levelSummary.speechesRemainingIfReported.count", theoreticalMissing, [
-            String(theoreticalMissing),
-            String(realMissing),
-          ])
-        : t("report.levelSummary.speechesRemaining.count", theoreticalMissing);
+      : status === "ready-if-reported"
+        ? t("report.levelSummary.speechesDeliveredNotReported.sentence")
+        : easyspeakMissing !== null
+          ? t("report.levelSummary.speechesRemaining.count", easyspeakMissing)
+          : t("report.levelSummary.none.label");
 
   return {
     currentLevel: workingLevel,
@@ -537,8 +545,7 @@ export function computeLevelSummary(path: PathReport): LevelSummaryCore {
         ? t("report.levelSummary.level.label", [String(workingLevel + 1)])
         : t("report.levelSummary.pathCompletion.label"),
     theoreticalMissing,
-    unreportedInBasecamp,
-    realMissing,
+    easyspeakMissing,
     status,
     statusDetail,
     statusSortRank: STATUS_SORT_RANK[status],
@@ -615,11 +622,8 @@ export function compareLevelSummaryRows(a: LevelSummaryRow, b: LevelSummaryRow, 
   // Status column's own asc/desc toggle, same as the presence grouping
   // above.
   if (key === "statusSortRank") {
-    if (a.status === "needs-reporting" && b.status === "needs-reporting") {
-      return (a.realMissing ?? 0) - (b.realMissing ?? 0);
-    }
     if (a.status === "in-progress" && b.status === "in-progress") {
-      return (a.realMissing ?? 0) - (b.realMissing ?? 0);
+      return (a.easyspeakMissing ?? 0) - (b.easyspeakMissing ?? 0);
     }
   }
 
@@ -629,10 +633,10 @@ export function compareLevelSummaryRows(a: LevelSummaryRow, b: LevelSummaryRow, 
 /**
  * A member with at least one Pathways path exactly one level (or Path
  * Completion) away from being reported complete in Basecamp — nothing
- * outstanding once EasySpeak-reported-but-not-yet-approved work is
- * accounted for (realMissing === 0). Used by Club Progress's per-club
- * "Ready to Level Up" KPI card (report.ts) and its Next Level Summary rows.
+ * outstanding by Basecamp's own count (status === "ready"). Used by Club
+ * Progress's per-club "Ready to Level Up" KPI card (report.ts) and its Next
+ * Level Summary rows.
  */
 export function isMemberReadyForNextLevel(member: MemberReport): boolean {
-  return member.paths.some((path) => !path.nonPathway && computeLevelSummary(path).realMissing === 0);
+  return member.paths.some((path) => !path.nonPathway && computeLevelSummary(path).status === "ready");
 }

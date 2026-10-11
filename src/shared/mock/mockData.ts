@@ -181,9 +181,10 @@ export const MOCK_BASECAMP_DATA: BasecampScrape = {
       {
         // Exact match. EasySpeak (see below) already shows 3 of the 4
         // Level 2 speeches done even though Basecamp has only 1 completed —
-        // speeches given but not yet logged/approved in Basecamp
-        // ("unreported speeches"). Real work still remains either way
-        // (realMissing > 0), unlike Priya Chandrasekaran below.
+        // speeches given but not yet logged/approved in Basecamp. EasySpeak
+        // itself isn't done with the level yet either (3 of 4), so this
+        // triggers "in-progress", not "ready-if-reported" — unlike
+        // Priya Chandrasekaran below, whose EasySpeak count IS complete.
         user: { id: 2011, name: "Owen Fitzgerald" },
         path_name: "Dynamic Leadership",
         progression: {
@@ -196,11 +197,12 @@ export const MOCK_BASECAMP_DATA: BasecampScrape = {
         },
       },
       {
-        // Exact match. Basecamp says 2 more Level 2 speeches are needed
-        // ("To next level" > 0), but EasySpeak (see below) shows all 4
-        // already done -> the unreported speeches fully cover what's
-        // missing on paper, so the *real* remaining count is 0, unlike Owen
-        // Fitzgerald above. Deliberately NOT given a pending Basecamp
+        // Exact match. Basecamp says 2 more Level 2 projects are needed
+        // ("To next level" > 0), but EasySpeak (see below) shows all 4 of
+        // its own Level 2 speeches already done -> easyspeakComplete is
+        // true, which triggers "ready-if-reported" regardless of Basecamp's
+        // own count, unlike Owen Fitzgerald above (whose EasySpeak count
+        // isn't complete). Deliberately NOT given a pending Basecamp
         // approval request: those speeches are only reported in EasySpeak,
         // not yet logged in Basecamp at all, so there's nothing there for
         // her to have submitted for approval yet — see Derek Simmons below
@@ -217,20 +219,19 @@ export const MOCK_BASECAMP_DATA: BasecampScrape = {
         },
       },
       {
-        // Exact match, all speeches for Level 3 fully logged AND approved-
-        // pending in Basecamp itself (completed === total on both sides, no
-        // "unreported speeches" gimmick like Priya/Owen above) -> working
-        // level 3, realMissing 0 -> isMemberReadyForNextLevel() flags him in
-        // Club Progress's "Ready to Level Up" KPI. He's also the demo's one
-        // pending Basecamp "Level" approval request
-        // (MOCK_BASECAMP_PENDING_LEVEL_REQUESTS below), for that same Level
-        // 3 completion -> the Home dashboard's Level Approval Helper tile
-        // shows a "1 pending approval" attention badge. The two features
-        // point at the same person and the same, realistic story: he
-        // finished and reported all of Level 3's speeches, submitted the
-        // level for approval, and it's now sitting in Basecamp Manager
-        // waiting on the BCM — unlike Priya/Owen, there's no reporting gap
-        // left to flag.
+        // Exact match, Level 3 fully complete in Basecamp itself
+        // (completed === total, no reliance on EasySpeak's own count like
+        // Priya/Owen above) -> status "ready" ->
+        // isMemberReadyForNextLevel() flags him in Club Progress's "Ready
+        // to Level Up" KPI. He's also the demo's one pending Basecamp
+        // "Level" approval request (MOCK_BASECAMP_PENDING_LEVEL_REQUESTS
+        // below), for that same Level 3 completion -> the Home dashboard's
+        // Level Approval Helper tile shows a "1 pending approval" attention
+        // badge. The two features point at the same person and the same,
+        // realistic story: he finished and reported all of Level 3's
+        // speeches, submitted the level for approval, and it's now sitting
+        // in Basecamp Manager waiting on the BCM — unlike Priya/Owen,
+        // there's no reporting gap left to flag.
         user: { id: 2013, name: "Derek Simmons" },
         path_name: "Engaging Humor",
         progression: {
@@ -374,8 +375,10 @@ export const MOCK_EASYSPEAK_DATA: EasySpeakScrape = {
         ],
       },
       {
-        // 3 of 4 Level 2 speeches already done vs. Basecamp's 1 —
-        // unreported speeches, but real work still remains (realMissing > 0).
+        // 3 of 4 Level 2 speeches already done vs. Basecamp's 1 completed
+        // project — EasySpeak's own count isn't complete yet either (1
+        // speech still missing), so this is "in-progress", not
+        // "ready-if-reported" (see Priya Chandrasekaran below for that).
         memberId: "3011",
         name: "Owen Fitzgerald",
         path: "Dynamic Leadership",
@@ -388,9 +391,9 @@ export const MOCK_EASYSPEAK_DATA: EasySpeakScrape = {
         ],
       },
       {
-        // All 4 Level 2 speeches already done vs. Basecamp's 2 — fully
-        // covers what Basecamp says is still missing, so realMissing hits 0
-        // even though Basecamp's own "to next level" count is still > 0.
+        // All 4 Level 2 speeches already done in EasySpeak -> easyspeakComplete
+        // is true, triggering "ready-if-reported" even though Basecamp's
+        // own "to next level" count is still > 0 (2 of 4 projects).
         memberId: "3012",
         name: "Priya Chandrasekaran",
         path: "Presentation Mastery",

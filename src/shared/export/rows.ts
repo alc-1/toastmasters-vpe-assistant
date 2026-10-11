@@ -57,7 +57,7 @@ function formatTimestamp(ms: number): string {
 // Aggregated sheet
 // ---------------------------------------------------------------------------
 
-type AggregatedLevelSuffix = "EasyspeakNeeded" | "EasyspeakDone" | "BasecampCompleted" | "BasecampTotal" | "BasecampApproved" | "Discrepancy" | "PendingValidation";
+type AggregatedLevelSuffix = "EasyspeakNeeded" | "EasyspeakDone" | "BasecampCompleted" | "BasecampTotal" | "BasecampApproved" | "PendingValidation";
 
 type AggregatedLevelColumns = {
   [K in `level${(typeof LEVEL_NUMBERS)[number]}${AggregatedLevelSuffix}`]: number | boolean | null;
@@ -96,8 +96,7 @@ interface AggregatedRowBase {
   status: LevelUpStatus | null;
   statusDetail: string | null;
   theoreticalMissing: number | null;
-  unreportedInBasecamp: number | null;
-  realMissing: number | null;
+  easyspeakMissing: number | null;
   pathCompletionCompleted: number | null;
   pathCompletionTotal: number | null;
   pathCompletionMissing: number | null;
@@ -114,7 +113,6 @@ function flattenLevelDiffs(levels: LevelDiff[]): AggregatedLevelColumns {
     out[`level${n}BasecampCompleted`] = level?.basecamp?.completed ?? null;
     out[`level${n}BasecampTotal`] = level?.basecamp?.total ?? null;
     out[`level${n}BasecampApproved`] = level?.basecamp?.approved ?? null;
-    out[`level${n}Discrepancy`] = level?.discrepancy ?? null;
     out[`level${n}PendingValidation`] = level?.pendingValidation ?? null;
   }
   return out;
@@ -173,8 +171,7 @@ export function buildAggregatedRows(report: ReportResult): AggregatedRow[] {
           status: summary?.status ?? null,
           statusDetail: summary?.statusDetail ?? null,
           theoreticalMissing: summary?.theoreticalMissing ?? null,
-          unreportedInBasecamp: summary?.unreportedInBasecamp ?? null,
-          realMissing: summary?.realMissing ?? null,
+          easyspeakMissing: summary?.easyspeakMissing ?? null,
           ...flattenLevelDiffs(path?.levels ?? []),
           pathCompletionCompleted: path?.pathCompletion?.completed ?? null,
           pathCompletionTotal: path?.pathCompletion?.total ?? null,
