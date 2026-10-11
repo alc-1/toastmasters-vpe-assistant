@@ -8,6 +8,8 @@ A release with nothing noteworthy for users simply doesn't get an entry.
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-11
+
 ### Changed
 
 - Club Progress's page logic has been revamped to properly show members progress.
