@@ -12,7 +12,7 @@ Excel workbook.
 Written in TypeScript, built with [WXT](https://wxt.dev).
 
 Project site (install instructions, feedback link):
-https://alc-1.github.io/toastmasters-vpe-assistant/
+https://toastmasters-vpe-assistant.alcosta.ch/
 
 ## Installation
 
