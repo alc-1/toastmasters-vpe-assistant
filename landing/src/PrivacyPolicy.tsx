@@ -3,7 +3,7 @@ import Header from "./components/layout/Header";
 import Section from "./components/ui/Section";
 import SectionHeading from "./components/ui/SectionHeading";
 
-const CONTACT_EMAIL = "toastmasters@alcosta.ch";
+const CONTACT_EMAIL = "toastmasters@alvarocosta.ch";
 
 const bodyText = "text-navy-700 leading-relaxed";
 
